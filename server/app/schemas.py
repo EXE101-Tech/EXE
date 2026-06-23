@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, model_validator, field_validator
 from typing import List, Optional
 from datetime import datetime
 
@@ -110,7 +110,7 @@ class CourtResponse(BaseModel):
     venue_id: int
     name: str
     sport_id: int
-    price_per_hour: float
+    price_per_hour: int
     sport: SportResponse
     venue: VenueMinResponse
     model_config = ConfigDict(from_attributes=True)
@@ -125,7 +125,12 @@ class BookingCreate(BaseModel):
     court_id: int
     start_time: datetime
     end_time: datetime
-    total_price: float
+
+    @model_validator(mode='after')
+    def validate_times(self) -> 'BookingCreate':
+        if self.end_time <= self.start_time:
+            raise ValueError("Thời gian kết thúc phải lớn hơn thời gian bắt đầu")
+        return self
 
 class BookingResponse(BaseModel):
     id: int
@@ -133,7 +138,7 @@ class BookingResponse(BaseModel):
     user_id: int
     start_time: datetime
     end_time: datetime
-    total_price: float
+    total_price: int
     status: str
     created_at: datetime
     court: CourtResponse
@@ -158,7 +163,21 @@ class MatchCreate(BaseModel):
     required_level: str
     start_time: datetime
     end_time: datetime
-    max_players: int
+    max_players: int = Field(..., ge=2)
+
+    @model_validator(mode='after')
+    def validate_times(self) -> 'MatchCreate':
+        if self.end_time <= self.start_time:
+            raise ValueError("Thời gian kết thúc phải lớn hơn thời gian bắt đầu")
+        return self
+
+    @field_validator('required_level')
+    @classmethod
+    def validate_required_level(cls, v: str) -> str:
+        valid_levels = {"Beginner", "Intermediate", "Advanced", "Expert"}
+        if v not in valid_levels:
+            raise ValueError("Mức độ kỹ năng phải thuộc một trong các giá trị: Beginner, Intermediate, Advanced, Expert")
+        return v
 
 class MatchResponse(BaseModel):
     id: int
@@ -178,3 +197,14 @@ class MatchResponse(BaseModel):
     court: Optional[CourtResponse] = None
     participants: List[MatchParticipantResponse] = []
     model_config = ConfigDict(from_attributes=True)
+
+class ParticipantStatusUpdate(BaseModel):
+    status: str
+
+    @field_validator('status')
+    @classmethod
+    def validate_status(cls, v: str) -> str:
+        valid_statuses = {"APPROVED", "REJECTED"}
+        if v not in valid_statuses:
+            raise ValueError("Trạng thái phải là APPROVED hoặc REJECTED")
+        return v

@@ -141,7 +141,7 @@ def seed_data():
             existing_match = db.query(models.Match).filter(models.Match.title == "Giao lưu cầu lông đôi nam nữ tối nay").first()
             if not existing_match:
                 # Create a match tonight
-                today = datetime.datetime.utcnow().replace(hour=19, minute=0, second=0, microsecond=0)
+                today = models.utc_now_naive().replace(hour=19, minute=0, second=0, microsecond=0)
                 match = models.Match(
                     host_id=seeded_users[0].id,
                     sport_id=any_court.sport_id,

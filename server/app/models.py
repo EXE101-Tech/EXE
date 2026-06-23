@@ -1,7 +1,10 @@
-import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, Table
 from sqlalchemy.orm import relationship
 from .database import Base
+
+def utc_now_naive():
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 class User(Base):
     __tablename__ = "users"
@@ -10,8 +13,8 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=False)
     status = Column(String, default="active")  # active, banned
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now_naive)
+    updated_at = Column(DateTime, default=utc_now_naive, onupdate=utc_now_naive)
 
     # Relationships
     profile = relationship("UserProfile", uselist=False, back_populates="user", cascade="all, delete-orphan")
@@ -84,7 +87,7 @@ class Court(Base):
     venue_id = Column(Integer, ForeignKey("venues.id", ondelete="CASCADE"), nullable=False)
     name = Column(String, nullable=False)
     sport_id = Column(Integer, ForeignKey("sports.id", ondelete="CASCADE"), nullable=False)
-    price_per_hour = Column(Float, default=120000.0)
+    price_per_hour = Column(Integer, default=120000)
 
     # Relationships
     venue = relationship("Venue", back_populates="courts")
@@ -100,9 +103,9 @@ class Booking(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     start_time = Column(DateTime, nullable=False)
     end_time = Column(DateTime, nullable=False)
-    total_price = Column(Float, nullable=False)
+    total_price = Column(Integer, nullable=False)
     status = Column(String, default="confirmed")  # confirmed, cancelled
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now_naive)
 
     # Relationships
     court = relationship("Court", back_populates="bookings")
@@ -122,7 +125,7 @@ class Match(Base):
     end_time = Column(DateTime, nullable=False)
     max_players = Column(Integer, default=4)
     status = Column(String, default="OPEN")  # OPEN, FULL, PLAYING, FINISHED, CANCELLED
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now_naive)
 
     # Relationships
     host = relationship("User", back_populates="hosted_matches")
@@ -138,8 +141,22 @@ class MatchParticipant(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     role = Column(String, default="PLAYER")  # HOST, PLAYER
     status = Column(String, default="APPROVED")  # PENDING, APPROVED, REJECTED
-    joined_at = Column(DateTime, default=datetime.datetime.utcnow)
+    joined_at = Column(DateTime, default=utc_now_naive)
 
     # Relationships
     match = relationship("Match", back_populates="participants")
     user = relationship("User", back_populates="participations")
+
+class BlacklistedToken(Base):
+    __tablename__ = "blacklisted_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    token = Column(String, unique=True, index=True, nullable=False)
+    blacklisted_at = Column(DateTime, default=utc_now_naive)
+
+class LoginAttempt(Base):
+    __tablename__ = "login_attempts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ip = Column(String, index=True, nullable=False)
+    attempted_at = Column(DateTime, default=utc_now_naive)
