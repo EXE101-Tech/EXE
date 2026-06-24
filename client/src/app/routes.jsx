@@ -1,8 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from '../features/auth/Login.jsx';
-import Dashboard from '../features/dashboard/Dashboard.jsx';
-import Tournaments from '../features/tournaments/Tournaments.jsx';
-import Matches from '../features/matches/Matches.jsx';
+import Home from '../features/home/Home.jsx';
+import Tournament from '../features/tournament/Tournament.jsx';
+import GameRoom from '../features/gameroom/GameRoom.jsx';
 import Bookings from '../features/bookings/Bookings.jsx';
 import MapPage from '../features/map/Map.jsx';
 import Team from '../features/team/Team.jsx';
@@ -39,9 +39,9 @@ function AppRoutes() {
                 <Routes>
                     <Route path="/login" element={<Login />} />
                     <Route path="/register" element={<Navigate to="/login" replace />} />
-                    <Route path="/" element={<MainLayout><Dashboard /></MainLayout>} />
-                    <Route path="/tournaments" element={<MainLayout><Tournaments /></MainLayout>} />
-                    <Route path="/matches" element={<MainLayout><Matches /></MainLayout>} />
+                    <Route path="/" element={<MainLayout><Home /></MainLayout>} />
+                    <Route path="/tournaments" element={<MainLayout><Tournament /></MainLayout>} />
+                    <Route path="/matches" element={<MainLayout><GameRoom /></MainLayout>} />
                     <Route path="/bookings" element={<MainLayout><Bookings /></MainLayout>} />
                     <Route path="/map" element={<MainLayout><MapPage /></MainLayout>} />
                     <Route path="/team" element={<MainLayout><Team /></MainLayout>} />

@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 from app.database import engine, Base
-from app.routers import auth, courts, matches, bookings
+from app.routers import auth, courts, gamerooms, bookings
 
 # Create all database tables on startup if they do not exist
 Base.metadata.create_all(bind=engine)
@@ -30,7 +30,7 @@ app.add_middleware(
 # Include Routers with /api prefix to match frontend service URLs
 app.include_router(auth.router, prefix="/api")
 app.include_router(courts.router, prefix="/api")
-app.include_router(matches.router, prefix="/api")
+app.include_router(gamerooms.router, prefix="/api")
 app.include_router(bookings.router, prefix="/api")
 
 @app.get("/")

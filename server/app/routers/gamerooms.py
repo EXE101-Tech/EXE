@@ -4,8 +4,8 @@ from typing import List, Optional
 from app import database, schemas, crud, auth_utils, models
 
 router = APIRouter(
-    prefix="/matches",
-    tags=["Matches"]
+    prefix="/gamerooms",
+    tags=["Game Rooms"]
 )
 
 @router.get("", response_model=List[schemas.MatchResponse])

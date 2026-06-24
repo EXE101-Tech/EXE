@@ -11,7 +11,7 @@ import pickleballImg from '../../assets/icons/pickelball.png';
 import tennisImg from '../../assets/icons/tennis.png';
 import protonImg from '../../assets/images/ProtonBadmintonCenter.png';
 import eliteImg from '../../assets/images/EliteFootballArena.png';
-import CourtCard from '../dashboard/components/CourtCard';
+import CourtCard from '../home/components/CourtCard';
 
 /* ─── Ưu đãi nhanh ─── */
 

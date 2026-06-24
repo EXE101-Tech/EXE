@@ -123,7 +123,7 @@ const MOCK_POSTS = [
 
 /* ─── Component chính ─── */
 
-function Dashboard() {
+function Home() {
   const navigate = useNavigate();
   const { startChat } = useChat(); // Dùng context để mở chat
   const [searchKeyword, setSearchKeyword] = useState('');
@@ -392,5 +392,5 @@ function Dashboard() {
   );
 }
 
-export default Dashboard;
+export default Home;
 

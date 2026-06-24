@@ -46,68 +46,7 @@ const AVATAR_COLORS = {
   K: 'bg-rose-500',
 };
 
-const MOCK_ROOMS = [
-  {
-    id: 1,
-    hostName: 'Minh Tran',
-    level: 'INTERMEDIATE',
-    sport: 'badminton',
-    sportLabel: 'Badminton',
-    time: 'Today, 19:00',
-    avatarBadge: 'M',
-    players: { current: 2, max: 4 },
-  },
-  {
-    id: 2,
-    hostName: 'Lan Nguyen',
-    level: 'PRO',
-    sport: 'pickleball',
-    sportLabel: 'Pickleball',
-    time: 'Tomorrow, 07:00',
-    avatarBadge: 'L',
-    players: { current: 1, max: 2 },
-  },
-  {
-    id: 3,
-    hostName: 'Duc Le',
-    level: 'BEGINNER',
-    sport: 'football',
-    sportLabel: 'Football',
-    time: 'Today, 20:30',
-    avatarBadge: 'D',
-    players: { current: 7, max: 10 },
-  },
-  {
-    id: 4,
-    hostName: 'Huy Pham',
-    level: 'ADVANCED',
-    sport: 'tennis',
-    sportLabel: 'Tennis',
-    time: 'Sat, 08:00',
-    avatarBadge: 'H',
-    players: { current: 1, max: 2 },
-  },
-  {
-    id: 5,
-    hostName: 'Trang Vo',
-    level: 'INTERMEDIATE',
-    sport: 'badminton',
-    sportLabel: 'Badminton',
-    time: 'Today, 21:00',
-    avatarBadge: 'T',
-    players: { current: 3, max: 4 },
-  },
-  {
-    id: 6,
-    hostName: 'Khanh Do',
-    level: 'BEGINNER',
-    sport: 'pickleball',
-    sportLabel: 'Pickleball',
-    time: 'Sun, 09:00',
-    avatarBadge: 'K',
-    players: { current: 1, max: 4 },
-  },
-];
+// MOCK_ROOMS has been cleared so you can test creating new ones.
 
 /* ─── Room Card ─── */
 
@@ -155,13 +94,72 @@ function RoomCard({ room, onJoin }) {
 
 /* ─── Component chính ─── */
 
-function Matches() {
+function GameRoom() {
   const navigate = useNavigate();
   const [searchKeyword, setSearchKeyword] = useState('');
   const [selectedSport, setSelectedSport] = useState(null);
   const [currentLocation] = useState('Hồ Chí Minh');
   const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') !== 'light');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  
+  // Modal State
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isModalRendered, setIsModalRendered] = useState(false);
+
+  // Form State
+  const [rooms, setRooms] = useState([]); // Khởi tạo mảng trống
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    location: '',
+    sport: 'badminton',
+    level: 'BEGINNER',
+    date: '',
+    time: '',
+    maxPlayers: 4,
+  });
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleCreateRoom = () => {
+    // Validate cơ bản
+    if (!formData.title || !formData.date || !formData.time) {
+      alert("Vui lòng nhập Tên phòng, Ngày và Giờ!");
+      return;
+    }
+
+    const newRoom = {
+      id: Date.now(),
+      hostName: 'Bạn (Nguyễn Văn A)',
+      level: formData.level,
+      sport: formData.sport,
+      sportLabel: MOCK_SPORTS.find(s => s.key === formData.sport)?.name || formData.sport,
+      time: `${formData.date}, ${formData.time}`,
+      avatarBadge: 'U',
+      players: { current: 1, max: parseInt(formData.maxPlayers) || 4 },
+    };
+
+    setRooms(prev => [newRoom, ...prev]);
+    setIsCreateModalOpen(false);
+    // Reset form
+    setFormData({
+      title: '', description: '', location: '', sport: 'badminton',
+      level: 'BEGINNER', date: '', time: '', maxPlayers: 4,
+    });
+  };
+
+  // Handle modal animation out
+  useEffect(() => {
+    if (isCreateModalOpen) {
+      setIsModalRendered(true);
+    } else {
+      const timer = setTimeout(() => setIsModalRendered(false), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isCreateModalOpen]);
 
   useEffect(() => {
     if (isDark) {
@@ -184,11 +182,11 @@ function Matches() {
     : null;
 
   const filteredRooms = selectedSportKey
-    ? MOCK_ROOMS.filter((r) => r.sport === selectedSportKey)
-    : MOCK_ROOMS;
+    ? rooms.filter((r) => r.sport === selectedSportKey)
+    : rooms;
 
   const handleJoin = (roomId) => {
-    // TODO: matchService.join(roomId)
+    // TODO: gameRoomService.join(roomId)
     console.log('Join room:', roomId);
   };
 
@@ -345,7 +343,17 @@ function Matches() {
         <section>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-gray-900 dark:text-white font-bold text-lg">Open Rooms</h2>
-            <button className="text-blue-600 dark:text-blue-400 text-sm font-medium">View All</button>
+            <div className="flex gap-2">
+              <button className="text-blue-600 dark:text-blue-400 text-sm font-medium px-2 py-1 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-xl transition-colors">
+                View All
+              </button>
+              <button 
+                onClick={() => setIsCreateModalOpen(true)}
+                className="bg-blue-600 text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-blue-500 active:scale-95 transition-all shadow-md shadow-blue-500/30 flex items-center gap-1"
+              >
+                <span className="text-lg leading-none">+</span> Tạo Phòng
+              </button>
+            </div>
           </div>
           {filteredRooms.length > 0 ? (
             <div className="flex flex-col gap-3">
@@ -365,8 +373,164 @@ function Matches() {
         </section>
 
       </div>
+
+      {/* ── Modal Tạo Phòng Mới (Giọt Nước & Glassmorphism) ── */}
+      {isModalRendered && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop (Click ra ngoài để đóng) */}
+          <div 
+            className={`absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 ${
+              isCreateModalOpen ? 'opacity-100' : 'opacity-0'
+            }`}
+            onClick={() => setIsCreateModalOpen(false)}
+          ></div>
+
+          {/* Nội dung Modal */}
+          <div 
+            className={`relative w-full max-w-sm bg-white/90 dark:bg-gray-900/90 backdrop-blur-md rounded-[2.5rem] rounded-tl-[4rem] rounded-br-[4rem] border border-white/20 dark:border-gray-800/50 p-6 shadow-[0_20px_60px_-15px_rgba(37,99,235,0.3)] transition-all duration-300 ${
+              isCreateModalOpen 
+                ? 'opacity-100 scale-100 translate-y-0' 
+                : 'opacity-0 scale-90 translate-y-8'
+            }`}
+          >
+            {/* Nút Đóng (X) */}
+            <button 
+              onClick={() => setIsCreateModalOpen(false)}
+              className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-black/5 dark:bg-white/10 text-gray-600 dark:text-gray-300 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/50 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            <h3 className="text-xl font-black text-gray-900 dark:text-white mb-5 text-center mt-2">
+              Tạo Phòng Mới
+            </h3>
+            
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto scrollbar-hide px-1 pb-2">
+              {/* Tên / Tiêu đề */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5 ml-1">Tên phòng / Chủ đề</label>
+                <input 
+                  type="text" 
+                  name="title"
+                  value={formData.title}
+                  onChange={handleInputChange}
+                  className="w-full bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 rounded-2xl px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all" 
+                  placeholder="Giao lưu cuối tuần..." 
+                />
+              </div>
+              
+              {/* Mô tả */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5 ml-1">Mô tả (Không bắt buộc)</label>
+                <textarea 
+                  rows="2" 
+                  name="description"
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  className="w-full bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 rounded-2xl px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all resize-none" 
+                  placeholder="Cần tìm người trình độ khá, chia tiền sân..."
+                ></textarea>
+              </div>
+
+              {/* Địa điểm (Sân) */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5 ml-1">Địa điểm (Sân)</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <img src={gpsImg} alt="location" className="w-4 h-4 opacity-50 dark:invert" />
+                  </div>
+                  <input 
+                    type="text" 
+                    name="location"
+                    value={formData.location}
+                    onChange={handleInputChange}
+                    className="w-full bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 rounded-2xl pl-10 pr-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all" 
+                    placeholder="Tên sân chơi..." 
+                  />
+                </div>
+              </div>
+
+              {/* Trình độ & Môn thể thao */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5 ml-1">Môn thể thao</label>
+                  <select 
+                    name="sport"
+                    value={formData.sport}
+                    onChange={handleInputChange}
+                    className="w-full bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 rounded-2xl px-3 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all font-medium"
+                  >
+                    <option value="badminton">Badminton</option>
+                    <option value="football">Football</option>
+                    <option value="pickleball">Pickleball</option>
+                    <option value="tennis">Tennis</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5 ml-1">Trình độ</label>
+                  <select 
+                    name="level"
+                    value={formData.level}
+                    onChange={handleInputChange}
+                    className="w-full bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 rounded-2xl px-3 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all font-medium"
+                  >
+                    <option value="BEGINNER">Beginner</option>
+                    <option value="INTERMEDIATE">Intermediate</option>
+                    <option value="ADVANCED">Advanced</option>
+                    <option value="PRO">Pro</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Thời gian chơi & Số lượng */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="col-span-2">
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5 ml-1">Thời gian chơi</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input 
+                      type="date" 
+                      name="date"
+                      value={formData.date}
+                      onChange={handleInputChange}
+                      className="w-full bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 rounded-2xl px-3 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all font-medium" 
+                    />
+                    <input 
+                      type="time" 
+                      name="time"
+                      value={formData.time}
+                      onChange={handleInputChange}
+                      className="w-full bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 rounded-2xl px-3 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all font-medium" 
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5 ml-1">Số lượng</label>
+                  <input 
+                    type="number" 
+                    name="maxPlayers"
+                    min="2"
+                    value={formData.maxPlayers}
+                    onChange={handleInputChange}
+                    className="w-full bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 rounded-2xl px-3 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all font-medium" 
+                  />
+                </div>
+              </div>
+            </div>
+
+            <button 
+              onClick={handleCreateRoom}
+              className="w-full mt-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-black py-3.5 rounded-[1.5rem] hover:from-blue-500 hover:to-indigo-500 active:scale-95 transition-all shadow-[0_10px_25px_-5px_rgba(37,99,235,0.5)]"
+            >
+              Tạo Phòng
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
 
-export default Matches;
+export default GameRoom;
