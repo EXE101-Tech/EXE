@@ -68,8 +68,24 @@
     "noTopTeams": "No top teams found for this sport.",
     "recentPosts": "Recent Posts",
     "newPost": "New Post",
+    "reload": "Reload",
+    "allPosts": "All Posts",
+    "myPosts": "My Posts",
     "noPosts": "No posts for this sport yet.",
     "beTheFirst": "Be the first to post!"
+  },
+  "createPost": {
+    "title": "Create New Post",
+    "content": "What's on your mind?",
+    "sport": "Sport",
+    "level": "Skill Level",
+    "location": "Location (Court Name)",
+    "time": "Date & Time",
+    "selectImage": "Select Image",
+    "submit": "Post",
+    "timeError": "Please select a future time",
+    "contentRequired": "Content is required",
+    "cancel": "Cancel"
   },
   "auth": {
     "login": "Login",

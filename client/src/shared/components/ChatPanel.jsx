@@ -1,52 +1,59 @@
-import { useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { MessageSquare, X, Send, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useChat } from '../context/ChatContext';
-
-const MOCK_CONVERSATIONS = [
-  {
-    id: 1,
-    name: 'Minh Tran',
-    avatar: 'M',
-    lastMessage: 'Tối nay đánh không?',
-    time: '19:00',
-    unread: 2,
-    online: true,
-  },
-  {
-    id: 2,
-    name: 'Huy Nguyen',
-    avatar: 'H',
-    lastMessage: 'Ok, hẹn 7h nhé!',
-    time: '18:30',
-    unread: 0,
-    online: true,
-  },
-  {
-    id: 3,
-    name: 'Lan Pham',
-    avatar: 'L',
-    lastMessage: 'Sân Proton còn slot không?',
-    time: '17:45',
-    unread: 1,
-    online: false,
-  },
-  {
-    id: 4,
-    name: 'Duc Le',
-    avatar: 'D',
-    lastMessage: 'Trận hôm qua vui quá!',
-    time: 'Hôm qua',
-    unread: 0,
-    online: false,
-  },
-];
+import { chatService } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 function ChatPanel() {
   const { t } = useTranslation();
-  const { isChatOpen, closeChat, activeChatUser, setActiveChatUser } = useChat();
-  const [message, setMessage] = useState('');
+  const { user } = useAuth();
+  const { isChatOpen, closeChat, activeChatUser, setActiveChatUser, messages, setMessages, sendMessage } = useChat();
+  const [messageText, setMessageText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [conversations, setConversations] = useState([]);
+  const messagesEndRef = useRef(null);
+
+  useEffect(() => {
+    if (isChatOpen) {
+      chatService.getConversations().then(data => {
+        const mapped = data.map(conv => {
+          const isUser1 = conv.user1_id === user?.id;
+          const otherUser = isUser1 ? conv.user2 : conv.user1;
+          const name = otherUser?.profile?.full_name || otherUser?.email || 'Unknown';
+          return {
+            id: otherUser.id, // we use the other user's id as the chat target
+            convId: conv.id,
+            name: name,
+            avatar: name.charAt(0).toUpperCase(),
+            lastMessage: conv.last_message || 'Bắt đầu cuộc trò chuyện',
+            time: new Date(conv.updated_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+            unread: 0,
+            online: true
+          };
+        });
+        setConversations(mapped);
+      }).catch(err => console.error(err));
+    }
+  }, [isChatOpen, user?.id]);
+
+  useEffect(() => {
+    if (activeChatUser?.convId) {
+      chatService.getMessages(activeChatUser.convId).then(data => {
+        setMessages(data);
+      }).catch(err => console.error(err));
+    }
+  }, [activeChatUser]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const handleSend = () => {
+    if (!messageText.trim() || !activeChatUser) return;
+    sendMessage(activeChatUser.id, messageText);
+    setMessageText('');
+  };
 
   return (
     <div
@@ -85,7 +92,7 @@ function ChatPanel() {
       {/* Conversation List */}
       {!activeChatUser ? (
         <div className="flex-1 overflow-y-auto">
-          {MOCK_CONVERSATIONS.map((conv) => (
+          {conversations.length > 0 ? conversations.map((conv) => (
             <button
               key={conv.id}
               onClick={() => setActiveChatUser(conv)}
@@ -111,10 +118,10 @@ function ChatPanel() {
                 </p>
               </div>
 
-              {/* Thời gian + Badge — cột riêng bên phải, căn trên */}
+              {/* Thời gian */}
               <div className="flex flex-col items-end gap-1 flex-shrink-0 self-start pt-0.5">
                 <span className="text-[11px] text-gray-400">
-                  {conv.time === 'Hôm qua' ? t('chat.yesterday', 'Hôm qua') : conv.time}
+                  {conv.time}
                 </span>
                 {conv.unread > 0 && (
                   <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
@@ -123,7 +130,11 @@ function ChatPanel() {
                 )}
               </div>
             </button>
-          ))}
+          )) : (
+            <div className="p-4 text-center text-sm text-gray-500">
+              Không có cuộc trò chuyện nào.
+            </div>
+          )}
         </div>
       ) : (
         /* Chat Detail View */
@@ -149,12 +160,28 @@ function ChatPanel() {
 
           {/* Messages Area */}
           <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-            <div className="flex justify-start">
-              <div className="bg-gray-100 dark:bg-gray-800 rounded-2xl rounded-bl-sm px-3 py-2 max-w-[80%]">
-                <p className="text-sm text-gray-900 dark:text-white">{activeChatUser.lastMessage || t('chat.start_conversation', 'Bắt đầu cuộc trò chuyện...')}</p>
-                <p className="text-[10px] text-gray-400 mt-1">{activeChatUser.time || t('chat.just_now', 'Vừa xong')}</p>
+            {messages.length > 0 ? messages.map((msg, idx) => {
+              const isMine = msg.sender_id === user?.id;
+              return (
+                <div key={idx} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`rounded-2xl px-3 py-2 max-w-[80%] ${
+                    isMine 
+                      ? 'bg-blue-500 text-white rounded-br-sm' 
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-bl-sm'
+                  }`}>
+                    <p className="text-sm">{msg.text}</p>
+                    <p className={`text-[10px] mt-1 ${isMine ? 'text-blue-100' : 'text-gray-400'}`}>
+                      {new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                    </p>
+                  </div>
+                </div>
+              );
+            }) : (
+              <div className="flex justify-center mt-10">
+                <p className="text-xs text-gray-400">{t('chat.start_conversation', 'Bắt đầu cuộc trò chuyện...')}</p>
               </div>
-            </div>
+            )}
+            <div ref={messagesEndRef} />
           </div>
 
           {/* Input */}
@@ -163,11 +190,15 @@ function ChatPanel() {
               <input
                 type="text"
                 placeholder={t('chat.message_placeholder', 'Nhập tin nhắn...')}
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
+                value={messageText}
+                onChange={(e) => setMessageText(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSend(); }}
                 className="bg-transparent text-sm text-gray-900 dark:text-white placeholder-gray-400 outline-none w-full"
               />
-              <button className="p-1.5 rounded-full bg-blue-500 text-white hover:bg-blue-600 transition-colors flex-shrink-0">
+              <button 
+                onClick={handleSend}
+                className="p-1.5 rounded-full bg-blue-500 text-white hover:bg-blue-600 transition-colors flex-shrink-0"
+              >
                 <Send className="w-3.5 h-3.5" />
               </button>
             </div>

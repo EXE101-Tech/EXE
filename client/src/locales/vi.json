@@ -68,8 +68,24 @@
     "noTopTeams": "Không có đội nổi bật cho môn này.",
     "recentPosts": "Bài Đăng Gần Đây",
     "newPost": "Đăng Bài",
+    "reload": "Làm Mới",
+    "allPosts": "Tất Cả",
+    "myPosts": "Bài Của Tôi",
     "noPosts": "Chưa có bài đăng nào.",
     "beTheFirst": "Hãy là người đầu tiên!"
+  },
+  "createPost": {
+    "title": "Tạo Bài Viết Mới",
+    "content": "Bạn đang nghĩ gì?",
+    "sport": "Môn thể thao",
+    "level": "Trình độ",
+    "location": "Địa điểm sân",
+    "time": "Ngày giờ",
+    "selectImage": "Chọn ảnh đính kèm",
+    "submit": "Đăng Bài",
+    "timeError": "Vui lòng chọn thời gian trong tương lai",
+    "contentRequired": "Nội dung bài viết không được để trống",
+    "cancel": "Hủy"
   },
   "auth": {
     "login": "Đăng nhập",

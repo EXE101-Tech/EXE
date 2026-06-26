@@ -32,7 +32,7 @@ function PostCard({ post, onChat }) {
               key={index} 
               src={imgUrl} 
               alt={`post-image-${index}`} 
-              className="w-full h-auto max-h-48 object-cover rounded-xl border border-gray-100 dark:border-gray-800" 
+              className="w-full h-auto max-h-96 object-contain bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800" 
             />
           ))}
         </div>

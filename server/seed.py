@@ -175,6 +175,90 @@ def seed_data():
                 db.flush()
                 print(f"Đã tạo trận đấu mẫu: {match.title}")
 
+        # 6. Seed Teams & Team Members
+        teams_data = [
+            {
+                "name": "FC Tiến Phát",
+                "sport_name": "Bóng đá",
+                "rating": 4.9,
+                "avatar_badge": "TP",
+                "bg_gradient": "from-green-600 to-green-800"
+            },
+            {
+                "name": "Pro Badminton Team",
+                "sport_name": "Cầu lông",
+                "rating": 4.8,
+                "avatar_badge": "PB",
+                "bg_gradient": "from-blue-600 to-blue-800"
+            }
+        ]
+
+        for t_data in teams_data:
+            existing = db.query(models.Team).filter(models.Team.name == t_data["name"]).first()
+            if not existing:
+                team = models.Team(
+                    name=t_data["name"],
+                    sport_id=sports[t_data["sport_name"]].id,
+                    rating=t_data["rating"],
+                    avatar_badge=t_data["avatar_badge"],
+                    bg_gradient=t_data["bg_gradient"]
+                )
+                db.add(team)
+                db.flush()
+                
+                # Add host as a member
+                member = models.TeamMember(
+                    team_id=team.id,
+                    user_id=seeded_users[0].id,
+                    role="LEADER"
+                )
+                db.add(member)
+                db.flush()
+                print(f"Đã tạo đội mẫu: {team.name}")
+
+        # 7. Seed Posts
+        posts_data = [
+            {
+                "user_id": seeded_users[0].id,
+                "team_id": None,
+                "sport_id": sports["Cầu lông"].id,
+                "content": "Mình cần tìm 2 bạn đánh đôi tối nay lúc 19:00. Trình độ trung bình khá, nam nữ đều được, share tiền sân, ai rảnh ib mình nha!",
+                "location": "Proton Badminton Center, Quận 7",
+                "required_level": "INTERMEDIATE"
+            },
+            {
+                "user_id": seeded_users[0].id,
+                "team_id": 1, # FC Tiến Phát
+                "sport_id": sports["Bóng đá"].id,
+                "content": "Team mình đang thiếu 1 thủ môn cứng cho trận đấu giao hữu 7v7 tối mai lúc 20:00. Đối thủ đá hay, fairplay. Anh em nào muốn thử sức thì liên hệ, tiền nước nôi team bao.",
+                "location": "Elite Football Arena, Quận 2",
+                "required_level": "ADVANCED"
+            },
+            {
+                "user_id": seeded_users[1].id,
+                "team_id": None,
+                "sport_id": sports["Pickleball"].id,
+                "content": "Có nhóm bạn nào mới tập chơi pickleball cho mình tham gia với. Mình mới sắm vợt, biết luật cơ bản nhưng chưa có team để giao lưu.",
+                "location": "Riverside Pickle Court, Quận 1",
+                "required_level": "BEGINNER"
+            }
+        ]
+
+        for p_data in posts_data:
+            existing = db.query(models.Post).filter(models.Post.content == p_data["content"]).first()
+            if not existing:
+                post = models.Post(
+                    user_id=p_data["user_id"],
+                    team_id=p_data["team_id"],
+                    sport_id=p_data["sport_id"],
+                    content=p_data["content"],
+                    location=p_data["location"],
+                    required_level=p_data["required_level"]
+                )
+                db.add(post)
+                db.flush()
+                print("Đã tạo post mẫu.")
+
         db.commit()
         print("Hoàn tất cài đặt dữ liệu mẫu thành công!")
     except Exception as e:

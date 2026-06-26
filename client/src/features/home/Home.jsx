@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Moon, Sun, LogIn, Sparkles, LogOut, Crown } from 'lucide-react';
+import { Moon, Sun, LogIn, Sparkles, LogOut, Crown, RefreshCw } from 'lucide-react';
 import gpsImg from '../../assets/svgs/gps.svg';
 import arrowDownImg from '../../assets/svgs/arrow_down.svg';
 import notificationImg from '../../assets/svgs/notification.svg';
@@ -9,12 +9,13 @@ import badmintonImg from '../../assets/icons/badminton.png';
 import footballImg from '../../assets/icons/football.png';
 import pickleballImg from '../../assets/icons/pickelball.png';
 import tennisImg from '../../assets/icons/tennis.png';
-import protonImg from '../../assets/images/ProtonBadmintonCenter.png';
-import eliteImg from '../../assets/images/EliteFootballArena.png';
 import PostCard from './components/PostCard';
+import { useTranslation } from 'react-i18next';
+import { teamService, postService, chatService, apiCache } from '../../shared/services/api';
+import { useAuth } from '../../shared/context/AuthContext';
 import { useChat } from '../../shared/context/ChatContext';
 import Header from '../../shared/components/Header';
-import { useTranslation } from 'react-i18next';
+import CreatePostModal from './components/CreatePostModal';
 
 /* ─── Danh mục môn thể thao ─── */
 
@@ -25,115 +26,25 @@ const MOCK_SPORTS = [
   { id: 4, name: 'Tennis', image: tennisImg, key: 'tennis' },
 ];
 
-/* ─── Dữ liệu mẫu - Top Teams ─── */
-
-const MOCK_TOP_TEAMS = [
-  {
-    id: 1,
-    name: 'FC Tiến Phát',
-    sport: 'football',
-    rating: '4.9',
-    members: 15,
-    avatarBadge: 'TP',
-    bgGradient: 'from-green-600 to-green-800',
-  },
-  {
-    id: 2,
-    name: 'Pro Badminton Team',
-    sport: 'badminton',
-    rating: '4.8',
-    members: 8,
-    avatarBadge: 'PB',
-    bgGradient: 'from-blue-600 to-blue-800',
-  },
-  {
-    id: 3,
-    name: 'Saigon Pickleball',
-    sport: 'pickleball',
-    rating: '4.7',
-    members: 12,
-    avatarBadge: 'SP',
-    bgGradient: 'from-teal-600 to-teal-800',
-  },
-  {
-    id: 4,
-    name: 'Elite Tennis',
-    sport: 'tennis',
-    rating: '4.8',
-    members: 6,
-    avatarBadge: 'ET',
-    bgGradient: 'from-orange-500 to-red-600',
-  },
-];
-
-/* ─── Dữ liệu mẫu - Bài đăng (Posts) ─── */
-
-const MOCK_POSTS = [
-  {
-    id: 1,
-    author: 'Minh Tran',
-    isTeam: false,
-    avatarBadge: 'M',
-    sport: 'badminton',
-    sportLabel: 'Badminton',
-    level: 'INTERMEDIATE',
-    time: '2 hours ago',
-    location: 'Proton Badminton Center, Quận 7',
-    description: 'Mình cần tìm 2 bạn đánh đôi tối nay lúc 19:00. Trình độ trung bình khá, nam nữ đều được, share tiền sân, ai rảnh ib mình nha!',
-    images: [protonImg],
-  },
-  {
-    id: 2,
-    author: 'FC Tiến Phát',
-    isTeam: true,
-    avatarBadge: 'TP',
-    sport: 'football',
-    sportLabel: 'Football',
-    level: 'ADVANCED',
-    time: '5 hours ago',
-    location: 'Elite Football Arena, Quận 2',
-    description: 'Team mình đang thiếu 1 thủ môn cứng cho trận đấu giao hữu 7v7 tối mai lúc 20:00. Đối thủ đá hay, fairplay. Anh em nào muốn thử sức thì liên hệ, tiền nước nôi team bao.',
-    images: [eliteImg],
-  },
-  {
-    id: 3,
-    author: 'Lan Nguyen',
-    isTeam: false,
-    avatarBadge: 'L',
-    sport: 'pickleball',
-    sportLabel: 'Pickleball',
-    level: 'BEGINNER',
-    time: '1 day ago',
-    location: 'Riverside Pickle Court, Quận 1',
-    description: 'Có nhóm bạn nào mới tập chơi pickleball cho mình tham gia với. Mình mới sắm vợt, biết luật cơ bản nhưng chưa có team để giao lưu.',
-    images: [],
-  },
-  {
-    id: 4,
-    author: 'Huy Pham',
-    isTeam: false,
-    avatarBadge: 'H',
-    sport: 'tennis',
-    sportLabel: 'Tennis',
-    level: 'PRO',
-    time: '2 days ago',
-    location: 'VinCity Tennis Club, Quận 9',
-    description: 'Sáng cuối tuần (7:00 AM) ai rảnh giao lưu không? Kèo giao lưu vui vẻ nâng cao sức khỏe, đánh đơn hoặc đôi đều ok. Ai rảnh thì cmt sđt mình add zalo nhé.',
-    images: [],
-  },
-];
-
 /* ─── Component chính ─── */
 
 function Home() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { startChat } = useChat(); // Dùng context để mở chat
+  const { startChat } = useChat();
+  const { user } = useAuth();
   const [searchKeyword, setSearchKeyword] = useState('');
   const [selectedSport, setSelectedSport] = useState(null);
   const [currentLocation] = useState('Hồ Chí Minh');
   const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') !== 'light');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+
+  const [teams, setTeams] = useState([]);
+  const [posts, setPosts] = useState([]);
+  const [postTab, setPostTab] = useState('all'); // 'all' or 'my'
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [isPostsLoading, setIsPostsLoading] = useState(false);
 
   useEffect(() => {
     if (isDark) {
@@ -145,37 +56,123 @@ function Home() {
     }
   }, [isDark]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    // Hàm chuyển đổi dữ liệu bài viết (khai báo trước để tránh ReferenceError)
+    const formatPosts = (rawPosts) => {
+      if (!Array.isArray(rawPosts)) return [];
+      
+      return rawPosts.map(post => {
+        try {
+          const authorName = post.team ? post.team.name : (post.author?.profile?.full_name || post.author?.email || 'Unknown');
+          
+          let timeStr = 'Vừa xong';
+          if (post.created_at) {
+            const timeDiff = Math.floor((new Date() - new Date(post.created_at)) / (1000 * 60 * 60));
+            timeStr = timeDiff > 24 ? `${Math.floor(timeDiff/24)} days ago` : (timeDiff > 0 ? `${timeDiff} hours ago` : 'Vừa xong');
+          }
+
+          return {
+            id: post.id,
+            author: authorName,
+            hostId: post.user_id,
+            isTeam: !!post.team_id,
+            avatarBadge: post.team ? (post.team.avatar_badge || authorName.charAt(0)) : (authorName.charAt(0) || 'U').toUpperCase(),
+            sport: post.sport?.name?.toLowerCase() || 'unknown',
+            sportLabel: post.sport?.name || 'Unknown',
+            level: post.required_level || '',
+            time: timeStr,
+            location: post.location || 'Chưa xác định',
+            description: post.content || '',
+            images: Array.isArray(post.images) ? post.images.map(img => img.image_url).filter(Boolean) : [],
+          };
+        } catch (err) {
+          console.error("Lỗi khi parse bài viết:", post, err);
+          return null;
+        }
+      }).filter(Boolean); // Bỏ qua các bài viết bị lỗi
+    };
+    
+    const fetchHomeData = async () => {
+      const isManualRefresh = refreshKey > 0;
+      const filters = selectedSport ? { sport_id: selectedSport } : {};
+      
+      // Chiến lược Stale-While-Revalidate (SWR): 
+      // Lấy dữ liệu từ cache hiển thị NGAY LẬP TỨC nếu có
+      const cacheKeyPosts = '/posts' + JSON.stringify(filters);
+      const cachedPosts = apiCache.get(cacheKeyPosts);
+      
+      const cacheKeyTeams = '/teams/top' + JSON.stringify({ sport_id: selectedSport, limit: 10 });
+      const cachedTeams = apiCache.get(cacheKeyTeams);
+
+      let hasInitialData = false;
+
+      if (!isManualRefresh && cachedPosts && cachedTeams) {
+        // Có cache -> Hiển thị luôn, không hiện hiệu ứng loading
+        setTeams(cachedTeams.data || []);
+        const formattedCached = formatPosts(cachedPosts.data);
+        setPosts(formattedCached || []);
+        hasInitialData = true;
+      } else {
+        setIsPostsLoading(true);
+      }
+
+      // VẪN chạy ngầm request lấy dữ liệu mới nhất (buộc bỏ qua cache)
+      try {
+        const [topTeams, rawPosts] = await Promise.all([
+          teamService.getTopTeams(selectedSport, 10, true), // forceRefresh = true
+          postService.getAll(filters, true)                 // forceRefresh = true
+        ]);
+        
+        if (isMounted) {
+          setTeams(topTeams || []);
+          const formattedPosts = formatPosts(rawPosts);
+          setPosts(formattedPosts || []);
+        }
+      } catch (error) {
+        console.error('Error fetching home data:', error);
+      } finally {
+        if (isMounted) {
+          setIsPostsLoading(false);
+        }
+      }
+    };
+    
+    fetchHomeData();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedSport, refreshKey]);
+
   const handleFilterSport = (sportId) => {
     const next = sportId === selectedSport ? null : sportId;
     setSelectedSport(next);
   };
 
-  /* Lọc dữ liệu theo môn thể thao */
-  const selectedSportKey = selectedSport
-    ? MOCK_SPORTS.find((s) => s.id === selectedSport)?.key
-    : null;
-
-  const filteredTeams = selectedSportKey
-    ? MOCK_TOP_TEAMS.filter((t) => t.sport === selectedSportKey)
-    : MOCK_TOP_TEAMS;
-
-  const filteredPosts = selectedSportKey
-    ? MOCK_POSTS.filter((p) => p.sport === selectedSportKey)
-    : MOCK_POSTS;
-
-  const handleChat = (postId, authorName) => {
-    // Tạo mock user từ tác giả bài viết để nhảy thẳng vào chat
-    const chatUser = {
-      id: `post-${postId}`,
-      name: authorName,
-      avatar: authorName.charAt(0).toUpperCase(),
-      lastMessage: 'Chào bạn, mình quan tâm đến bài đăng này!',
-      time: 'Vừa xong',
-      unread: 0,
-      online: true,
-    };
-    startChat(chatUser);
-    console.log(`Bắt đầu chat với: ${authorName} từ bài viết ${postId}`);
+  const handleChat = async (postId, authorName, hostId) => {
+    if (user?.id === hostId) {
+      alert("Bạn không thể tự chat với chính mình.");
+      return;
+    }
+    try {
+      // API call to ensure conversation exists
+      await chatService.getOrCreateConversation(hostId);
+      
+      const chatUser = {
+        id: hostId, // id của đối phương
+        name: authorName,
+        avatar: authorName.charAt(0).toUpperCase(),
+        lastMessage: 'Bắt đầu trò chuyện...',
+        time: 'Vừa xong',
+        unread: 0,
+        online: true,
+      };
+      startChat(chatUser);
+    } catch (error) {
+      console.error("Lỗi tạo cuộc hội thoại:", error);
+    }
   };
 
   return (
@@ -190,8 +187,6 @@ function Home() {
         setSearchKeyword={setSearchKeyword}
         searchPlaceholder={t('home.searchPlaceholder')}
       />
-
-
 
       <div className="px-4 pt-5 space-y-7">
 
@@ -231,26 +226,26 @@ function Home() {
             <h2 className="text-gray-900 dark:text-white font-bold text-lg">{t('home.topTeams')}</h2>
             <button className="text-blue-600 dark:text-blue-400 text-sm font-medium">{t('home.seeAll')}</button>
           </div>
-          {filteredTeams.length > 0 ? (
+          {teams.length > 0 ? (
             <div className="flex gap-3 overflow-x-auto pb-3 -mx-4 px-4 scrollbar-hide">
-              {filteredTeams.map((team) => (
+              {teams.map((team) => (
                 <div
                   key={team.id}
-                  className={`shrink-0 w-40 h-48 bg-gradient-to-br ${team.bgGradient} rounded-2xl p-4 flex flex-col justify-between relative shadow-md shadow-gray-200 dark:shadow-none`}
+                  className={`shrink-0 w-40 h-48 bg-gradient-to-br ${team.bg_gradient || 'from-gray-600 to-gray-800'} rounded-2xl p-4 flex flex-col justify-between relative shadow-md shadow-gray-200 dark:shadow-none`}
                 >
                   <div className="flex items-start justify-between">
                     <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/30">
-                      <span className="text-white font-bold text-sm select-none">{team.avatarBadge}</span>
+                      <span className="text-white font-bold text-sm select-none">{team.avatarBadge || (team.name?.[0] || 'T')}</span>
                     </div>
                     <div className="bg-black/30 backdrop-blur-md rounded-full px-1.5 py-0.5 flex items-center gap-1">
                       <span className="text-yellow-400 text-[10px] leading-none">⭐</span>
-                      <span className="text-white text-[10px] font-semibold leading-none">{team.rating}</span>
+                      <span className="text-white text-[10px] font-semibold leading-none">{team.rating || '0.0'}</span>
                     </div>
                   </div>
                   <div>
                     <h3 className="text-white font-bold text-sm leading-tight mb-1">{team.name}</h3>
                     <p className="text-white/80 text-xs flex items-center gap-1">
-                       👥 {team.members} {t('home.members')}
+                       👥 {team.members?.length || 0} {t('home.members')}
                     </p>
                   </div>
                 </div>
@@ -263,34 +258,96 @@ function Home() {
           )}
         </section>
 
-        {/* ── Posts / Bảng tin ── */}
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-gray-900 dark:text-white font-bold text-lg">{t('home.recentPosts')}</h2>
-            <button className="text-blue-600 dark:text-blue-400 text-sm font-medium">{t('home.newPost')}</button>
-          </div>
-          {filteredPosts.length > 0 ? (
-            <div className="flex flex-col gap-4">
-              {filteredPosts.map((post) => (
-                <PostCard key={post.id} post={post} onChat={handleChat} />
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-16 text-center bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
-              <div className="w-16 h-16 rounded-full bg-gray-50 dark:bg-gray-800 flex items-center justify-center mb-4">
-                <span className="text-2xl">📝</span>
+        {/* ── Recent Posts ── */}
+        <section className="pb-24">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-4">
+              <h2 className="text-gray-900 dark:text-white font-bold text-lg hidden sm:block">
+                {t('home.recentPosts')}
+              </h2>
+              <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+                <button
+                  onClick={() => setPostTab('all')}
+                  className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${postTab === 'all' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
+                >
+                  {t('home.allPosts')}
+                </button>
+                <button
+                  onClick={() => setPostTab('my')}
+                  className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${postTab === 'my' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
+                >
+                  {t('home.myPosts')}
+                </button>
               </div>
-              <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">{t('home.noPosts')}</p>
-              <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">{t('home.beTheFirst')}</p>
             </div>
-          )}
+            
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setRefreshKey(prev => prev + 1)}
+                disabled={isPostsLoading}
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-lg transition-colors border border-gray-200 dark:border-gray-700 shadow-sm disabled:opacity-50"
+              >
+                <RefreshCw size={16} className={isPostsLoading ? "animate-spin" : ""} />
+                {t('home.reload')}
+              </button>
+              <button 
+                onClick={() => setIsCreateModalOpen(true)}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-all shadow-md shadow-blue-500/30"
+              >
+                {t('home.newPost')}
+              </button>
+            </div>
+          </div>
+          
+          {(() => {
+            const displayedPosts = postTab === 'my' 
+              ? posts.filter(p => user && p.hostId === user.id)
+              : posts;
+            
+            if (isPostsLoading) {
+              return (
+                <div className="flex justify-center items-center py-16">
+                  <RefreshCw className="animate-spin text-blue-500" size={32} />
+                </div>
+              );
+            }
+              
+            if (displayedPosts.length > 0) {
+              return (
+                <div className="flex flex-col gap-4">
+                  {displayedPosts.map((post) => (
+                    <PostCard 
+                      key={post.id} 
+                      post={post} 
+                      onChat={() => handleChat(post.id, post.author, post.hostId)} 
+                    />
+                  ))}
+                </div>
+              );
+            }
+            
+            return (
+              <div className="flex flex-col items-center justify-center py-16 text-center bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
+                <div className="w-16 h-16 rounded-full bg-gray-50 dark:bg-gray-800 flex items-center justify-center mb-4">
+                  <span className="text-2xl">📝</span>
+                </div>
+                <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">{t('home.noPosts')}</p>
+                <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">{t('home.beTheFirst')}</p>
+              </div>
+            );
+          })()}
         </section>
 
       </div>
 
+      <CreatePostModal 
+        isOpen={isCreateModalOpen} 
+        onClose={() => setIsCreateModalOpen(false)} 
+        onSuccess={() => setRefreshKey(prev => prev + 1)} 
+        sports={MOCK_SPORTS}
+      />
     </div>
   );
 }
 
 export default Home;
-
