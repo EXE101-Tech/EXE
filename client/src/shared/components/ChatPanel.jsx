@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { MessageSquare, X, Send, Search } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useChat } from '../context/ChatContext';
 
 const MOCK_CONVERSATIONS = [
@@ -42,6 +43,7 @@ const MOCK_CONVERSATIONS = [
 ];
 
 function ChatPanel() {
+  const { t } = useTranslation();
   const { isChatOpen, closeChat, activeChatUser, setActiveChatUser } = useChat();
   const [message, setMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -56,7 +58,7 @@ function ChatPanel() {
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-800">
         <div className="flex items-center gap-2">
           <MessageSquare className="w-5 h-5 text-blue-500" />
-          <h2 className="text-sm font-bold text-gray-900 dark:text-white">Chat</h2>
+          <h2 className="text-sm font-bold text-gray-900 dark:text-white">{t('bottomNav.chat', 'Chat')}</h2>
         </div>
         <button
           onClick={closeChat}
@@ -72,7 +74,7 @@ function ChatPanel() {
           <Search className="w-4 h-4 text-gray-400" />
           <input
             type="text"
-            placeholder="Tìm kiếm..."
+            placeholder={t('chat.search_placeholder', 'Tìm kiếm...')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="bg-transparent text-sm text-gray-900 dark:text-white placeholder-gray-400 outline-none w-full"
@@ -111,7 +113,9 @@ function ChatPanel() {
 
               {/* Thời gian + Badge — cột riêng bên phải, căn trên */}
               <div className="flex flex-col items-end gap-1 flex-shrink-0 self-start pt-0.5">
-                <span className="text-[11px] text-gray-400">{conv.time}</span>
+                <span className="text-[11px] text-gray-400">
+                  {conv.time === 'Hôm qua' ? t('chat.yesterday', 'Hôm qua') : conv.time}
+                </span>
                 {conv.unread > 0 && (
                   <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
                     <span className="text-[10px] text-white font-bold">{conv.unread}</span>
@@ -130,7 +134,7 @@ function ChatPanel() {
               onClick={() => setActiveChatUser(null)}
               className="text-blue-500 text-xs font-medium hover:text-blue-400"
             >
-              ← Quay lại
+              {t('chat.back', '← Quay lại')}
             </button>
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-semibold">
@@ -138,7 +142,7 @@ function ChatPanel() {
               </div>
               <div>
                 <p className="text-sm font-semibold text-gray-900 dark:text-white">{activeChatUser.name}</p>
-                <p className="text-[10px] text-green-500">{activeChatUser.online ? 'Đang hoạt động' : 'Ngoại tuyến'}</p>
+                <p className="text-[10px] text-green-500">{activeChatUser.online ? t('chat.online', 'Đang hoạt động') : t('chat.offline', 'Ngoại tuyến')}</p>
               </div>
             </div>
           </div>
@@ -147,8 +151,8 @@ function ChatPanel() {
           <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
             <div className="flex justify-start">
               <div className="bg-gray-100 dark:bg-gray-800 rounded-2xl rounded-bl-sm px-3 py-2 max-w-[80%]">
-                <p className="text-sm text-gray-900 dark:text-white">{activeChatUser.lastMessage || 'Bắt đầu cuộc trò chuyện...'}</p>
-                <p className="text-[10px] text-gray-400 mt-1">{activeChatUser.time || 'Vừa xong'}</p>
+                <p className="text-sm text-gray-900 dark:text-white">{activeChatUser.lastMessage || t('chat.start_conversation', 'Bắt đầu cuộc trò chuyện...')}</p>
+                <p className="text-[10px] text-gray-400 mt-1">{activeChatUser.time || t('chat.just_now', 'Vừa xong')}</p>
               </div>
             </div>
           </div>
@@ -158,7 +162,7 @@ function ChatPanel() {
             <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-full px-4 py-2">
               <input
                 type="text"
-                placeholder="Nhập tin nhắn..."
+                placeholder={t('chat.message_placeholder', 'Nhập tin nhắn...')}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 className="bg-transparent text-sm text-gray-900 dark:text-white placeholder-gray-400 outline-none w-full"

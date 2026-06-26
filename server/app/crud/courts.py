@@ -1,6 +1,10 @@
 from sqlalchemy.orm import Session
 from app import models, schemas
+from app.geocoding import geocode_address
 import math
+import logging
+
+logger = logging.getLogger(__name__)
 
 def get_sports(db: Session):
     return db.query(models.Sport).all()
@@ -30,11 +34,24 @@ def get_venue_by_id(db: Session, venue_id: int):
     return db.query(models.Venue).filter(models.Venue.id == venue_id).first()
 
 def create_venue(db: Session, venue: schemas.VenueCreate, owner_id: int = None):
+    latitude = venue.latitude
+    longitude = venue.longitude
+    
+    # Tự động geocode nếu không có tọa độ
+    if not latitude or not longitude:
+        logger.info(f"Geocoding address: {venue.address}")
+        coords = geocode_address(venue.address)
+        if coords:
+            latitude, longitude = coords
+            logger.info(f"Geocoded successfully: {latitude}, {longitude}")
+        else:
+            logger.warning(f"Could not geocode address: {venue.address}")
+    
     db_venue = models.Venue(
         name=venue.name,
         address=venue.address,
-        latitude=venue.latitude,
-        longitude=venue.longitude,
+        latitude=latitude,
+        longitude=longitude,
         description=venue.description,
         owner_id=owner_id
     )

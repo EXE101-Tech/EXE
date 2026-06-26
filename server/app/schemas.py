@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, ConfigDict, model_validator, field_validator
-from typing import List, Optional
+from typing import List, Optional, Dict
 from datetime import datetime
 
 # Token Schemas
@@ -52,6 +52,10 @@ class UserProfileBase(BaseModel):
 
 class UserProfileUpdate(UserProfileBase):
     pass
+
+class UserProfileWithSportsUpdate(BaseModel):
+    name: Optional[str] = None
+    sports: Optional[Dict[str, str]] = None
 
 class UserProfileResponse(UserProfileBase):
     user_id: int

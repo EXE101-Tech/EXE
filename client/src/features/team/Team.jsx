@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import Header from '../../shared/components/Header';
 import { Users, Plus, Star } from 'lucide-react';
 import badmintonImg from '../../assets/icons/badminton.png';
 import footballImg from '../../assets/icons/football.png';
@@ -56,7 +58,11 @@ const MY_TEAMS = [
 ];
 
 function Team() {
+  const { t } = useTranslation();
   const [selectedSport, setSelectedSport] = useState(null);
+  const [searchKeyword, setSearchKeyword] = useState('');
+  const [currentLocation] = useState('Hồ Chí Minh');
+  const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') !== 'light');
 
   const handleFilterSport = (sportId) => {
     setSelectedSport(prev => prev === sportId ? null : sportId);
@@ -71,15 +77,25 @@ function Team() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950 pb-24">
-      {/* Header */}
-      <header className="px-4 pt-12 pb-4 bg-white dark:bg-gray-950 sticky top-0 z-40">
-        <div className="flex items-center justify-between mb-4">
+      {/* Thanh tiêu đề chính */}
+      <Header 
+        currentLocation={currentLocation}
+        isDark={isDark}
+        setIsDark={setIsDark}
+        searchKeyword={searchKeyword}
+        setSearchKeyword={setSearchKeyword}
+        searchPlaceholder={t('header.searchPlaceholder', 'Tìm kiếm sân, người chơi hoặc môn...')}
+      />
+
+      {/* Header Team */}
+      <header className="px-4 pt-5 pb-4 bg-white dark:bg-gray-950 z-30">
+        <div className="flex items-center justify-between mb-2">
           <h1 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">
-            My Teams
+            {t('team.myTeams', 'My Teams')}
           </h1>
           <button className="flex items-center gap-1.5 bg-[#CDFF00] text-gray-900 px-4 py-2 rounded-xl font-bold text-sm shadow-sm hover:scale-105 transition-transform">
             <Plus className="w-4 h-4" strokeWidth={3} />
-            Create Team
+            {t('team.createTeam', 'Create Team')}
           </button>
         </div>
       </header>
@@ -108,7 +124,7 @@ function Team() {
                   ? 'text-blue-600 dark:text-blue-400'
                   : 'text-gray-600 dark:text-gray-400'
                 }`}>
-                  {sport.name}
+                  {t(`sports.${sport.key}`, sport.name)}
                 </span>
               </button>
             ))}
@@ -118,7 +134,7 @@ function Team() {
         {/* Danh sách Teams */}
         <section>
           <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
-            {selectedSport ? 'Filtered Teams' : 'All My Teams'}
+            {selectedSport ? t('team.filteredTeams', 'Filtered Teams') : t('team.allMyTeams', 'All My Teams')}
           </h2>
           
           {filteredTeams.length > 0 ? (
@@ -143,10 +159,10 @@ function Team() {
                     <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
                       <span className="flex items-center gap-1">
                         <Users className="w-3.5 h-3.5" />
-                        {team.members} members
+                        {team.members} {t('team.members', 'members')}
                       </span>
                       <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-700"></span>
-                      <span className="capitalize">{team.sport}</span>
+                      <span className="capitalize">{t(`sports.${team.sport}`, team.sport)}</span>
                     </div>
                   </div>
                   
@@ -157,7 +173,7 @@ function Team() {
                         ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800'
                         : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border border-gray-200 dark:border-gray-700'
                     }`}>
-                      {team.role}
+                      {team.role === 'Captain' ? t('team.captain', 'Captain') : t('team.member', 'Member')}
                     </span>
                   </div>
                 </div>
@@ -167,7 +183,7 @@ function Team() {
             <div className="py-12 text-center bg-gray-50 dark:bg-gray-900/50 rounded-2xl border border-dashed border-gray-200 dark:border-gray-800">
               <Users className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
               <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                You haven't joined any teams for this sport yet.
+                {t('team.noTeams', "You haven't joined any teams for this sport yet.")}
               </p>
             </div>
           )}

@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  baseURL: import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -21,15 +21,18 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response.data,
   (error) => {
-    const message = error.response?.data?.message || 'Đã có lỗi xảy ra';
+    // FastAPI trả về lỗi trong trường `detail`, Node/Express thường trả về `message`
+    const message = error.response?.data?.detail || error.response?.data?.message || 'Đã có lỗi xảy ra';
     return Promise.reject(new Error(message));
   }
 );
 
 export const authService = {
-  login: (phone) => apiClient.post('/auth/login', { phone }),
+  login: (data) => apiClient.post('/auth/login', data),
+  register: (data) => apiClient.post('/auth/register', data),
   logout: () => apiClient.post('/auth/logout'),
   getProfile: () => apiClient.get('/auth/me'),
+  updateProfile: (data) => apiClient.put('/auth/me', data),
 };
 
 export const courtService = {
@@ -39,12 +42,14 @@ export const courtService = {
     apiClient.get('/courts/nearby', { params: { lat, lng, radius } }),
 };
 
-export const matchService = {
-  getAll: (filters = {}) => apiClient.get('/matches', { params: filters }),
-  getById: (id) => apiClient.get(`/matches/${id}`),
-  join: (matchId) => apiClient.post(`/matches/${matchId}/join`),
-  leave: (matchId) => apiClient.post(`/matches/${matchId}/leave`),
-  create: (data) => apiClient.post('/matches', data),
+export const gameRoomService = {
+  getAll: (filters = {}) => apiClient.get('/gamerooms', { params: filters }),
+  getById: (id) => apiClient.get(`/gamerooms/${id}`),
+  join: (roomId) => apiClient.post(`/gamerooms/${roomId}/join`),
+  leave: (roomId) => apiClient.post(`/gamerooms/${roomId}/leave`),
+  create: (data) => apiClient.post('/gamerooms', data),
+  approveParticipant: (roomId, userId, status) => 
+    apiClient.patch(`/gamerooms/${roomId}/participants/${userId}/status`, { status }),
 };
 
 export const bookingService = {

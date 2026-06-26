@@ -76,4 +76,9 @@ def logout(credentials = Depends(auth_utils.security), db: Session = Depends(dat
 def get_me(current_user = Depends(auth_utils.get_current_user)):
     return current_user
 
-
+@router.put("/me", response_model=schemas.UserResponse)
+def update_me(profile_data: schemas.UserProfileWithSportsUpdate, current_user = Depends(auth_utils.get_current_user), db: Session = Depends(database.get_db)):
+    updated_user = crud.update_user_profile_with_sports(db, current_user.id, profile_data)
+    if not updated_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return updated_user

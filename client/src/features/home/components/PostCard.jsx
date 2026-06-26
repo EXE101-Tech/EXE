@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 const LEVEL_STYLES = {
   BEGINNER: 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-400',
@@ -13,6 +14,7 @@ const AVATAR_COLORS = [
 ];
 
 function PostCard({ post, onChat }) {
+  const { t } = useTranslation();
   const { id, author, avatarBadge, description, time, level, location, isTeam, sportLabel, images } = post;
   
   // Use a hash of the author name to consistently pick a color if not explicitly provided
@@ -70,7 +72,7 @@ function PostCard({ post, onChat }) {
         <div className="mt-auto">
           <div className="flex flex-wrap gap-1.5 mb-2">
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-              {sportLabel}
+              {t(`sports.${post.sport}`, sportLabel)}
             </span>
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${LEVEL_STYLES[level] ?? 'bg-gray-100 text-gray-600'}`}>
               {level}
@@ -86,7 +88,7 @@ function PostCard({ post, onChat }) {
               onClick={() => onChat?.(id, author)}
               className="bg-blue-600 text-white text-xs font-bold px-6 py-2 rounded-xl hover:bg-blue-500 active:scale-95 transition-all shadow-md shadow-blue-500/20"
             >
-              Chat
+              {t('bottomNav.chat', 'Chat')}
             </button>
           </div>
         </div>

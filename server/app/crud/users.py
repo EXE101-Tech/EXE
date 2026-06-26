@@ -31,3 +31,25 @@ def update_user_profile(db: Session, user_id: int, profile_update: schemas.UserP
     db.commit()
     db.refresh(db_profile)
     return db_profile
+
+def update_user_profile_with_sports(db: Session, user_id: int, data: schemas.UserProfileWithSportsUpdate):
+    db_profile = db.query(models.UserProfile).filter(models.UserProfile.user_id == user_id).first()
+    if db_profile and data.name is not None:
+        db_profile.full_name = data.name
+        
+    if data.sports is not None:
+        for sport_name, skill_level in data.sports.items():
+            sport = db.query(models.Sport).filter(models.Sport.name == sport_name).first()
+            if sport:
+                user_sport = db.query(models.UserSport).filter(
+                    models.UserSport.user_id == user_id, 
+                    models.UserSport.sport_id == sport.id
+                ).first()
+                if user_sport:
+                    user_sport.skill_level = skill_level
+                else:
+                    user_sport = models.UserSport(user_id=user_id, sport_id=sport.id, skill_level=skill_level)
+                    db.add(user_sport)
+    
+    db.commit()
+    return get_user_by_id(db, user_id)

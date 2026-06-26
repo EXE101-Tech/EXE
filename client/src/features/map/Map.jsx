@@ -1,9 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { Search, MapPin, Navigation, Map as MapIcon, X, LocateFixed, Loader2 } from 'lucide-react';
+import { Search, MapPin, Navigation, Map as MapIcon, X, LocateFixed, Loader2, PlaySquare } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useChat } from '../../shared/context/ChatContext';
+import { courtService } from '../../shared/services/api';
+import Header from '../../shared/components/Header';
 
 // Sửa lỗi icon leaflet mặc định
 import iconUrl from 'leaflet/dist/images/marker-icon.png';
@@ -41,14 +44,40 @@ function ClickHandler({ onMapClick }) {
 }
 
 export default function MapPage() {
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [mapCenter, setMapCenter] = useState(HCM_CENTER);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [dbVenues, setDbVenues] = useState([]);
   const { isChatOpen } = useChat();
+  const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') !== 'light');
+
+  useEffect(() => {
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDark]);
+
+  useEffect(() => {
+    const fetchVenues = async () => {
+      try {
+        // Fetch venues within 50km of HCM Center to get all District 9 venues
+        const data = await courtService.getNearby(HCM_CENTER[0], HCM_CENTER[1], 50);
+        setDbVenues(data);
+      } catch (error) {
+        console.error("Failed to fetch venues:", error);
+      }
+    };
+    fetchVenues();
+  }, []);
 
   // Focus ô tìm kiếm khi load
   const searchInputRef = useRef(null);
@@ -179,6 +208,17 @@ export default function MapPage() {
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-950 overflow-hidden relative">
       
+      {/* HEADER TÍCH HỢP CHO BẢN ĐỒ */}
+      <div className={`absolute top-0 right-0 z-[1002] transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-full md:w-[calc(100%-400px)] hidden md:block' : 'w-full'}`}>
+        <Header 
+          isDark={isDark} 
+          setIsDark={setIsDark} 
+          className="!bg-white/80 dark:!bg-gray-900/80 backdrop-blur-md border-b-0 shadow-none !py-[10px] transition-all duration-300"
+          isSidebarOpen={isSidebarOpen}
+          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+        />
+      </div>
+
       {/* SIDEBAR BÊN TRÁI (Giống Google Maps) */}
       <div 
         className={`w-full md:w-[400px] h-full bg-white dark:bg-gray-900 shadow-2xl flex flex-col z-[1000] absolute top-0 left-0 transition-transform duration-300 ease-in-out ${
@@ -189,16 +229,17 @@ export default function MapPage() {
         {/* Header & Search Bar */}
         <div className="p-4 border-b border-gray-100 dark:border-gray-800 shrink-0">
           <div className="flex items-center gap-3 mb-4">
+            {/* Nút đóng Sidebar trên Mobile */}
             <button 
               onClick={() => setIsSidebarOpen(false)}
-              className="w-10 h-10 rounded-xl bg-[#CDFF00] flex items-center justify-center shrink-0 hover:scale-105 active:scale-95 transition-transform"
-              title="Đóng sidebar"
+              className="md:hidden w-[34px] h-[34px] rounded-[10px] bg-[#CDFF00] flex items-center justify-center shrink-0 hover:scale-105 active:scale-95 transition-transform"
+              title={t('map.close_sidebar', 'Đóng sidebar')}
             >
-              <MapIcon className="w-5 h-5 text-gray-900" />
+              <MapIcon className="w-4 h-4 text-gray-900" />
             </button>
             <div>
-              <h1 className="font-black text-gray-900 dark:text-white text-lg">Khám phá</h1>
-              <p className="text-xs text-gray-500 font-medium">Bản đồ thể thao</p>
+              <h1 className="font-black text-gray-900 dark:text-white text-lg">{t('map.explore', 'Khám phá')}</h1>
+              <p className="text-xs text-gray-500 font-medium">{t('map.sports_map', 'Bản đồ thể thao')}</p>
             </div>
           </div>
 
@@ -208,7 +249,7 @@ export default function MapPage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm kiếm địa điểm..."
+              placeholder={t('map.search_location', 'Tìm kiếm địa điểm...')}
               className="w-full pl-11 pr-4 py-3 bg-gray-100 dark:bg-gray-800 border-transparent focus:border-[#CDFF00] focus:bg-white dark:focus:bg-gray-950 rounded-2xl outline-none text-sm text-gray-900 dark:text-white shadow-sm transition-all"
             />
             <button type="submit" className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#CDFF00]">
@@ -236,7 +277,7 @@ export default function MapPage() {
           {isLoading && (
             <div className="flex flex-col items-center justify-center py-10 opacity-60">
               <Loader2 className="w-6 h-6 animate-spin text-[#CDFF00] mb-2" />
-              <p className="text-sm text-gray-500">Đang tìm kiếm...</p>
+              <p className="text-sm text-gray-500">{t('map.searching', 'Đang tìm kiếm...')}</p>
             </div>
           )}
 
@@ -285,17 +326,17 @@ export default function MapPage() {
                 <div className="flex gap-2">
                   <button className="flex-1 bg-[#CDFF00] hover:bg-[#b8e600] text-gray-900 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors">
                     <Navigation className="w-4 h-4" />
-                    Đường đi
+                    {t('map.directions', 'Đường đi')}
                   </button>
                   <button className="flex-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-900 dark:text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors">
                     <MapPin className="w-4 h-4" />
-                    Lưu điểm
+                    {t('map.save_location', 'Lưu điểm')}
                   </button>
                 </div>
                 
                 <div className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-800 space-y-4">
                   <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-500">Tọa độ:</span>
+                    <span className="text-gray-500">{t('map.coordinates', 'Tọa độ:')}</span>
                     <span className="font-mono text-gray-900 dark:text-gray-300">
                       {parseFloat(selectedLocation.lat).toFixed(5)}, {parseFloat(selectedLocation.lon).toFixed(5)}
                     </span>
@@ -309,7 +350,7 @@ export default function MapPage() {
           {!isLoading && searchResults.length === 0 && !selectedLocation && (
             <div className="p-8 text-center text-gray-500">
               <MapIcon className="w-12 h-12 mx-auto mb-4 opacity-20" />
-              <p className="text-sm">Tìm kiếm địa điểm hoặc nhấp vào bất kỳ đâu trên bản đồ để xem chi tiết.</p>
+              <p className="text-sm">{t('map.empty_search', 'Tìm kiếm địa điểm hoặc nhấp vào bất kỳ đâu trên bản đồ để xem chi tiết.')}</p>
             </div>
           )}
         </div>
@@ -317,26 +358,13 @@ export default function MapPage() {
 
       {/* KHU VỰC BẢN ĐỒ */}
       <div className="flex-1 relative z-0 h-full w-full">
-        {/* Nút mở Sidebar khi bị ẩn */}
-        {!isSidebarOpen && (
-          <div className="absolute left-4 top-4 z-[1000]">
-            <button 
-              onClick={() => setIsSidebarOpen(true)}
-              title="Mở thanh tìm kiếm"
-              className="w-12 h-12 bg-[#CDFF00] rounded-2xl shadow-xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
-            >
-              <MapIcon className="w-6 h-6 text-gray-900" />
-            </button>
-          </div>
-        )}
-
         <div 
           className="absolute right-6 z-[1000] transition-all duration-300 ease-in-out"
           style={{ bottom: '80px' }}
         >
           <button 
             onClick={handleLocateMe}
-            title="Vị trí của bạn"
+            title={t('map.your_location', 'Vị trí của bạn')}
             className="w-12 h-12 bg-white dark:bg-gray-800 rounded-full shadow-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-blue-500 transition-all hover:scale-110 active:scale-95"
           >
             <LocateFixed className="w-5 h-5" />
@@ -372,7 +400,7 @@ export default function MapPage() {
           {userLocation && (
             <Marker position={userLocation}>
               <Popup>
-                <div className="font-bold text-blue-600">Vị trí hiện tại của bạn</div>
+                <div className="font-bold text-blue-600">{t('map.current_location', 'Vị trí hiện tại của bạn')}</div>
               </Popup>
             </Marker>
           )}
@@ -386,6 +414,29 @@ export default function MapPage() {
                 click: () => handleSelectLocation(res),
               }}
             >
+            </Marker>
+          ))}
+
+          {/* Marker cho các địa điểm (Venues) từ Database */}
+          {dbVenues.map(venue => (
+            <Marker 
+              key={`db-${venue.id}`} 
+              position={[venue.latitude, venue.longitude]}
+              eventHandlers={{
+                click: () => {
+                  handleSelectLocation({
+                    place_id: `db-${venue.id}`,
+                    lat: venue.latitude,
+                    lon: venue.longitude,
+                    name: venue.name,
+                    display_name: venue.address,
+                  });
+                },
+              }}
+            >
+              <Tooltip permanent direction="top" offset={[0, -10]} className="font-bold text-xs bg-white/90 dark:bg-gray-800/90 backdrop-blur border-none shadow-md rounded-lg">
+                {venue.name}
+              </Tooltip>
             </Marker>
           ))}
         </MapContainer>

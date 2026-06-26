@@ -25,9 +25,27 @@ def get_nearby_venues(
 ):
     return crud.get_nearby_venues(db, lat=lat, lng=lng, radius=radius)
 
+@router.get("/venues", response_model=List[schemas.VenueMinResponse])
+def get_all_venues(db: Session = Depends(database.get_db)):
+    """Lấy tất cả venue."""
+    return crud.get_venues(db)
+
+@router.post("/venues", response_model=schemas.VenueMinResponse)
+def create_venue(
+    venue: schemas.VenueCreate,
+    db: Session = Depends(database.get_db),
+    current_user = Depends(auth_utils.get_current_user)
+):
+    """
+    Tạo venue mới. Nếu không cung cấp latitude/longitude,
+    hệ thống sẽ tự động geocode từ address.
+    """
+    return crud.create_venue(db, venue, owner_id=current_user.id)
+
 @router.get("/{id}", response_model=schemas.CourtResponse)
 def get_court_by_id(id: int, db: Session = Depends(database.get_db)):
     court = crud.get_court_by_id(db, court_id=id)
     if not court:
         raise HTTPException(status_code=404, detail="Court not found")
     return court
+

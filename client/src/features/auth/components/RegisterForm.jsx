@@ -1,18 +1,20 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { UserPlus } from 'lucide-react';
-import { sanitizePhone, validatePhone, validatePassword } from '../../../shared/utils/validators';
+import { UserPlus, CheckCircle, Mail, Eye, EyeOff } from 'lucide-react';
+import { validateEmail, validatePassword } from '../../../shared/utils/validators';
 
-function RegisterForm() {
-  const navigate = useNavigate();
-  const [form, setForm] = useState({ name: '', phone: '', password: '' });
+import { useAuth } from '../../../shared/context/AuthContext';
+
+function RegisterForm({ onShowLogin }) {
+  const { register } = useAuth();
+  const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '' });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const onChange = (field) => (e) => {
-    let val = e.target.value;
-    if (field === 'phone') val = sanitizePhone(val);
-    setForm((p) => ({ ...p, [field]: val }));
+    setForm((p) => ({ ...p, [field]: e.target.value }));
     if (errors[field]) setErrors((p) => ({ ...p, [field]: '' }));
   };
 
@@ -20,16 +22,29 @@ function RegisterForm() {
     e.preventDefault();
     const errs = {};
     if (!form.name.trim()) errs.name = 'Vui lòng nhập họ và tên';
-    const pErr = validatePhone(form.phone);
-    if (pErr) errs.phone = pErr;
+    
+    const emailErr = validateEmail(form.email);
+    if (emailErr) errs.email = emailErr;
+
     const pwErr = validatePassword(form.password);
     if (pwErr) errs.password = pwErr;
+
+    if (form.password !== form.confirmPassword) {
+      errs.confirmPassword = 'Mật khẩu xác nhận không khớp';
+    }
+
     if (Object.keys(errs).length) { setErrors(errs); return; }
+    
     setErrors({});
     setIsLoading(true);
+    
     try {
-      // await authService.register(form); // TODO: gọi API đăng ký
-      navigate('/');
+      await register({
+        email: form.email,
+        password: form.password,
+        name: form.name
+      });
+      setIsSuccess(true);
     } catch (err) {
       setErrors({ general: err.message || 'Đăng ký thất bại, vui lòng thử lại' });
     } finally {
@@ -38,85 +53,142 @@ function RegisterForm() {
   };
 
   const inputCls = (field) =>
-    `w-full bg-[#1E2637] border rounded-xl px-4 py-3.5 text-white text-sm placeholder-gray-500 outline-none transition-colors ${
-      errors[field] ? 'border-red-500' : 'border-[#2A3548] focus:border-blue-500'
+    `w-full bg-white/10 border rounded-xl px-4 py-3 text-white text-sm placeholder-blue-200/60 outline-none transition-colors backdrop-blur-sm ${
+      errors[field] ? 'border-red-400' : 'border-white/20 focus:border-white focus:bg-white/20'
     }`;
 
-  return (
-    <div className="flex flex-col items-center w-full">
-      <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mb-5 shadow-lg shadow-blue-600/30">
-        <UserPlus className="w-8 h-8 text-white" />
-      </div>
-      <h2 className="text-xl font-semibold text-white">Tạo tài khoản</h2>
-      <p className="text-gray-400 text-sm mt-1 mb-6 text-center">
-        Bắt đầu hành trình cùng Proton Sports
-      </p>
-
-      <form onSubmit={handleSubmit} className="flex flex-col w-full">
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">Họ và tên</label>
-          <input
-            type="text"
-            value={form.name}
-            onChange={onChange('name')}
-            placeholder="Nguyễn Văn A"
-            className={inputCls('name')}
-          />
-          <div className="h-5 mt-1">
-            {errors.name && <p className="text-red-400 text-xs">{errors.name}</p>}
-          </div>
+  if (isSuccess) {
+    return (
+      <div className="flex flex-col items-center justify-center w-full h-full text-center animate-in fade-in duration-500">
+        <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(255,255,255,0.4)] animate-[bounce_1s_ease-in-out]">
+          <CheckCircle className="w-12 h-12 text-blue-600" />
         </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">Số điện thoại</label>
-          <div
-            className={`flex items-center bg-[#1E2637] rounded-xl border transition-colors ${
-              errors.phone ? 'border-red-500' : 'border-[#2A3548] focus-within:border-blue-500'
-            }`}
-          >
-            <span className="px-4 py-3.5 text-gray-300 text-sm font-medium border-r border-[#2A3548] shrink-0 select-none">
-              (+84)
-            </span>
-            <input
-              type="tel"
-              value={form.phone}
-              onChange={onChange('phone')}
-              placeholder="Số điện thoại"
-              inputMode="numeric"
-              className="flex-1 bg-transparent px-4 py-3.5 text-white placeholder-gray-500 text-sm outline-none"
-            />
-          </div>
-          <div className="h-5 mt-1">
-            {errors.phone && <p className="text-red-400 text-xs">{errors.phone}</p>}
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">Mật khẩu</label>
-          <input
-            type="password"
-            value={form.password}
-            onChange={onChange('password')}
-            placeholder="Tối thiểu 6 ký tự"
-            className={inputCls('password')}
-          />
-          <div className="h-5 mt-1">
-            {errors.password && <p className="text-red-400 text-xs">{errors.password}</p>}
-          </div>
-        </div>
-
-        {errors.general && (
-          <p className="text-red-400 text-sm text-center mb-2">{errors.general}</p>
-        )}
-
+        <h2 className="text-3xl font-black text-white mb-2 animate-in slide-in-from-bottom-4 duration-500 delay-150">Đăng ký<br/>Thành công!</h2>
+        <p className="text-blue-100 text-sm mb-8 px-4 animate-in fade-in duration-500 delay-300">
+          Tài khoản của bạn đã sẵn sàng. Hãy đăng nhập để bắt đầu!
+        </p>
         <button
-          type="submit"
-          disabled={isLoading}
-          className="w-full bg-blue-600 hover:bg-blue-500 active:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-3.5 rounded-xl transition-colors text-sm mt-1"
+          onClick={onShowLogin}
+          className="w-full bg-white hover:bg-gray-50 active:scale-[0.98] text-blue-600 font-bold py-3.5 rounded-2xl transition-all shadow-lg text-base animate-in slide-in-from-bottom-4 duration-500 delay-500"
         >
-          {isLoading ? 'Đang xử lý...' : 'Đăng ký'}
+          Quay lại Đăng nhập
         </button>
-      </form>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-center w-full h-full my-auto">
+      <div className="flex flex-col flex-1 w-full pt-2">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-black/10">
+            <UserPlus className="w-6 h-6 text-blue-600" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-white">Tạo tài khoản</h2>
+            <p className="text-blue-100/80 text-xs mt-0.5">Hành trình bắt đầu từ đây</p>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="flex flex-col w-full space-y-3 pb-4">
+          {/* Họ và tên */}
+          <div>
+            <label className="block text-xs font-semibold text-blue-100 mb-1">Họ và tên</label>
+            <input
+              type="text"
+              value={form.name}
+              onChange={onChange('name')}
+              placeholder="Nguyễn Văn A"
+              className={inputCls('name')}
+            />
+            {errors.name && <p className="text-red-300 text-[10px] mt-1 pl-1 font-medium">{errors.name}</p>}
+          </div>
+
+          {/* Email */}
+          <div>
+            <label className="block text-xs font-semibold text-blue-100 mb-1">Email</label>
+            <input
+              type="email"
+              value={form.email}
+              onChange={onChange('email')}
+              placeholder="your@email.com"
+              className={inputCls('email')}
+            />
+            {errors.email && <p className="text-red-300 text-[10px] mt-1 pl-1 font-medium">{errors.email}</p>}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            {/* Mật khẩu */}
+            <div>
+              <label className="block text-xs font-semibold text-blue-100 mb-1">Mật khẩu</label>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={form.password}
+                  onChange={onChange('password')}
+                  placeholder="Tối thiểu 6 ký tự"
+                  className={inputCls('password') + " pr-9"}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              {errors.password && <p className="text-red-300 text-[10px] mt-1 pl-1 font-medium">{errors.password}</p>}
+            </div>
+
+            {/* Xác nhận mật khẩu */}
+            <div>
+              <label className="block text-xs font-semibold text-blue-100 mb-1">Xác nhận MK</label>
+              <div className="relative">
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={form.confirmPassword}
+                  onChange={onChange('confirmPassword')}
+                  placeholder="Nhập lại"
+                  className={inputCls('confirmPassword') + " pr-9"}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white transition-colors"
+                >
+                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              {errors.confirmPassword && <p className="text-red-300 text-[10px] mt-1 pl-1 font-medium">{errors.confirmPassword}</p>}
+            </div>
+          </div>
+
+          {errors.general && (
+            <p className="text-red-300 text-xs text-center font-medium mt-1">{errors.general}</p>
+          )}
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full bg-white hover:bg-gray-50 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed text-blue-600 font-bold py-3.5 rounded-xl transition-all shadow-lg text-sm mt-3"
+          >
+            {isLoading ? 'Đang xử lý...' : 'Hoàn tất Đăng ký'}
+          </button>
+        </form>
+      </div>
+
+      <div className="mt-auto text-center bg-black/10 w-[calc(100%+3rem)] sm:w-[calc(100%+4rem)] -mb-6 sm:-mb-8 py-5 rounded-b-[2.5rem]">
+        <p className="text-blue-100 text-sm font-medium">
+          Đã có tài khoản?{' '}
+          <button 
+            type="button" 
+            onClick={onShowLogin}
+            className="text-white hover:text-blue-200 font-bold underline transition-colors"
+          >
+            Đăng nhập
+          </button>
+        </p>
+      </div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Zap } from 'lucide-react';
+import { Zap, CheckCircle, Eye, EyeOff } from 'lucide-react';
 import { validateEmail } from '../../../shared/utils/validators';
 
 const SOCIAL_BUTTONS = [
@@ -36,11 +36,18 @@ const SOCIAL_BUTTONS = [
   },
 ];
 
-function LoginForm() {
+import { useAuth } from '../../../shared/context/AuthContext';
+import { useTranslation } from 'react-i18next';
+
+function LoginForm({ onShowRegister }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [form, setForm] = useState({ email: '', password: '' });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const onChange = (field) => (e) => {
     setForm((p) => ({ ...p, [field]: e.target.value }));
@@ -53,84 +60,108 @@ function LoginForm() {
     const emailErr = validateEmail(form.email);
     if (emailErr) errs.email = emailErr;
     if (!form.password)
-      errs.password = 'Vui lòng nhập mật khẩu';
+      errs.password = t('auth.passwordRequired');
     if (Object.keys(errs).length) { setErrors(errs); return; }
+    
     setErrors({});
     setIsLoading(true);
+    
     try {
-      // await authService.login(form); // TODO: gọi API đăng nhập
-      navigate('/');
+      await login(form);
+      setIsSuccess(true);
+      // Wait for success animation before navigating
+      setTimeout(() => navigate('/'), 1500);
     } catch (err) {
-      setErrors({ general: err.message || 'Đăng nhập thất bại, vui lòng thử lại' });
+      setErrors({ general: err.message || t('auth.invalidCredentials') });
     } finally {
       setIsLoading(false);
     }
   };
 
   const inputCls = (field) =>
-    `w-full bg-[#1E2637] border rounded-xl px-4 py-3.5 text-white text-sm placeholder-gray-500 outline-none transition-colors ${
-      errors[field] ? 'border-red-500' : 'border-[#2A3548] focus:border-blue-500'
+    `w-full bg-white/10 border rounded-2xl px-4 py-3.5 text-white text-sm placeholder-blue-200/60 outline-none transition-colors backdrop-blur-sm ${
+      errors[field] ? 'border-red-400' : 'border-white/20 focus:border-white focus:bg-white/20'
     }`;
 
-  return (
-    <div className="flex flex-col items-center w-full">
-      <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mb-5 shadow-lg shadow-blue-600/30">
-        <Zap className="w-8 h-8 text-white fill-white" />
+  if (isSuccess) {
+    return (
+      <div className="flex flex-col items-center justify-center w-full h-full text-center animate-in fade-in duration-500">
+        <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(255,255,255,0.4)] animate-[bounce_1s_ease-in-out]">
+          <CheckCircle className="w-12 h-12 text-blue-600" />
+        </div>
+        <h2 className="text-3xl font-black text-white mb-2 animate-in slide-in-from-bottom-4 duration-500 delay-150 whitespace-pre-line">{t('auth.loginSuccessTitle')}</h2>
+        <p className="text-blue-100 mt-2 animate-in fade-in duration-500 delay-300">{t('auth.redirecting')}</p>
       </div>
-      <h2 className="text-xl font-semibold text-white">Đăng nhập</h2>
-      <p className="text-gray-400 text-sm mt-1 mb-7 text-center">
-        Chào mừng trở lại với Proton Sports
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-center w-full my-auto animate-in fade-in zoom-in-95 duration-500">
+      <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mb-5 shadow-lg shadow-black/10">
+        <Zap className="w-8 h-8 text-blue-600 fill-blue-600" />
+      </div>
+      <h2 className="text-2xl font-bold text-white">{t('auth.login')}</h2>
+      <p className="text-blue-100/80 text-sm mt-1 mb-8 text-center">
+        {t('auth.welcomeBack')}
       </p>
 
-      <form onSubmit={handleSubmit} className="flex flex-col w-full">
+      <form onSubmit={handleSubmit} className="flex flex-col w-full space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">Email</label>
+          <label className="block text-sm font-semibold text-blue-100 mb-1.5">{t('auth.email')}</label>
           <input
             type="email"
             value={form.email}
             onChange={onChange('email')}
-            placeholder="your@email.com"
+            placeholder={t('auth.emailPlaceholder')}
             className={inputCls('email')}
           />
-          <div className="h-5 mt-1">
-            {errors.email && <p className="text-red-400 text-xs">{errors.email}</p>}
-          </div>
+          {errors.email && <p className="text-red-300 text-xs mt-1.5 pl-1 font-medium">{errors.email}</p>}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">Mật khẩu</label>
-          <input
-            type="password"
-            value={form.password}
-            onChange={onChange('password')}
-            placeholder="Nhập mật khẩu"
-            className={inputCls('password')}
-          />
-          <div className="h-5 mt-1">
-            {errors.password && <p className="text-red-400 text-xs">{errors.password}</p>}
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="block text-sm font-semibold text-blue-100">{t('auth.password')}</label>
+            <button type="button" className="text-xs font-medium text-white/70 hover:text-white transition-colors">{t('auth.forgotPassword')}</button>
           </div>
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              value={form.password}
+              onChange={onChange('password')}
+              placeholder={t('auth.passwordPlaceholder')}
+              className={inputCls('password') + " pr-12"}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white transition-colors"
+            >
+              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            </button>
+          </div>
+          {errors.password && <p className="text-red-300 text-xs mt-1.5 pl-1 font-medium">{errors.password}</p>}
         </div>
 
         {errors.general && (
-          <p className="text-red-400 text-sm text-center mb-2">{errors.general}</p>
+          <p className="text-red-300 text-sm text-center font-medium mt-2">{errors.general}</p>
         )}
 
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full bg-blue-600 hover:bg-blue-500 active:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-3.5 rounded-xl transition-colors duration-200 text-sm mt-1"
+          className="w-full bg-white hover:bg-gray-50 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed text-blue-600 font-bold py-3.5 rounded-2xl transition-all shadow-lg text-base mt-4"
         >
-          {isLoading ? 'Đang xử lý...' : 'Đăng nhập'}
+          {isLoading ? t('auth.processing') : t('auth.login')}
         </button>
       </form>
 
-      <div className="mt-6 w-full">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="flex-1 h-px bg-[#2A3548]" />
-          <span className="text-gray-500 text-xs font-medium tracking-wider whitespace-nowrap">
-            HOẶC ĐĂNG NHẬP QUA
+      <div className="mt-8 w-full">
+        <div className="flex items-center gap-3 mb-5 opacity-70">
+          <div className="flex-1 h-px bg-white/30" />
+          <span className="text-white text-[10px] font-bold tracking-widest uppercase">
+            {t('auth.loginWith')}
           </span>
-          <div className="flex-1 h-px bg-[#2A3548]" />
+          <div className="flex-1 h-px bg-white/30" />
         </div>
         <div className="flex justify-center gap-4">
           {SOCIAL_BUTTONS.map(({ key, label, icon }) => (
@@ -138,7 +169,7 @@ function LoginForm() {
               key={key}
               type="button"
               aria-label={`Đăng nhập bằng ${label}`}
-              className="w-12 h-12 bg-[#1E2637] border border-[#2A3548] rounded-xl flex items-center justify-center hover:border-gray-500 hover:bg-[#252D40] transition-colors"
+              className="w-14 h-14 bg-white/10 border border-white/20 rounded-2xl flex items-center justify-center hover:bg-white/20 hover:scale-105 transition-all backdrop-blur-sm"
             >
               {icon}
             </button>
@@ -146,16 +177,18 @@ function LoginForm() {
         </div>
       </div>
 
-      <p className="text-center text-gray-500 text-xs mt-5 leading-relaxed">
-        Bằng việc tiếp tục, bạn đồng ý với{' '}
-        <button type="button" className="text-gray-300 hover:text-white underline-offset-2 hover:underline">
-          Điều khoản
-        </button>
-        {' & '}
-        <button type="button" className="text-gray-300 hover:text-white underline-offset-2 hover:underline">
-          Chính sách bảo mật
-        </button>
-      </p>
+      <div className="mt-8 text-center bg-black/10 w-[calc(100%+3rem)] -mb-8 py-5 rounded-b-[2.5rem]">
+        <p className="text-blue-100 text-sm font-medium">
+          {t('auth.dontHaveAccount')}{' '}
+          <button 
+            type="button" 
+            onClick={onShowRegister}
+            className="text-white hover:text-blue-200 font-bold underline transition-colors"
+          >
+            {t('auth.registerNow')}
+          </button>
+        </p>
+      </div>
     </div>
   );
 }

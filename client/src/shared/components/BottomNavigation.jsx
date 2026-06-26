@@ -1,14 +1,15 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Home, Trophy, Gamepad2, Calendar, MapPin, MessageSquare, Users } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useChat } from '../context/ChatContext';
 
 const NAV_ITEMS = [
-  { id: 'home', label: 'Home', Icon: Home, path: '/' },
-  { id: 'tournament', label: 'Tournament', Icon: Trophy, path: '/tournaments' },
-  { id: 'gameroom', label: 'Game Room', Icon: Gamepad2, path: '/matches' },
-  { id: 'bookings', label: 'Bookings', Icon: Calendar, path: '/bookings' },
-  { id: 'map', label: 'Map', Icon: MapPin, path: '/map' },
-  { id: 'team', label: 'Team', Icon: Users, path: '/team' },
+  { id: 'home', labelKey: 'bottomNav.home', Icon: Home, path: '/' },
+  { id: 'tournament', labelKey: 'bottomNav.tournament', Icon: Trophy, path: '/tournaments' },
+  { id: 'gameroom', labelKey: 'bottomNav.gameroom', Icon: Gamepad2, path: '/matches' },
+  { id: 'bookings', labelKey: 'bottomNav.bookings', Icon: Calendar, path: '/bookings' },
+  { id: 'map', labelKey: 'bottomNav.map', Icon: MapPin, path: '/map' },
+  { id: 'team', labelKey: 'bottomNav.team', Icon: Users, path: '/team' },
 ];
 
 function NavButton({ id, label, Icon, active, onClick }) {
@@ -41,6 +42,7 @@ function NavButton({ id, label, Icon, active, onClick }) {
 }
 
 function BottomNavigation() {
+  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const { isChatOpen, toggleChat } = useChat();
@@ -50,11 +52,11 @@ function BottomNavigation() {
       <div className="relative flex items-center justify-center h-16 w-full">
         {/* 5 nút điều hướng chính — gom gần nhau ở giữa */}
         <div className="flex items-center gap-8">
-          {NAV_ITEMS.map(({ id, label, Icon, path }) => (
+          {NAV_ITEMS.map(({ id, labelKey, Icon, path }) => (
             <NavButton
               key={id}
               id={id}
-              label={label}
+              label={t(labelKey)}
               Icon={Icon}
               active={location.pathname === path}
               onClick={() => navigate(path)}
@@ -84,7 +86,7 @@ function BottomNavigation() {
                   : 'text-gray-500 dark:text-gray-400'
               }`}
             >
-              Chat
+              {t('bottomNav.chat')}
             </span>
           </button>
         </div>
