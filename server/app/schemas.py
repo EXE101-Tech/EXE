@@ -275,6 +275,7 @@ class PostCreate(BaseModel):
     location: Optional[str] = None
     required_level: Optional[str] = None
     start_time: Optional[datetime] = None
+    required_players: int = Field(default=1, ge=1)
 
 class PostResponse(BaseModel):
     id: int
@@ -285,6 +286,8 @@ class PostResponse(BaseModel):
     location: Optional[str] = None
     required_level: Optional[str] = None
     start_time: Optional[datetime] = None
+    required_players: int
+    joined_players: int
     created_at: datetime
     updated_at: datetime
     author: UserResponse

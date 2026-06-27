@@ -86,6 +86,8 @@ function Home() {
             location: post.location || 'Chưa xác định',
             description: post.content || '',
             images: Array.isArray(post.images) ? post.images.map(img => img.image_url).filter(Boolean) : [],
+            requiredPlayers: post.required_players || 1,
+            joinedPlayers: post.joined_players || 0,
           };
         } catch (err) {
           console.error("Lỗi khi parse bài viết:", post, err);

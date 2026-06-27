@@ -49,6 +49,7 @@ async def create_post(
     location: Optional[str] = Form(None),
     required_level: Optional[str] = Form(None),
     start_time: Optional[datetime] = Form(None),
+    required_players: int = Form(1),
     images: List[UploadFile] = File(default=[]),
     current_user = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db)
@@ -62,7 +63,8 @@ async def create_post(
         content=content,
         location=location,
         required_level=required_level,
-        start_time=start_time
+        start_time=start_time,
+        required_players=required_players
     )
     
     # Create the post in DB

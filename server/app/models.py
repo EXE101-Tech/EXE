@@ -228,6 +228,8 @@ class Post(Base):
     location = Column(String, nullable=True)
     required_level = Column(String, nullable=True)
     start_time = Column(DateTime, nullable=True)
+    required_players = Column(Integer, default=1)
+    joined_players = Column(Integer, default=0)
     created_at = Column(DateTime, default=utc_now_naive)
     updated_at = Column(DateTime, default=utc_now_naive, onupdate=utc_now_naive)
 

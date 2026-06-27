@@ -15,7 +15,7 @@ const AVATAR_COLORS = [
 
 function PostCard({ post, onChat }) {
   const { t } = useTranslation();
-  const { id, author, avatarBadge, description, time, level, location, isTeam, sportLabel, images } = post;
+  const { id, author, avatarBadge, description, time, level, location, isTeam, sportLabel, images, requiredPlayers, joinedPlayers } = post;
   
   // Use a hash of the author name to consistently pick a color if not explicitly provided
   const hash = author.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
@@ -76,6 +76,9 @@ function PostCard({ post, onChat }) {
             </span>
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${LEVEL_STYLES[level] ?? 'bg-gray-100 text-gray-600'}`}>
               {level}
+            </span>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 flex items-center gap-1">
+              👥 {joinedPlayers}/{requiredPlayers} người
             </span>
           </div>
           

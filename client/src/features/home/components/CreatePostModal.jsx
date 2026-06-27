@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { postService } from '../../../shared/services/api';
-import { ImagePlus, X, XCircle, MapPin, Clock, Info } from 'lucide-react';
+import { ImagePlus, X, XCircle, MapPin, Clock, Info, Users } from 'lucide-react';
 
 const CreatePostModal = ({ isOpen, onClose, onSuccess, sports = [] }) => {
   const { t } = useTranslation();
@@ -11,6 +11,7 @@ const CreatePostModal = ({ isOpen, onClose, onSuccess, sports = [] }) => {
   const [level, setLevel] = useState('INTERMEDIATE');
   const [location, setLocation] = useState('');
   const [startTime, setStartTime] = useState('');
+  const [requiredPlayers, setRequiredPlayers] = useState(1);
   const [images, setImages] = useState([]);
   const [previewUrls, setPreviewUrls] = useState([]);
   
@@ -73,6 +74,7 @@ const CreatePostModal = ({ isOpen, onClose, onSuccess, sports = [] }) => {
         // Our backend expects a valid datetime string. 
         formData.append('start_time', new Date(startTime).toISOString());
       }
+      formData.append('required_players', requiredPlayers);
       
       images.forEach(image => {
         formData.append('images', image);
@@ -87,6 +89,7 @@ const CreatePostModal = ({ isOpen, onClose, onSuccess, sports = [] }) => {
       setLevel('INTERMEDIATE');
       setLocation('');
       setStartTime('');
+      setRequiredPlayers(1);
       setImages([]);
       setPreviewUrls([]);
       
@@ -224,6 +227,21 @@ const CreatePostModal = ({ isOpen, onClose, onSuccess, sports = [] }) => {
                   type="datetime-local"
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
+                  className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg pl-9 pr-3 py-2 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+                />
+             </div>
+          </div>
+          
+          <div>
+             <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Số lượng người cần tìm</label>
+             <div className="relative">
+                <Users size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={requiredPlayers}
+                  onChange={(e) => setRequiredPlayers(parseInt(e.target.value) || 1)}
                   className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg pl-9 pr-3 py-2 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
                 />
              </div>
