@@ -212,3 +212,86 @@ class ParticipantStatusUpdate(BaseModel):
         if v not in valid_statuses:
             raise ValueError("Trạng thái phải là APPROVED hoặc REJECTED")
         return v
+
+# Team Schemas
+class TeamMemberResponse(BaseModel):
+    id: int
+    team_id: int
+    user_id: int
+    role: str
+    joined_at: datetime
+    user: UserResponse
+    model_config = ConfigDict(from_attributes=True)
+
+class TeamResponse(BaseModel):
+    id: int
+    name: str
+    sport_id: int
+    rating: float
+    avatar_badge: Optional[str] = None
+    bg_gradient: Optional[str] = None
+    created_at: datetime
+    sport: SportResponse
+    members: List[TeamMemberResponse] = []
+    model_config = ConfigDict(from_attributes=True)
+
+# Chat Schemas
+class MessageCreate(BaseModel):
+    text: str
+
+class MessageResponse(BaseModel):
+    id: int
+    conversation_id: int
+    sender_id: int
+    text: str
+    created_at: datetime
+    is_read: int
+    sender: UserResponse
+    model_config = ConfigDict(from_attributes=True)
+
+class ConversationResponse(BaseModel):
+    id: int
+    user1_id: int
+    user2_id: int
+    last_message: Optional[str] = None
+    updated_at: datetime
+    user1: UserResponse
+    user2: UserResponse
+    messages: List[MessageResponse] = []
+    model_config = ConfigDict(from_attributes=True)
+
+# Post Schemas
+class PostImageResponse(BaseModel):
+    id: int
+    post_id: int
+    image_url: str
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+class PostCreate(BaseModel):
+    team_id: Optional[int] = None
+    sport_id: Optional[int] = None
+    content: str
+    location: Optional[str] = None
+    required_level: Optional[str] = None
+    start_time: Optional[datetime] = None
+    required_players: int = Field(default=1, ge=1)
+
+class PostResponse(BaseModel):
+    id: int
+    user_id: int
+    team_id: Optional[int] = None
+    sport_id: Optional[int] = None
+    content: str
+    location: Optional[str] = None
+    required_level: Optional[str] = None
+    start_time: Optional[datetime] = None
+    required_players: int
+    joined_players: int
+    created_at: datetime
+    updated_at: datetime
+    author: UserResponse
+    team: Optional[TeamResponse] = None
+    sport: Optional[SportResponse] = None
+    images: List[PostImageResponse] = []
+    model_config = ConfigDict(from_attributes=True)

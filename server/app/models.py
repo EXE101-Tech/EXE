@@ -160,3 +160,93 @@ class LoginAttempt(Base):
     id = Column(Integer, primary_key=True, index=True)
     ip = Column(String, index=True, nullable=False)
     attempted_at = Column(DateTime, default=utc_now_naive)
+
+class Team(Base):
+    __tablename__ = "teams"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    sport_id = Column(Integer, ForeignKey("sports.id", ondelete="CASCADE"), nullable=False)
+    rating = Column(Float, default=5.0)
+    avatar_badge = Column(String, nullable=True) # e.g., 'TP'
+    bg_gradient = Column(String, nullable=True)  # e.g., 'from-green-600 to-green-800'
+    created_at = Column(DateTime, default=utc_now_naive)
+
+    # Relationships
+    sport = relationship("Sport")
+    members = relationship("TeamMember", back_populates="team", cascade="all, delete-orphan")
+
+class TeamMember(Base):
+    __tablename__ = "team_members"
+
+    id = Column(Integer, primary_key=True, index=True)
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    role = Column(String, default="MEMBER") # LEADER, MEMBER
+    joined_at = Column(DateTime, default=utc_now_naive)
+
+    # Relationships
+    team = relationship("Team", back_populates="members")
+    user = relationship("User")
+
+class Conversation(Base):
+    __tablename__ = "conversations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user1_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    user2_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    last_message = Column(String, nullable=True)
+    updated_at = Column(DateTime, default=utc_now_naive, onupdate=utc_now_naive)
+
+    # Relationships
+    user1 = relationship("User", foreign_keys=[user1_id])
+    user2 = relationship("User", foreign_keys=[user2_id])
+    messages = relationship("Message", back_populates="conversation", cascade="all, delete-orphan")
+
+class Message(Base):
+    __tablename__ = "messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    conversation_id = Column(Integer, ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False)
+    sender_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    text = Column(String, nullable=False)
+    created_at = Column(DateTime, default=utc_now_naive)
+    is_read = Column(Integer, default=0) # 0: false, 1: true
+
+    # Relationships
+    conversation = relationship("Conversation", back_populates="messages")
+    sender = relationship("User")
+
+class Post(Base):
+    __tablename__ = "posts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="SET NULL"), nullable=True)
+    sport_id = Column(Integer, ForeignKey("sports.id", ondelete="SET NULL"), nullable=True)
+    content = Column(Text, nullable=False)
+    location = Column(String, nullable=True)
+    required_level = Column(String, nullable=True)
+    start_time = Column(DateTime, nullable=True)
+    required_players = Column(Integer, default=1)
+    joined_players = Column(Integer, default=0)
+    created_at = Column(DateTime, default=utc_now_naive)
+    updated_at = Column(DateTime, default=utc_now_naive, onupdate=utc_now_naive)
+
+    # Relationships
+    author = relationship("User")
+    team = relationship("Team")
+    sport = relationship("Sport")
+    images = relationship("PostImage", back_populates="post", cascade="all, delete-orphan")
+
+class PostImage(Base):
+    __tablename__ = "post_images"
+
+    id = Column(Integer, primary_key=True, index=True)
+    post_id = Column(Integer, ForeignKey("posts.id", ondelete="CASCADE"), nullable=False)
+    image_url = Column(String, nullable=False)
+    created_at = Column(DateTime, default=utc_now_naive)
+
+    # Relationships
+    post = relationship("Post", back_populates="images")
+
