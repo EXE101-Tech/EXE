@@ -37,6 +37,9 @@ export const AuthProvider = ({ children }) => {
       if (response && response.access_token) {
         localStorage.setItem('token', response.access_token);
         setToken(response.access_token);
+        // Wait for profile to load before returning so isAuthenticated becomes true synchronously for the caller
+        const userData = await authService.getProfile();
+        setUser(userData);
       }
       return response;
     } catch (error) {

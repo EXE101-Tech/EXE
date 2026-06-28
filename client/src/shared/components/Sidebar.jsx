@@ -18,20 +18,20 @@ export default function Sidebar() {
   const { logout, user } = useAuth();
 
   return (
-    <aside className="w-[280px] h-screen fixed top-0 left-0 border-r border-white/5 bg-gray-950/40 backdrop-blur-3xl z-40 flex flex-col transition-all">
+    <aside className="w-[260px] h-[calc(100vh-32px)] fixed top-4 left-4 rounded-2xl glass-panel z-40 flex flex-col overflow-hidden">
       {/* Logo Area */}
-      <div className="h-20 flex items-center px-8 border-b border-white/5">
+      <div className="h-20 flex items-center px-6">
         <Link to="/home" className="flex items-center gap-3 group">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-brand-primary to-indigo-500 flex items-center justify-center shrink-0 shadow-[0_0_15px_var(--theme-glow)] group-hover:scale-110 transition-transform">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-primary to-indigo-500 flex items-center justify-center shrink-0 shadow-lg group-hover:scale-110 transition-transform">
             <span className="text-white font-black text-sm">S</span>
           </div>
-          <span className="font-bold text-xl tracking-tight text-white group-hover:text-brand-primary transition-colors">SportGo</span>
+          <span className="font-bold text-xl tracking-tight text-slate-900 dark:text-white group-hover:text-brand-primary transition-colors">SportGo</span>
         </Link>
       </div>
 
       {/* Main Navigation */}
-      <div className="flex-1 overflow-y-auto py-6 px-4 no-scrollbar flex flex-col gap-1">
-        <div className="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Menu</div>
+      <div className="flex-1 overflow-y-auto py-4 px-4 no-scrollbar flex flex-col gap-1">
+        <div className="px-2 text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider mb-2">Menu</div>
         
         {NAV_ITEMS.map(({ id, labelKey, Icon, path }) => {
           const isActive = location.pathname === path;
@@ -41,55 +41,54 @@ export default function Sidebar() {
               to={path}
               className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 ${
                 isActive 
-                  ? 'bg-white/10 text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] border border-white/5 font-medium' 
-                  : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'
+                  ? 'bg-brand-primary/10 dark:bg-brand-primary/20 text-brand-primary font-bold shadow-sm' 
+                  : 'text-slate-500 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-gray-200 font-medium'
               }`}
             >
-              <Icon className={`w-5 h-5 ${isActive ? 'text-brand-primary' : ''}`} />
+              <div className={`p-1.5 rounded-lg ${isActive ? 'bg-brand-primary text-white shadow-md' : ''}`}>
+                <Icon className={`w-4 h-4 ${isActive ? '' : 'text-slate-400 dark:text-gray-500'}`} />
+              </div>
               <span className="text-sm">{t(labelKey)}</span>
-              {isActive && (
-                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-brand-primary shadow-[0_0_8px_var(--theme-glow)]" />
-              )}
             </Link>
           );
         })}
 
-        <div className="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mt-8 mb-2">Preferences</div>
-        <Link to="/settings" className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 hover:bg-white/5 hover:text-gray-200 transition-all duration-300">
-          <Settings className="w-5 h-5" />
+        <div className="px-2 text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider mt-8 mb-2">Preferences</div>
+        <Link to="/settings" className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-gray-200 transition-all duration-300 font-medium">
+          <div className="p-1.5 rounded-lg">
+            <Settings className="w-4 h-4 text-slate-400 dark:text-gray-500" />
+          </div>
           <span className="text-sm">Settings</span>
         </Link>
-        <Link to="/support" className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 hover:bg-white/5 hover:text-gray-200 transition-all duration-300">
-          <HelpCircle className="w-5 h-5" />
+        <Link to="/support" className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-gray-200 transition-all duration-300 font-medium">
+          <div className="p-1.5 rounded-lg">
+            <HelpCircle className="w-4 h-4 text-slate-400 dark:text-gray-500" />
+          </div>
           <span className="text-sm">Support</span>
         </Link>
       </div>
 
       {/* Bottom Section */}
-      <div className="p-4 border-t border-white/5">
-        {/* Used Space Widget (Example) */}
-        <div className="glass-panel rounded-2xl p-4 mb-4 relative overflow-hidden group border border-white/5 hover:border-brand-primary/30 transition-colors">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-brand-primary/10 rounded-full blur-2xl -mr-10 -mt-10 group-hover:bg-brand-primary/20 transition-colors"></div>
-          <h4 className="text-sm font-bold text-white mb-1">Upcoming matches</h4>
-          <p className="text-xs text-gray-400 mb-3">You have 2 bookings this week.</p>
-          <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
-            <div className="bg-gradient-to-r from-brand-primary to-indigo-500 w-[60%] h-full rounded-full"></div>
-          </div>
-        </div>
+      <div className="p-4 mx-4 mb-4 mt-2 rounded-2xl bg-gradient-to-br from-brand-primary to-indigo-600 relative overflow-hidden group shadow-lg">
+        <div className="absolute top-0 right-0 w-24 h-24 bg-white/20 rounded-full blur-2xl -mr-10 -mt-10 group-hover:bg-white/30 transition-colors"></div>
+        <h4 className="text-sm font-bold text-white mb-1 relative z-10">Pro Upgrade</h4>
+        <p className="text-xs text-white/80 mb-3 relative z-10">Check our pro features.</p>
+        <button className="w-full bg-white text-brand-primary text-xs font-bold py-2 rounded-xl hover:bg-slate-50 transition-colors relative z-10 shadow-sm">
+          Upgrade Now
+        </button>
+      </div>
 
-        {/* User Profile */}
-        <div className="flex items-center gap-3 px-2 py-2">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center font-bold text-white text-sm shrink-0 border border-white/10">
-            {user?.name?.[0]?.toUpperCase() || 'U'}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-white truncate">{user?.name || 'User'}</p>
-            <p className="text-xs text-gray-400 truncate">{user?.email || 'user@example.com'}</p>
-          </div>
-          <button onClick={logout} className="p-2 text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/10" title="Log out">
-            <LogOut className="w-4 h-4" />
-          </button>
+      {/* User Profile */}
+      <div className="flex items-center gap-3 px-6 py-4 border-t border-black/5 dark:border-white/5 bg-transparent">
+        <div className="w-9 h-9 rounded-full bg-slate-200 dark:bg-gray-800 flex items-center justify-center font-bold text-slate-700 dark:text-white text-sm shrink-0 border border-slate-300 dark:border-white/10 shadow-sm">
+          {user?.name?.[0]?.toUpperCase() || 'U'}
         </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{user?.name || 'User'}</p>
+        </div>
+        <button onClick={logout} className="p-2 text-slate-400 dark:text-gray-500 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10" title="Log out">
+          <LogOut className="w-4 h-4" />
+        </button>
       </div>
     </aside>
   );

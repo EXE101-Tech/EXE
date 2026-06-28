@@ -16,12 +16,11 @@ import LandingPage from '../features/landing/Landing.jsx';
 import PublicLayout from '../shared/layouts/PublicLayout.jsx';
 import Particles from '../features/landing/components/Particles.jsx';
 import { useTheme } from '../shared/context/ThemeContext.jsx';
-import { Palette } from 'lucide-react';
 
 function GlobalWrapper({ children }) {
     const { toggleTheme } = useTheme();
     return (
-        <div className="min-h-screen text-white overflow-x-hidden selection:bg-brand-primary/30 font-sans relative theme-transition">
+        <div className="min-h-screen text-slate-900 dark:text-white overflow-x-hidden selection:bg-brand-primary/30 font-sans relative theme-transition">
             <div className="fixed inset-0 z-0 pointer-events-none">
                 <Particles />
             </div>
@@ -29,15 +28,6 @@ function GlobalWrapper({ children }) {
             <div className="relative z-10 h-full w-full">
                 {children}
             </div>
-
-            {/* Floating Theme Toggle (Global) */}
-            <button 
-                onClick={toggleTheme}
-                className="fixed bottom-6 right-6 z-50 w-12 h-12 rounded-full glass-panel flex items-center justify-center text-white hover:scale-110 transition-transform group shadow-[0_0_15px_var(--theme-glow)]"
-                title="Toggle Theme"
-            >
-                <Palette className="w-5 h-5 group-hover:text-brand-primary transition-colors" />
-            </button>
         </div>
     );
 }
@@ -51,7 +41,7 @@ function MainLayout({ children }) {
 
             {/* Nội dung chính — margin left để tránh Sidebar, co lại khi chat mở */}
             <div
-                className="flex-1 flex flex-col transition-all duration-300 ease-in-out ml-[280px]"
+                className="flex-1 flex flex-col transition-all duration-300 ease-in-out ml-[292px]"
                 style={{ marginRight: isChatOpen ? '340px' : '0px' }}
             >
                 <TopNavbar />

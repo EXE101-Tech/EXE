@@ -30,7 +30,7 @@ function AuthPage({ defaultIsRegister = false }) {
       <a 
         href="/" 
         onClick={handleNavigate('/')}
-        className="absolute top-6 left-6 z-50 flex items-center gap-2 px-4 py-2 rounded-full glass-panel text-white hover:text-brand-primary hover:scale-105 transition-all group"
+        className="absolute top-6 left-6 z-50 flex items-center gap-2 px-4 py-2 rounded-full glass-panel text-slate-700 dark:text-white hover:text-brand-primary dark:hover:text-brand-primary hover:scale-105 transition-all group"
       >
         <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
         <span className="text-sm font-bold">Back to Home</span>
@@ -47,7 +47,7 @@ function AuthPage({ defaultIsRegister = false }) {
       >
         {/* Mặt trước: Đăng nhập */}
         <div 
-          className="absolute inset-0 w-full h-full rounded-[2.5rem] glass-panel p-6 sm:p-8 flex flex-col overflow-y-auto scrollbar-hide theme-transition"
+          className="absolute inset-0 w-full h-full rounded-[2.5rem] glass-panel flex flex-col overflow-y-auto scrollbar-hide theme-transition"
           style={{ backfaceVisibility: 'hidden' }}
         >
           <LoginForm onShowRegister={() => setIsFlipped(true)} />
@@ -55,7 +55,7 @@ function AuthPage({ defaultIsRegister = false }) {
 
         {/* Mặt sau: Đăng ký */}
         <div 
-          className="absolute inset-0 w-full h-full rounded-[2.5rem] glass-panel p-6 sm:p-8 flex flex-col overflow-y-auto scrollbar-hide theme-transition"
+          className="absolute inset-0 w-full h-full rounded-[2.5rem] glass-panel flex flex-col overflow-y-auto scrollbar-hide theme-transition"
           style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
         >
           <RegisterForm onShowLogin={() => setIsFlipped(false)} />
