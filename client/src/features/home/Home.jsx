@@ -1,293 +1,188 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Moon, Sun, LogIn, Sparkles, LogOut, Crown } from 'lucide-react';
-import gpsImg from '../../assets/svgs/gps.svg';
-import arrowDownImg from '../../assets/svgs/arrow_down.svg';
-import notificationImg from '../../assets/svgs/notification.svg';
-import searchImg from '../../assets/svgs/search.svg';
-import badmintonImg from '../../assets/icons/badminton.png';
-import footballImg from '../../assets/icons/football.png';
-import pickleballImg from '../../assets/icons/pickelball.png';
-import tennisImg from '../../assets/icons/tennis.png';
-import protonImg from '../../assets/images/ProtonBadmintonCenter.png';
-import eliteImg from '../../assets/images/EliteFootballArena.png';
-import PostCard from './components/PostCard';
-import { useChat } from '../../shared/context/ChatContext';
-import Header from '../../shared/components/Header';
+import { Trophy, Activity, Users, Calendar, ArrowUpRight, ArrowDownRight, MapPin } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../../shared/context/AuthContext';
 
-/* ─── Danh mục môn thể thao ─── */
-
-const MOCK_SPORTS = [
-  { id: 1, name: 'Badminton', image: badmintonImg, key: 'badminton' },
-  { id: 2, name: 'Football', image: footballImg, key: 'football' },
-  { id: 3, name: 'Pickleball', image: pickleballImg, key: 'pickleball' },
-  { id: 4, name: 'Tennis', image: tennisImg, key: 'tennis' },
-];
-
-/* ─── Dữ liệu mẫu - Top Teams ─── */
-
-const MOCK_TOP_TEAMS = [
-  {
-    id: 1,
-    name: 'FC Tiến Phát',
-    sport: 'football',
-    rating: '4.9',
-    members: 15,
-    avatarBadge: 'TP',
-    bgGradient: 'from-green-600 to-green-800',
-  },
-  {
-    id: 2,
-    name: 'Pro Badminton Team',
-    sport: 'badminton',
-    rating: '4.8',
-    members: 8,
-    avatarBadge: 'PB',
-    bgGradient: 'from-blue-600 to-blue-800',
-  },
-  {
-    id: 3,
-    name: 'Saigon Pickleball',
-    sport: 'pickleball',
-    rating: '4.7',
-    members: 12,
-    avatarBadge: 'SP',
-    bgGradient: 'from-teal-600 to-teal-800',
-  },
-  {
-    id: 4,
-    name: 'Elite Tennis',
-    sport: 'tennis',
-    rating: '4.8',
-    members: 6,
-    avatarBadge: 'ET',
-    bgGradient: 'from-orange-500 to-red-600',
-  },
-];
-
-/* ─── Dữ liệu mẫu - Bài đăng (Posts) ─── */
-
-const MOCK_POSTS = [
-  {
-    id: 1,
-    author: 'Minh Tran',
-    isTeam: false,
-    avatarBadge: 'M',
-    sport: 'badminton',
-    sportLabel: 'Badminton',
-    level: 'INTERMEDIATE',
-    time: '2 hours ago',
-    location: 'Proton Badminton Center, Quận 7',
-    description: 'Mình cần tìm 2 bạn đánh đôi tối nay lúc 19:00. Trình độ trung bình khá, nam nữ đều được, share tiền sân, ai rảnh ib mình nha!',
-    images: [protonImg],
-  },
-  {
-    id: 2,
-    author: 'FC Tiến Phát',
-    isTeam: true,
-    avatarBadge: 'TP',
-    sport: 'football',
-    sportLabel: 'Football',
-    level: 'ADVANCED',
-    time: '5 hours ago',
-    location: 'Elite Football Arena, Quận 2',
-    description: 'Team mình đang thiếu 1 thủ môn cứng cho trận đấu giao hữu 7v7 tối mai lúc 20:00. Đối thủ đá hay, fairplay. Anh em nào muốn thử sức thì liên hệ, tiền nước nôi team bao.',
-    images: [eliteImg],
-  },
-  {
-    id: 3,
-    author: 'Lan Nguyen',
-    isTeam: false,
-    avatarBadge: 'L',
-    sport: 'pickleball',
-    sportLabel: 'Pickleball',
-    level: 'BEGINNER',
-    time: '1 day ago',
-    location: 'Riverside Pickle Court, Quận 1',
-    description: 'Có nhóm bạn nào mới tập chơi pickleball cho mình tham gia với. Mình mới sắm vợt, biết luật cơ bản nhưng chưa có team để giao lưu.',
-    images: [],
-  },
-  {
-    id: 4,
-    author: 'Huy Pham',
-    isTeam: false,
-    avatarBadge: 'H',
-    sport: 'tennis',
-    sportLabel: 'Tennis',
-    level: 'PRO',
-    time: '2 days ago',
-    location: 'VinCity Tennis Club, Quận 9',
-    description: 'Sáng cuối tuần (7:00 AM) ai rảnh giao lưu không? Kèo giao lưu vui vẻ nâng cao sức khỏe, đánh đơn hoặc đôi đều ok. Ai rảnh thì cmt sđt mình add zalo nhé.',
-    images: [],
-  },
-];
-
-/* ─── Component chính ─── */
+function StatCard({ title, value, change, isPositive, Icon, colorClass }) {
+  return (
+    <div className="glass-panel p-6 rounded-3xl border border-white/5 hover:border-white/10 transition-colors relative overflow-hidden group">
+      <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full blur-2xl opacity-20 group-hover:opacity-40 transition-opacity ${colorClass}`}></div>
+      
+      <div className="flex justify-between items-start mb-4 relative z-10">
+        <div>
+          <p className="text-sm font-medium text-gray-400 mb-1">{title}</p>
+          <h3 className="text-3xl font-black text-white">{value}</h3>
+        </div>
+        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg ${colorClass} bg-opacity-20 border border-white/10 backdrop-blur-md`}>
+          <Icon className="w-6 h-6 text-white" />
+        </div>
+      </div>
+      
+      <div className="flex items-center gap-2 relative z-10">
+        <span className={`flex items-center text-xs font-bold ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
+          {isPositive ? <ArrowUpRight className="w-3 h-3 mr-0.5" /> : <ArrowDownRight className="w-3 h-3 mr-0.5" />}
+          {change}
+        </span>
+        <span className="text-xs text-gray-500">vs last month</span>
+      </div>
+    </div>
+  );
+}
 
 function Home() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
-  const { startChat } = useChat(); // Dùng context để mở chat
-  const [searchKeyword, setSearchKeyword] = useState('');
-  const [selectedSport, setSelectedSport] = useState(null);
-  const [currentLocation] = useState('Hồ Chí Minh');
-  const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') !== 'light');
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const { user } = useAuth();
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-  }, [isDark]);
-
-  const handleFilterSport = (sportId) => {
-    const next = sportId === selectedSport ? null : sportId;
-    setSelectedSport(next);
-  };
-
-  /* Lọc dữ liệu theo môn thể thao */
-  const selectedSportKey = selectedSport
-    ? MOCK_SPORTS.find((s) => s.id === selectedSport)?.key
-    : null;
-
-  const filteredTeams = selectedSportKey
-    ? MOCK_TOP_TEAMS.filter((t) => t.sport === selectedSportKey)
-    : MOCK_TOP_TEAMS;
-
-  const filteredPosts = selectedSportKey
-    ? MOCK_POSTS.filter((p) => p.sport === selectedSportKey)
-    : MOCK_POSTS;
-
-  const handleChat = (postId, authorName) => {
-    // Tạo mock user từ tác giả bài viết để nhảy thẳng vào chat
-    const chatUser = {
-      id: `post-${postId}`,
-      name: authorName,
-      avatar: authorName.charAt(0).toUpperCase(),
-      lastMessage: 'Chào bạn, mình quan tâm đến bài đăng này!',
-      time: 'Vừa xong',
-      unread: 0,
-      online: true,
-    };
-    startChat(chatUser);
-    console.log(`Bắt đầu chat với: ${authorName} từ bài viết ${postId}`);
-  };
+    setIsMounted(true);
+  }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 pb-24">
-
-      {/* ── Thanh tiêu đề ── */}
-      <Header 
-        currentLocation={currentLocation}
-        isDark={isDark}
-        setIsDark={setIsDark}
-        searchKeyword={searchKeyword}
-        setSearchKeyword={setSearchKeyword}
-        searchPlaceholder={t('home.searchPlaceholder')}
-      />
-
-
-
-      <div className="px-4 pt-5 space-y-7">
-
-        {/* ── Danh mục môn thể thao ── */}
-        <section>
-          <div className="flex justify-around">
-            {MOCK_SPORTS.map((sport) => (
-              <button
-                key={sport.id}
-                onClick={() => handleFilterSport(sport.id)}
-                className="flex flex-col items-center gap-2"
-              >
-                <div
-                  className={`relative w-14 h-14 rounded-full overflow-hidden transition-all flex items-center justify-center ${
-                    selectedSport === sport.id ? 'scale-105' : 'hover:scale-105'
-                  }`}
-                >
-                  <img src={sport.image} alt={sport.name} className="w-full h-full object-cover" />
-                  {selectedSport === sport.id && (
-                    <div className="absolute inset-0 rounded-full border-[3px] border-blue-500 pointer-events-none"></div>
-                  )}
-                </div>
-                <span className={`text-xs font-medium ${selectedSport === sport.id
-                  ? 'text-blue-600 dark:text-blue-400'
-                  : 'text-gray-600 dark:text-gray-400'
-                }`}>
-                  {t(`sports.${sport.key}`, sport.name)}
-                </span>
-              </button>
-            ))}
-          </div>
-        </section>
-
-        {/* ── Top Teams ── */}
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-gray-900 dark:text-white font-bold text-lg">{t('home.topTeams')}</h2>
-            <button className="text-blue-600 dark:text-blue-400 text-sm font-medium">{t('home.seeAll')}</button>
-          </div>
-          {filteredTeams.length > 0 ? (
-            <div className="flex gap-3 overflow-x-auto pb-3 -mx-4 px-4 scrollbar-hide">
-              {filteredTeams.map((team) => (
-                <div
-                  key={team.id}
-                  className={`shrink-0 w-40 h-48 bg-gradient-to-br ${team.bgGradient} rounded-2xl p-4 flex flex-col justify-between relative shadow-md shadow-gray-200 dark:shadow-none`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/30">
-                      <span className="text-white font-bold text-sm select-none">{team.avatarBadge}</span>
-                    </div>
-                    <div className="bg-black/30 backdrop-blur-md rounded-full px-1.5 py-0.5 flex items-center gap-1">
-                      <span className="text-yellow-400 text-[10px] leading-none">⭐</span>
-                      <span className="text-white text-[10px] font-semibold leading-none">{team.rating}</span>
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="text-white font-bold text-sm leading-tight mb-1">{team.name}</h3>
-                    <p className="text-white/80 text-xs flex items-center gap-1">
-                       👥 {team.members} {t('home.members')}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-             <div className="py-6 text-center text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800">
-               {t('home.noTopTeams')}
-             </div>
-          )}
-        </section>
-
-        {/* ── Posts / Bảng tin ── */}
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-gray-900 dark:text-white font-bold text-lg">{t('home.recentPosts')}</h2>
-            <button className="text-blue-600 dark:text-blue-400 text-sm font-medium">{t('home.newPost')}</button>
-          </div>
-          {filteredPosts.length > 0 ? (
-            <div className="flex flex-col gap-4">
-              {filteredPosts.map((post) => (
-                <PostCard key={post.id} post={post} onChat={handleChat} />
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-16 text-center bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
-              <div className="w-16 h-16 rounded-full bg-gray-50 dark:bg-gray-800 flex items-center justify-center mb-4">
-                <span className="text-2xl">📝</span>
-              </div>
-              <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">{t('home.noPosts')}</p>
-              <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">{t('home.beTheFirst')}</p>
-            </div>
-          )}
-        </section>
-
+    <div className={`transition-all duration-700 ease-out ${isMounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+      
+      {/* ── Stat Cards Grid ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+        <StatCard 
+          title="Total Matches" 
+          value="1,284" 
+          change="+12.5%" 
+          isPositive={true} 
+          Icon={Activity} 
+          colorClass="bg-brand-primary" 
+        />
+        <StatCard 
+          title="Active Teams" 
+          value="342" 
+          change="+5.2%" 
+          isPositive={true} 
+          Icon={Users} 
+          colorClass="bg-blue-500" 
+        />
+        <StatCard 
+          title="Upcoming Bookings" 
+          value="89" 
+          change="-2.1%" 
+          isPositive={false} 
+          Icon={Calendar} 
+          colorClass="bg-orange-500" 
+        />
+        <StatCard 
+          title="Win Rate Avg" 
+          value="64%" 
+          change="+8.4%" 
+          isPositive={true} 
+          Icon={Trophy} 
+          colorClass="bg-green-500" 
+        />
       </div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* ── Main Data Table (2/3 width) ── */}
+        <div className="lg:col-span-2 glass-panel rounded-3xl border border-white/5 overflow-hidden flex flex-col">
+          <div className="p-6 border-b border-white/5 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-white">Recent Activities</h2>
+              <p className="text-sm text-gray-400">Latest matches and bookings in your area</p>
+            </div>
+            <button className="text-sm font-medium text-brand-primary hover:text-brand-secondary transition-colors">
+              View All
+            </button>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-white/5 bg-white/[0.02]">
+                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Sport/Event</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Location</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Time</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {[
+                  { sport: 'Football (7v7)', team: 'FC Tiến Phát', loc: 'Elite Arena, Q2', status: 'Completed', color: 'text-green-400 bg-green-400/10', time: '2 mins ago' },
+                  { sport: 'Badminton Doubles', team: 'Pro Team', loc: 'Proton Center, Q7', status: 'Upcoming', color: 'text-blue-400 bg-blue-400/10', time: 'In 2 hours' },
+                  { sport: 'Tennis Singles', team: 'Huy Pham', loc: 'VinCity Club, Q9', status: 'Pending', color: 'text-orange-400 bg-orange-400/10', time: 'Tomorrow' },
+                  { sport: 'Pickleball', team: 'Saigon Club', loc: 'Riverside, Q1', status: 'Canceled', color: 'text-red-400 bg-red-400/10', time: 'Yesterday' },
+                ].map((row, i) => (
+                  <tr key={i} className="hover:bg-white/[0.02] transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center font-bold text-xs border border-white/10">
+                          {row.sport[0]}
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-white">{row.sport}</p>
+                          <p className="text-xs text-gray-400">by {row.team}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2 text-sm text-gray-300">
+                        <MapPin className="w-4 h-4 text-gray-500" />
+                        {row.loc}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${row.color}`}>
+                        {row.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-400">
+                      {row.time}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* ── Side Widget (1/3 width) ── */}
+        <div className="glass-panel rounded-3xl border border-white/5 p-6 flex flex-col">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-bold text-white">Top Players</h2>
+            <button className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors">
+              <span className="text-gray-400">⋮</span>
+            </button>
+          </div>
+
+          <div className="flex-1 flex flex-col gap-4">
+            {[
+              { name: 'Katherine Moss', score: '2,450 pts', avatar: 'K' },
+              { name: 'Phoenix Baker', score: '2,120 pts', avatar: 'P' },
+              { name: 'Olivia Rhye', score: '1,980 pts', avatar: 'O' },
+              { name: 'Lana Steiner', score: '1,850 pts', avatar: 'L' },
+              { name: 'Demi Wilkinson', score: '1,720 pts', avatar: 'D' },
+            ].map((player, i) => (
+              <div key={i} className="flex items-center gap-4 p-3 rounded-2xl hover:bg-white/5 transition-colors border border-transparent hover:border-white/5 cursor-pointer">
+                <div className="relative">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-gray-700 to-gray-800 flex items-center justify-center font-bold text-white shadow-lg">
+                    {player.avatar}
+                  </div>
+                  {i < 3 && (
+                    <div className="absolute -top-1 -right-1 w-5 h-5 bg-brand-primary rounded-full flex items-center justify-center text-[10px] font-black text-white shadow-md border-2 border-gray-900">
+                      {i + 1}
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-sm font-bold text-white truncate">{player.name}</h4>
+                  <p className="text-xs text-brand-primary font-medium">{player.score}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          <button className="mt-6 w-full py-3 rounded-xl border border-white/10 text-sm font-bold text-white hover:bg-white/5 transition-colors">
+            View Leaderboard
+          </button>
+        </div>
+
+      </div>
     </div>
   );
 }
