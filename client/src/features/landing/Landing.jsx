@@ -4,7 +4,13 @@ import { Sparkles, ArrowRight, Zap, Code, Shield, Mail, ArrowUpRight } from 'luc
 
 function LandingPage() {
   const [showNavCta, setShowNavCta] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
   const navigate = useNavigate();
 
   const handleNavigate = (path) => (e) => {
@@ -33,31 +39,13 @@ function LandingPage() {
   }, []);
 
   return (
-    <div className={`w-full h-full relative page-fade-in ${isExiting ? 'page-fade-out' : ''}`}>
-      {/* Outer Static Header (Scrolls away) */}
-      <div className="absolute top-0 left-0 w-full flex items-center justify-between px-6 md:px-12 py-6 z-40">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-brand-primary to-indigo-500 flex items-center justify-center shrink-0">
-            <Sparkles className="w-4 h-4 text-white" />
-          </div>
-          <span className="font-bold text-xl tracking-tight">Agentix</span>
-        </div>
-        <div className="flex items-center gap-4">
-          <a href="/login" onClick={handleNavigate('/login')} className="text-sm font-bold text-white hover:text-brand-primary transition-all duration-300">
-            Sign in
-          </a>
-          <a href="/register" onClick={handleNavigate('/register')} className="bg-brand-primary hover:opacity-80 text-white font-bold rounded-full transition-all shadow-[0_0_15px_var(--theme-glow)] hover:shadow-[0_0_25px_var(--theme-glow-strong)] text-sm px-5 py-2.5">
-            Sign up
-          </a>
-        </div>
-      </div>
-
-      {/* Fixed Pill Taskbar */}
-      <header className="fixed top-6 left-1/2 -translate-x-1/2 z-[100]">
-        <div className="flex items-center rounded-full bg-white/[0.03] backdrop-blur-xl border border-white/10 p-1 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+    <>
+      {/* Fixed Pill Taskbar (Always in center, Get started slides out on scroll) */}
+      <header className={`fixed top-6 left-1/2 -translate-x-1/2 z-[100] transition-all duration-700 ease-out ${!isMounted || isExiting ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
+        <div className="flex items-center rounded-full bg-white/[0.03] backdrop-blur-xl border border-white/10 p-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
           
-          <nav className="flex items-center px-6 py-2 gap-8">
-            <a href="#creations" className="text-sm font-medium text-white transition-colors">Home</a>
+          <nav className="flex items-center px-6 gap-8">
+            <a href="#creations" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">Home</a>
             <a href="#about" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">About</a>
             <a href="#pricing" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">Pricing</a>
             <a href="#contact" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">Contact</a>
@@ -66,16 +54,36 @@ function LandingPage() {
           <div 
             className="overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] flex items-center justify-end"
             style={{ 
-              width: showNavCta ? '140px' : '0px',
+              width: showNavCta ? '130px' : '0px',
               opacity: showNavCta ? 1 : 0
             }}
           >
-            <a href="/register" onClick={handleNavigate('/register')} className="bg-brand-primary hover:opacity-80 text-white font-bold rounded-full transition-all flex items-center justify-center text-sm px-5 py-2 w-max whitespace-nowrap shadow-[0_0_15px_var(--theme-glow)] mx-1">
+            <a href="/register" onClick={handleNavigate('/register')} className="bg-brand-primary hover:opacity-80 text-white font-bold rounded-full transition-all flex items-center justify-center text-sm px-5 py-2 w-max whitespace-nowrap shadow-[0_0_15px_var(--theme-glow)] mr-1">
               Get started
             </a>
           </div>
         </div>
       </header>
+
+      <div className={`w-full h-full relative page-fade-in ${isExiting ? 'page-fade-out' : ''}`}>
+        {/* Outer Static Header (Scrolls away naturally) */}
+        <div className="absolute top-0 left-0 w-full flex items-center justify-between px-6 md:px-12 py-6 z-40">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-brand-primary to-indigo-500 flex items-center justify-center shrink-0">
+              <Sparkles className="w-4 h-4 text-white" />
+            </div>
+            <span className="font-bold text-xl tracking-tight">Agentix</span>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            <a href="/login" onClick={handleNavigate('/login')} className="text-sm font-bold text-white hover:text-brand-primary transition-all duration-300">
+              Sign in
+            </a>
+            <a href="/register" onClick={handleNavigate('/register')} className="bg-brand-primary hover:opacity-80 text-white font-bold rounded-full transition-all shadow-[0_0_15px_var(--theme-glow)] hover:shadow-[0_0_25px_var(--theme-glow-strong)] text-sm px-5 py-2.5">
+              Sign up
+            </a>
+          </div>
+        </div>
 
       {/* Hero Section */}
       <main className="relative pt-48 pb-32 px-4 flex flex-col items-center justify-center text-center z-10">
@@ -227,6 +235,7 @@ function LandingPage() {
       </footer>
 
     </div>
+    </>
   );
 }
 
