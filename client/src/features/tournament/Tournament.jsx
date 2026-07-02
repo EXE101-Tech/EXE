@@ -193,125 +193,125 @@ export default function Tournament() {
       )}
 
       {/* ── Header Section ── */}
-      <div className="relative bg-white/40 dark:bg-white/[0.03] backdrop-blur-md border-b border-gray-100 dark:border-white/10 pt-10 pb-12 px-4 sm:px-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div>
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#589470]/10 dark:bg-[#74C365]/15 text-[#589470] dark:text-[#74C365] text-xs font-black uppercase tracking-wider mb-3 border border-[#589470]/20">
-                <Users className="w-3.5 h-3.5" />
-                <span>Diễn Đàn • Looking For Group</span>
-              </div>
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 dark:text-white tracking-tight">
-                Tìm Đồng Đội & Ghép Kèo
-              </h1>
-              <p className="text-slate-600 dark:text-slate-300 text-sm sm:text-base max-w-2xl mt-2 leading-relaxed">
-                Nơi kết nối các hội nhóm đang thiếu người chơi hoặc người chơi lẻ muốn giao lưu thể thao. Ghép đúng trình độ, vui chơi hết mình!
-              </p>
+      <div className="relative bg-transparent pt-10 pb-10 px-4 sm:px-6">
+        <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#589470]/10 dark:bg-[#74C365]/15 text-[#589470] dark:text-[#74C365] text-xs font-black uppercase tracking-wider mb-3 border border-[#589470]/20">
+              <Users className="w-3.5 h-3.5" />
+              <span>Diễn Đàn • Looking For Group</span>
             </div>
-
-            <div className="shrink-0">
-              <button
-                onClick={() => setIsCreateModalOpen(true)}
-                className="w-full sm:w-auto px-6 py-3.5 rounded-2xl font-black text-sm bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-95 text-white shadow-xl shadow-[#589470]/25 hover:shadow-2xl hover:shadow-[#589470]/35 flex items-center justify-center gap-2.5 transition-all duration-200 active:scale-95 group"
-              >
-                <PlusCircle className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
-                <span>+ Đăng bài tìm người</span>
-              </button>
-            </div>
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 dark:text-white tracking-tight">
+              Tìm Đồng Đội & Ghép Kèo
+            </h1>
+            <p className="text-slate-600 dark:text-slate-300 text-sm sm:text-base max-w-2xl mt-2 leading-relaxed">
+              Nơi kết nối các hội nhóm đang thiếu người chơi hoặc người chơi lẻ muốn giao lưu thể thao. Ghép đúng trình độ, vui chơi hết mình!
+            </p>
           </div>
 
-          {/* 4 Filter Boxes & Stats Bar */}
-          <div className="mt-8 pt-6 border-t border-slate-200/60 dark:border-white/10 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
-            
-            {/* Filter Boxes Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 flex-1 max-w-4xl">
-              
-              {/* 1. Địa điểm (Location) */}
-              <div className="relative">
-                <MapPin className="w-4 h-4 text-rose-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-                <select
-                  value={filterLocation}
-                  onChange={(e) => setFilterLocation(e.target.value)}
-                  className="w-full bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-10 pr-3 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all truncate"
-                >
-                  <option value="all">📍 Tất cả địa điểm</option>
-                  <option value="Quận 10">Quận 10</option>
-                  <option value="Quận 7">Quận 7</option>
-                  <option value="Thủ Đức">TP. Thủ Đức</option>
-                  <option value="Quận 11">Quận 11</option>
-                  <option value="Quận 3">Quận 3</option>
-                </select>
-              </div>
-
-              {/* 2. Thời gian (Time) */}
-              <div className="relative">
-                <Calendar className="w-4 h-4 text-blue-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-                <select
-                  value={filterTime}
-                  onChange={(e) => setFilterTime(e.target.value)}
-                  className="w-full bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-10 pr-3 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all truncate"
-                >
-                  <option value="all">⏰ Tất cả thời gian</option>
-                  <option value="Tối nay">Tối nay</option>
-                  <option value="Tối mai">Tối mai</option>
-                  <option value="Chiều">Chiều nay</option>
-                  <option value="Sáng">Sáng Chủ Nhật</option>
-                  <option value="Thứ 6">Tối Thứ 6</option>
-                </select>
-              </div>
-
-              {/* 3. Giá (Price) */}
-              <div className="relative">
-                <DollarSign className="w-4 h-4 text-amber-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-                <select
-                  value={filterPrice}
-                  onChange={(e) => setFilterPrice(e.target.value)}
-                  className="w-full bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-10 pr-3 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all truncate"
-                >
-                  <option value="all">💵 Tất cả mức giá</option>
-                  <option value="Dưới 60k">Dưới 60.000đ</option>
-                  <option value="60k - 80k">60.000đ - 80.000đ</option>
-                  <option value="Trên 80k">Trên 80.000đ</option>
-                </select>
-              </div>
-
-              {/* 4. Trình độ (Skill) */}
-              <div className="relative">
-                <Award className="w-4 h-4 text-[#589470] dark:text-[#74C365] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-                <select
-                  value={filterSkill}
-                  onChange={(e) => setFilterSkill(e.target.value)}
-                  className="w-full bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-10 pr-3 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all truncate"
-                >
-                  <option value="all">🏆 Tất cả trình độ</option>
-                  <option value="Mới chơi">Mới chơi / Vui vẻ</option>
-                  <option value="Trung bình yếu">Trung bình yếu</option>
-                  <option value="Trung bình">Trung bình</option>
-                  <option value="Khá">Khá / Nâng cao</option>
-                </select>
-              </div>
-
-            </div>
-
-            {/* Filter status display */}
-            <div className="flex items-center gap-3 text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/5 px-4 py-2.5 rounded-2xl shrink-0">
-              <SlidersHorizontal className="w-4 h-4 text-[#589470] dark:text-[#74C365]" />
-              <span>
-                Hiển thị: <strong className="text-slate-900 dark:text-white font-bold">{filteredPosts.length}</strong> bài đăng
-                {selectedSport && (
-                  <span className="ml-1 text-[#589470] dark:text-[#74C365]">
-                    ({INITIAL_POSTS.find(p => p.sportId === selectedSport)?.sportName || selectedSport})
-                  </span>
-                )}
-              </span>
-            </div>
-
+          <div className="shrink-0">
+            <button
+              onClick={() => setIsCreateModalOpen(true)}
+              className="w-full sm:w-auto px-6 py-3.5 rounded-2xl font-black text-sm bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-95 text-white shadow-md hover:shadow-lg flex items-center justify-center gap-2.5 transition-all duration-200 active:scale-95 group"
+            >
+              <PlusCircle className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
+              <span>+ Đăng bài tìm người</span>
+            </button>
           </div>
         </div>
       </div>
 
+      {/* ── Filter Bar Section (Thanh ngang riêng biệt không có nền mờ) ── */}
+      <div className="py-4 px-4 sm:px-6">
+        <div className="max-w-[1600px] mx-auto flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+          
+          {/* Filter Boxes Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 flex-1 max-w-4xl">
+            
+            {/* 1. Địa điểm (Location) */}
+            <div className="relative">
+              <MapPin className="w-4 h-4 text-rose-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+              <select
+                value={filterLocation}
+                onChange={(e) => setFilterLocation(e.target.value)}
+                className="w-full bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-10 pr-3 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all truncate"
+              >
+                <option value="all">📍 Tất cả địa điểm</option>
+                <option value="Quận 10">Quận 10</option>
+                <option value="Quận 7">Quận 7</option>
+                <option value="Thủ Đức">TP. Thủ Đức</option>
+                <option value="Quận 11">Quận 11</option>
+                <option value="Quận 3">Quận 3</option>
+              </select>
+            </div>
+
+            {/* 2. Thời gian (Time) */}
+            <div className="relative">
+              <Calendar className="w-4 h-4 text-blue-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+              <select
+                value={filterTime}
+                onChange={(e) => setFilterTime(e.target.value)}
+                className="w-full bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-10 pr-3 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all truncate"
+              >
+                <option value="all">⏰ Tất cả thời gian</option>
+                <option value="Tối nay">Tối nay</option>
+                <option value="Tối mai">Tối mai</option>
+                <option value="Chiều">Chiều nay</option>
+                <option value="Sáng">Sáng Chủ Nhật</option>
+                <option value="Thứ 6">Tối Thứ 6</option>
+              </select>
+            </div>
+
+            {/* 3. Giá (Price) */}
+            <div className="relative">
+              <DollarSign className="w-4 h-4 text-amber-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+              <select
+                value={filterPrice}
+                onChange={(e) => setFilterPrice(e.target.value)}
+                className="w-full bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-10 pr-3 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all truncate"
+              >
+                <option value="all">💵 Tất cả mức giá</option>
+                <option value="Dưới 60k">Dưới 60.000đ</option>
+                <option value="60k - 80k">60.000đ - 80.000đ</option>
+                <option value="Trên 80k">Trên 80.000đ</option>
+              </select>
+            </div>
+
+            {/* 4. Trình độ (Skill) */}
+            <div className="relative">
+              <Award className="w-4 h-4 text-[#589470] dark:text-[#74C365] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+              <select
+                value={filterSkill}
+                onChange={(e) => setFilterSkill(e.target.value)}
+                className="w-full bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-10 pr-3 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all truncate"
+              >
+                <option value="all">🏆 Tất cả trình độ</option>
+                <option value="Mới chơi">Mới chơi / Vui vẻ</option>
+                <option value="Trung bình yếu">Trung bình yếu</option>
+                <option value="Trung bình">Trung bình</option>
+                <option value="Khá">Khá / Nâng cao</option>
+              </select>
+            </div>
+
+          </div>
+
+          {/* Filter status display (Không có ô nền mờ) */}
+          <div className="flex items-center gap-3 text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400 shrink-0">
+            <SlidersHorizontal className="w-4 h-4 text-[#589470] dark:text-[#74C365]" />
+            <span>
+              Hiển thị: <strong className="text-slate-900 dark:text-white font-bold">{filteredPosts.length}</strong> bài đăng
+              {selectedSport && (
+                <span className="ml-1 text-[#589470] dark:text-[#74C365]">
+                  ({INITIAL_POSTS.find(p => p.sportId === selectedSport)?.sportName || selectedSport})
+                </span>
+              )}
+            </span>
+          </div>
+
+        </div>
+      </div>
+
       {/* ── Main Posts Feed ── */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 pt-10">
+      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 pt-10">
         
         {filteredPosts.length === 0 ? (
           <div className="bg-slate-50 dark:bg-white/5 border border-dashed border-slate-200 dark:border-white/10 rounded-3xl p-12 text-center my-6">

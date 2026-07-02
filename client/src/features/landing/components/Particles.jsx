@@ -19,9 +19,6 @@ const Particles = memo(function Particles() {
 
   return (
     <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-      {/* Central green background glow fixed in exact viewport center */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[650px] h-[450px] bg-gradient-to-tr from-emerald-500/25 via-green-500/25 to-lime-400/25 blur-[110px] rounded-full pointer-events-none theme-transition"></div>
-
       {particles.map((p) => (
         <div
           key={p.id}

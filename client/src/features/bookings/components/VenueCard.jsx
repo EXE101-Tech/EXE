@@ -72,7 +72,7 @@ export default function VenueCard({ venue, onChat }) {
         </div>
 
         {/* Price Tag (Per 30 mins) */}
-        <div className="p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 flex items-center justify-between mb-3.5">
+        <div className="py-2.5 flex items-center justify-between mb-3 border-t border-slate-100 dark:border-white/5">
           <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
             Giá thuê khung giờ (30p):
           </div>

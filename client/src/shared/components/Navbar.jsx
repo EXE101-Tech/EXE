@@ -51,7 +51,7 @@ export default function Navbar() {
   const navItems = [
     { label: 'Trang Chủ', path: '/home' },
     { label: 'Diễn Đàn', path: '/tournaments' },
-    { label: 'Đặt Sân', path: '/bookings' },
+    { label: 'Đặt Sân', path: '/bookings', match: (p) => p.startsWith('/bookings') || p.startsWith('/courts') },
     { label: 'Phòng game', path: '/matches' },
     { label: 'Teams', path: '/team' },
   ];
@@ -60,7 +60,7 @@ export default function Navbar() {
   const [indicator, setIndicator] = useState({ left: 0, width: 0 });
   const [isInitialRender, setIsInitialRender] = useState(true);
 
-  const activeIndex = navItems.findIndex(item => location.pathname.startsWith(item.path));
+  const activeIndex = navItems.findIndex(item => item.match ? item.match(location.pathname) : location.pathname.startsWith(item.path));
 
   const updateIndicator = useCallback(() => {
     requestAnimationFrame(() => {

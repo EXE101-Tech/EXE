@@ -94,10 +94,9 @@ function AppRoutes() {
                                 <Route path="/matches" element={<GameRoom />} />
                                 <Route path="/bookings" element={<Bookings />} />
                                 <Route path="/team" element={<Team />} />
+                                <Route path="/courts/:id" element={<CourtDetailPage />} />
                             </Route>
                             <Route path="/map" element={<ProtectedRoute><MainLayout><MapPage /></MainLayout></ProtectedRoute>} />
-                            {/* Trang chi tiết sân — không có BottomNavigation */}
-                            <Route path="/courts/:id" element={<ProtectedRoute><CourtDetailPage /></ProtectedRoute>} />
                             <Route path="*" element={<Navigate to="/home" replace />} />
                         </Routes>
                     </GlobalWrapper>

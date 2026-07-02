@@ -143,11 +143,16 @@ function CourtSchedule({ selectedDate, onSelectDate, courts, selectedSlots, onTo
             </div>
             
             {/* Timestamps */}
-            {TIME_SLOTS.map((time) => (
-              <div key={time} className="w-16 shrink-0 h-11 flex items-center justify-center border-r border-slate-200 dark:border-white/10 last:border-r-0">
-                <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400">
+            {TIME_SLOTS.map((time, idx) => (
+              <div key={time} className="w-16 shrink-0 h-11 relative flex items-center">
+                <span className="absolute left-0 -translate-x-1/2 text-[11px] font-bold text-slate-600 dark:text-slate-400 select-none z-10">
                   {time}
                 </span>
+                {idx === TIME_SLOTS.length - 1 && (
+                  <span className="absolute right-0 translate-x-1/2 text-[11px] font-bold text-slate-600 dark:text-slate-400 select-none z-10">
+                    24:00
+                  </span>
+                )}
               </div>
             ))}
           </div>
@@ -176,10 +181,10 @@ function CourtSchedule({ selectedDate, onSelectDate, courts, selectedSlots, onTo
                       }}
                       className={`w-full h-full rounded-xl transition-all pointer-events-auto flex items-center justify-center ${
                         isPast 
-                          ? 'bg-slate-100 dark:bg-white/5 cursor-not-allowed opacity-40'
+                          ? 'bg-slate-200/80 dark:bg-slate-800/60 text-slate-400 dark:text-slate-500 cursor-grab active:cursor-grabbing'
                           : isSelected 
-                            ? 'bg-gradient-to-br from-[#74C365] to-[#589470] text-white shadow-md scale-95' 
-                            : 'bg-slate-50/50 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/15'
+                            ? 'bg-gradient-to-br from-[#74C365] to-[#589470] text-white shadow-md scale-95 cursor-pointer' 
+                            : 'bg-slate-50/50 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/15 cursor-pointer'
                       }`}
                       title={isPast ? 'Đã qua giờ này' : `${court.name} - Khung ${time}`}
                     >

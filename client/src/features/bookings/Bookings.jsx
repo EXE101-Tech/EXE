@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Search, MapPin, DollarSign, Building2, PlusCircle, Sparkles, Filter, RefreshCw, Trophy, Calendar } from 'lucide-react';
+import { Search, MapPin, DollarSign, Building2, PlusCircle, Sparkles, Filter, RefreshCw, Trophy, Calendar, SlidersHorizontal, Award, Users } from 'lucide-react';
 import { useSportFilter } from '../../shared/context/SportFilterContext';
 import { useChat } from '../../shared/context/ChatContext';
 import VenueCard from './components/VenueCard';
@@ -121,7 +121,6 @@ export default function Bookings() {
   const [venues, setVenues] = useState(INITIAL_VENUES);
   const [searchTerm, setSearchTerm] = useState('');
   const [locationFilter, setLocationFilter] = useState('all');
-  const [priceFilter, setPriceFilter] = useState('all');
   const [isHostModalOpen, setIsHostModalOpen] = useState(false);
 
   const handleHostSave = (newVenue) => {
@@ -151,119 +150,107 @@ export default function Bookings() {
           return false;
         }
       }
-      // 4. Price Filter
-      if (priceFilter !== 'all') {
-        const p = venue.priceNumber || 50000;
-        if (priceFilter === 'low' && p > 60000) return false;
-        if (priceFilter === 'mid' && (p <= 60000 || p > 80000)) return false;
-        if (priceFilter === 'high' && p <= 80000) return false;
-      }
       return true;
     });
-  }, [venues, selectedSport, searchTerm, locationFilter, priceFilter]);
+  }, [venues, selectedSport, searchTerm, locationFilter]);
 
   return (
     <div className="min-h-screen bg-transparent text-slate-900 dark:text-white pb-24 font-sans animate-in fade-in duration-300">
       
-      {/* Hero Banner Header */}
-      <div className="relative rounded-3xl bg-gradient-to-r from-[#74C365] via-[#589470] to-[#001F3F] px-6 py-4 sm:py-5 sm:px-8 text-white shadow-xl mt-6 sm:mt-8 mb-6 sm:mb-8 overflow-hidden backdrop-blur-md border border-white/10">
-        <div className="absolute -top-24 -right-24 w-96 h-96 bg-white/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative z-10 flex items-center justify-between gap-4">
+      {/* Hero Banner Section */}
+      <div className="relative bg-transparent pt-10 pb-10 px-4 sm:px-6">
+        <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-0.5 rounded-full bg-white/20 backdrop-blur-md text-[11px] font-bold uppercase tracking-wider mb-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-yellow-300" />
-              <span>Hệ Thống Đặt Sân Trực Tuyến 24/7</span>
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#589470]/10 dark:bg-[#74C365]/15 text-[#589470] dark:text-[#74C365] text-xs font-black uppercase tracking-wider mb-3 border border-[#589470]/20">
+              <Building2 className="w-3.5 h-3.5" />
+              <span>Đặt Sân • Online Booking</span>
             </div>
-            <h1 className="text-xl sm:text-3xl font-black tracking-tight leading-tight">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 dark:text-white tracking-tight">
               Khám Phá & Đặt Sân Thể Thao
             </h1>
+            <p className="text-slate-600 dark:text-slate-300 text-sm sm:text-base max-w-2xl mt-2 leading-relaxed">
+              Hệ thống tra cứu và đặt sân thể thao trực tuyến 24/7. Tìm sân gần bạn nhất, so sánh mức giá và đặt lịch nhanh chóng chỉ trong vài giây!
+            </p>
+          </div>
+
+          <div className="shrink-0">
+            <button
+              onClick={() => setIsHostModalOpen(true)}
+              className="w-full sm:w-auto px-6 py-3.5 rounded-2xl font-black text-sm bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-95 text-white shadow-md hover:shadow-lg flex items-center justify-center gap-2.5 transition-all duration-200 active:scale-95 group"
+            >
+              <PlusCircle className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
+              <span>+ Đăng ký làm chủ sân</span>
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Filter Bar */}
-      <div className="mb-8 bg-white/80 dark:bg-[#001F3F]/60 backdrop-blur-xl p-4 sm:p-5 rounded-3xl border border-gray-200 dark:border-white/10 shadow-lg">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Location Filter */}
-          <div className="relative">
-            <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-rose-500" />
-            <select
-              value={locationFilter}
-              onChange={(e) => setLocationFilter(e.target.value)}
-              className="w-full pl-11 pr-8 py-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-sm font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:border-[#589470] transition-colors appearance-none cursor-pointer"
-            >
-              <option value="all" className="bg-white dark:bg-[#001F3F]">📍 Tất cả khu vực TP.HCM</option>
-              <option value="Quận 10" className="bg-white dark:bg-[#001F3F]">Quận 10 (Thành Thái, Bắc Hải...)</option>
-              <option value="Quận 7" className="bg-white dark:bg-[#001F3F]">Quận 7 (Nguyễn Thị Thập, Phú Mỹ Hưng...)</option>
-              <option value="Thủ Đức" className="bg-white dark:bg-[#001F3F]">TP. Thủ Đức (Thảo Điền, An Phú...)</option>
-              <option value="Quận 11" className="bg-white dark:bg-[#001F3F]">Quận 11 (Lý Thường Kiệt, Phú Thọ...)</option>
-              <option value="Quận 3" className="bg-white dark:bg-[#001F3F]">Quận 3 (Võ Văn Tần, CMT8...)</option>
-              <option value="Tân Bình" className="bg-white dark:bg-[#001F3F]">Quận Tân Bình (Hoàng Văn Thụ...)</option>
-            </select>
+      {/* ── Filter Bar Section (Thanh ngang riêng biệt không có nền mờ) ── */}
+      <div className="py-4 px-4 sm:px-6">
+        <div className="max-w-[1600px] mx-auto flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+          
+          {/* Filter Box: Chỉ lọc theo Địa điểm (Location) */}
+          <div className="w-full sm:max-w-xs flex-1">
+            <div className="relative">
+              <MapPin className="w-4 h-4 text-rose-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+              <select
+                value={locationFilter}
+                onChange={(e) => setLocationFilter(e.target.value)}
+                className="w-full bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-10 pr-3 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all truncate"
+              >
+                <option value="all">📍 Tất cả địa điểm</option>
+                <option value="Quận 10">Quận 10</option>
+                <option value="Quận 7">Quận 7</option>
+                <option value="Thủ Đức">TP. Thủ Đức</option>
+                <option value="Quận 11">Quận 11</option>
+                <option value="Quận 3">Quận 3</option>
+                <option value="Tân Bình">Quận Tân Bình</option>
+              </select>
+            </div>
           </div>
 
-          {/* Price Filter */}
-          <div className="relative">
-            <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500" />
-            <select
-              value={priceFilter}
-              onChange={(e) => setPriceFilter(e.target.value)}
-              className="w-full pl-11 pr-8 py-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-sm font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:border-[#589470] transition-colors appearance-none cursor-pointer"
-            >
-              <option value="all" className="bg-white dark:bg-[#001F3F]">💵 Tất cả mức giá</option>
-              <option value="low" className="bg-white dark:bg-[#001F3F]">Dưới 60.000đ / 30p</option>
-              <option value="mid" className="bg-white dark:bg-[#001F3F]">Từ 60.000đ - 80.000đ / 30p</option>
-              <option value="high" className="bg-white dark:bg-[#001F3F]">Trên 80.000đ / 30p (VIP)</option>
-            </select>
+          {/* Filter status display (Không có ô nền mờ) */}
+          <div className="flex items-center gap-3 text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400 shrink-0">
+            <SlidersHorizontal className="w-4 h-4 text-[#589470] dark:text-[#74C365]" />
+            <span>
+              Hiển thị: <strong className="text-slate-900 dark:text-white font-bold">{filteredVenues.length}</strong> sân
+            </span>
           </div>
+
         </div>
+      </div>
 
-        {(locationFilter !== 'all' || priceFilter !== 'all') && (
-          <div className="flex justify-end mt-3 pt-2 border-t border-slate-100 dark:border-white/5">
+      {/* Venues Grid Area */}
+      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 pt-10">
+        {filteredVenues.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredVenues.map((venue) => (
+              <VenueCard key={venue.id} venue={venue} onChat={handleOpenChat} />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-16 px-4 bg-white/50 dark:bg-[#001F3F]/40 backdrop-blur-md rounded-3xl border border-gray-200 dark:border-white/10 my-6">
+            <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center mx-auto mb-4">
+              <Trophy className="w-8 h-8 text-slate-400 dark:text-slate-500" />
+            </div>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">
+              Không tìm thấy khu sân nào phù hợp
+            </h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-6">
+              Thử thay đổi từ khóa tìm kiếm hoặc chọn bộ lọc khu vực, mức giá khác xem sao nhé.
+            </p>
             <button
               onClick={() => {
+                setSearchTerm('');
                 setLocationFilter('all');
-                setPriceFilter('all');
               }}
-              className="text-xs font-bold text-rose-500 hover:text-rose-600 flex items-center gap-1 transition-colors"
+              className="px-6 py-2.5 rounded-2xl bg-gradient-to-r from-[#74C365] to-[#589470] text-white font-bold text-sm shadow-lg shadow-[#589470]/20 hover:opacity-90 transition-all"
             >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>Xóa bộ lọc</span>
+              Xem tất cả sân hiện có
             </button>
           </div>
         )}
-      </div>
-
-      {/* Venues Grid */}
-      {filteredVenues.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredVenues.map((venue) => (
-            <VenueCard key={venue.id} venue={venue} onChat={handleOpenChat} />
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-16 px-4 bg-white/50 dark:bg-[#001F3F]/40 backdrop-blur-md rounded-3xl border border-gray-200 dark:border-white/10 my-6">
-          <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center mx-auto mb-4">
-            <Trophy className="w-8 h-8 text-slate-400 dark:text-slate-500" />
-          </div>
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">
-            Không tìm thấy khu sân nào phù hợp
-          </h3>
-          <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-6">
-            Thử thay đổi từ khóa tìm kiếm hoặc chọn bộ lọc khu vực, mức giá khác xem sao nhé.
-          </p>
-          <button
-            onClick={() => {
-              setSearchTerm('');
-              setLocationFilter('all');
-              setPriceFilter('all');
-            }}
-            className="px-6 py-2.5 rounded-2xl bg-gradient-to-r from-[#74C365] to-[#589470] text-white font-bold text-sm shadow-lg shadow-[#589470]/20 hover:opacity-90 transition-all"
-          >
-            Xem tất cả sân hiện có
-          </button>
-        </div>
-      )}
+      </main>
 
       {/* Host Setup Modal */}
       <HostSetupModal 

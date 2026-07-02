@@ -111,30 +111,30 @@ export default function PostCard({ post, onJoin, onChat }) {
           </p>
         </div>
 
-        {/* Info Grid (4 pills in landing page style) */}
-        <div className="grid grid-cols-2 gap-2.5 mb-6">
-          <div className="flex items-center gap-2 bg-slate-50 dark:bg-white/5 px-3 py-2 rounded-xl border border-slate-100 dark:border-white/5 text-xs sm:text-sm">
+        {/* Info Grid (Clean layout without background boxes) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-2.5 gap-x-4 mb-6">
+          <div className="flex items-center gap-2 text-xs sm:text-sm">
             <MapPin className="w-4 h-4 text-rose-500 shrink-0" />
             <span className="text-slate-700 dark:text-slate-200 font-medium truncate" title={post.location}>
               {post.location}
             </span>
           </div>
 
-          <div className="flex items-center gap-2 bg-slate-50 dark:bg-white/5 px-3 py-2 rounded-xl border border-slate-100 dark:border-white/5 text-xs sm:text-sm">
+          <div className="flex items-center gap-2 text-xs sm:text-sm">
             <Calendar className="w-4 h-4 text-blue-500 shrink-0" />
             <span className="text-slate-700 dark:text-slate-200 font-medium truncate" title={post.timeSlot}>
               {post.timeSlot} ({post.date})
             </span>
           </div>
 
-          <div className="flex items-center gap-2 bg-slate-50 dark:bg-white/5 px-3 py-2 rounded-xl border border-slate-100 dark:border-white/5 text-xs sm:text-sm">
+          <div className="flex items-center gap-2 text-xs sm:text-sm">
             <Users className="w-4 h-4 text-[#589470] dark:text-[#74C365] shrink-0" />
             <span className="text-slate-700 dark:text-slate-200 font-medium truncate">
               Thành viên: <strong className="text-[#589470] dark:text-[#74C365] font-bold">{post.currentMembers}/{post.totalMembers}</strong>
             </span>
           </div>
 
-          <div className="flex items-center gap-2 bg-slate-50 dark:bg-white/5 px-3 py-2 rounded-xl border border-slate-100 dark:border-white/5 text-xs sm:text-sm">
+          <div className="flex items-center gap-2 text-xs sm:text-sm">
             <DollarSign className="w-4 h-4 text-amber-500 shrink-0" />
             <span className="text-slate-700 dark:text-slate-200 font-medium truncate">
               Chi phí: <strong>{post.price}</strong>
