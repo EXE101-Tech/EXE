@@ -84,23 +84,26 @@ function CreateRoomModal({ isOpen, onClose, onSubmit, isLoading = false }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-      <div className="relative w-full max-w-2xl bg-white dark:bg-[#001F3F] rounded-3xl border border-slate-200 dark:border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+      <div 
+        className="relative w-full max-w-2xl bg-white dark:bg-[#001F3F] border border-gray-200 dark:border-white/10 rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-8 flex flex-col max-h-[88vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Modal Header */}
-        <div className="p-6 bg-slate-900 text-white flex items-center justify-between relative overflow-hidden shrink-0">
-          <div className="absolute -right-10 -top-10 w-40 h-40 bg-[#589470]/20 rounded-full blur-2xl pointer-events-none" />
-          <div className="flex items-center gap-3 relative z-10">
-            <div className="w-12 h-12 rounded-2xl bg-[#589470] dark:bg-[#DBE64C] text-white dark:text-[#001F3F] flex items-center justify-center shadow-lg">
-              <Gamepad2 className="w-6 h-6" />
+        <div className="relative bg-gradient-to-r from-[#74C365] to-[#589470] p-6 text-white flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shadow-sm">
+              <Gamepad2 className="w-6 h-6 stroke-[2.5]" />
             </div>
             <div>
-              <h2 className="text-xl font-bold">Mở Phòng Chờ Thi Đấu</h2>
-              <p className="text-xs text-slate-400">Tạo sảnh chờ tìm bạn chơi phù hợp theo trình độ và thời gian</p>
+              <h3 className="text-xl font-black">Mở Phòng Chờ Thi Đấu</h3>
+              <p className="text-xs opacity-90">Tạo sảnh chờ tìm bạn chơi phù hợp theo trình độ và thời gian</p>
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white transition-colors relative z-10"
+            className="p-2 rounded-full bg-black/10 hover:bg-black/20 text-white transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -128,10 +131,10 @@ function CreateRoomModal({ isOpen, onClose, onSubmit, isLoading = false }) {
                     key={sport.id}
                     type="button"
                     onClick={() => handleSportChange(sport)}
-                    className={`p-2.5 rounded-2xl border text-center flex flex-col items-center gap-1 transition-all ${
+                    className={`flex flex-col items-center gap-1 p-2 rounded-2xl border transition-all ${
                       isSelected
-                        ? 'bg-[#589470] dark:bg-[#DBE64C] text-white dark:text-[#001F3F] border-[#589470] dark:border-[#DBE64C] shadow-md font-bold scale-105'
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 font-medium'
+                        ? 'bg-[#589470]/15 dark:bg-[#74C365]/20 border-[#589470] dark:border-[#74C365] text-[#589470] dark:text-[#74C365] font-bold scale-105 shadow-sm'
+                        : 'border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 font-medium'
                     }`}
                   >
                     <span className="text-xl">{sport.emoji}</span>
@@ -195,8 +198,8 @@ function CreateRoomModal({ isOpen, onClose, onSubmit, isLoading = false }) {
 
           {/* Date and Time Slot */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+            <div className="flex flex-col justify-end">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
                 <Calendar className="w-3.5 h-3.5 text-[#589470] dark:text-[#DBE64C]" /> Ngày thi đấu
               </label>
               <input
@@ -208,8 +211,8 @@ function CreateRoomModal({ isOpen, onClose, onSubmit, isLoading = false }) {
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+            <div className="flex flex-col justify-end">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5 text-[#589470] dark:text-[#DBE64C]" /> Giờ bắt đầu
               </label>
               <input
@@ -221,8 +224,8 @@ function CreateRoomModal({ isOpen, onClose, onSubmit, isLoading = false }) {
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+            <div className="flex flex-col justify-end">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5 text-[#589470] dark:text-[#DBE64C]" /> Giờ kết thúc
               </label>
               <input
@@ -236,9 +239,9 @@ function CreateRoomModal({ isOpen, onClose, onSubmit, isLoading = false }) {
           </div>
 
           {/* Max Players & Price Info */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <div className="flex flex-col justify-end">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5 min-h-[36px]">
                 <Users className="w-3.5 h-3.5 text-sky-500 shrink-0" />
                 <span>Tổng số người chơi tối đa <span className="text-[11px] font-normal text-amber-600 dark:text-amber-400 lowercase">(tính luôn cả chủ bài đăng)</span></span>
               </label>
@@ -254,8 +257,8 @@ function CreateRoomModal({ isOpen, onClose, onSubmit, isLoading = false }) {
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+            <div className="flex flex-col justify-end">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5 min-h-[36px]">
                 <DollarSign className="w-3.5 h-3.5 text-emerald-500" /> Chi phí dự kiến
               </label>
               <input
@@ -285,18 +288,18 @@ function CreateRoomModal({ isOpen, onClose, onSubmit, isLoading = false }) {
           </div>
 
           {/* Submit Footer */}
-          <div className="pt-4 border-t border-slate-200 dark:border-white/10 flex items-center justify-end gap-3">
+          <div className="p-6 pt-3 bg-gray-50 dark:bg-[#001F3F]/50 border-t border-slate-100 dark:border-white/10 flex items-center justify-end gap-3 shrink-0">
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 rounded-xl bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 text-slate-700 dark:text-slate-300 font-bold text-xs transition-all"
+              className="px-5 py-2.5 rounded-2xl font-bold text-sm text-slate-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
             >
               Hủy
             </button>
             <button
               type="submit"
               disabled={isLoading}
-              className="px-6 py-2.5 rounded-xl bg-[#589470] hover:bg-[#4a7c5d] dark:bg-[#DBE64C] dark:hover:bg-[#c8d438] text-white dark:text-[#001F3F] font-black text-xs shadow-lg shadow-[#589470]/20 dark:shadow-[#DBE64C]/20 active:scale-95 transition-all flex items-center gap-2"
+              className="px-6 py-2.5 rounded-2xl font-bold text-sm bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-95 text-white shadow-lg shadow-[#589470]/30 flex items-center gap-2 transition-transform active:scale-95 disabled:opacity-50"
             >
               <Sparkles className="w-4 h-4" />
               <span>{isLoading ? 'Đang tạo phòng...' : 'Tạo Phòng Ngay'}</span>

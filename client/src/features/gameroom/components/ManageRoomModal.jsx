@@ -15,23 +15,26 @@ function ManageRoomModal({ isOpen, onClose, room, onUpdateStatus, isLoading = fa
   const approvedList = participants.filter((p) => p.status === 'APPROVED');
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-      <div className="relative w-full max-w-2xl bg-white dark:bg-[#001F3F] rounded-3xl border border-slate-200 dark:border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+    <div className="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+      <div 
+        className="relative w-full max-w-2xl bg-white dark:bg-[#001F3F] border border-gray-200 dark:border-white/10 rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-8 flex flex-col max-h-[88vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Modal Header */}
-        <div className="p-6 bg-gradient-to-r from-emerald-900 to-teal-900 text-white flex items-center justify-between relative overflow-hidden shrink-0">
-          <div className="absolute -right-10 -top-10 w-40 h-40 bg-emerald-500/20 rounded-full blur-2xl pointer-events-none" />
-          <div className="flex items-center gap-3 relative z-10">
-            <div className="w-11 h-11 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg">
-              <UserCheck className="w-6 h-6" />
+        <div className="relative bg-gradient-to-r from-[#74C365] to-[#589470] p-6 text-white flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shadow-sm">
+              <UserCheck className="w-6 h-6 stroke-[2.5]" />
             </div>
             <div>
-              <h2 className="text-lg font-bold">Quản Lý Thành Viên Phòng Chờ</h2>
-              <p className="text-xs text-emerald-200 truncate max-w-sm">{title}</p>
+              <h3 className="text-xl font-black">Quản Lý Thành Viên Phòng Chờ</h3>
+              <p className="text-xs opacity-90 truncate max-w-sm">{title}</p>
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white transition-colors relative z-10"
+            className="p-2 rounded-full bg-black/10 hover:bg-black/20 text-white transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
