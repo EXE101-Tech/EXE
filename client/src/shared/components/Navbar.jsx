@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Search, Sun, Moon, Filter, Check, X, Bell, ChevronDown, Menu, LogOut, User, Sparkles } from 'lucide-react';
+import { Search, Sun, Moon, Check, Bell, ChevronDown, Menu, LogOut, User, Crown } from 'lucide-react';
 import { useSportFilter } from '../context/SportFilterContext';
 import { useAuth } from '../context/AuthContext';
 import EditProfileModal from '../../features/profile/EditProfileModal';
+import CreateTeamModal from '../../features/team/components/CreateTeamModal';
 
 const SPORTS = [
   { id: 'football', name: 'Bóng đá', emoji: '⚽' },
@@ -25,6 +26,7 @@ export default function Navbar() {
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [isPremiumOpen, setIsPremiumOpen] = useState(false);
   const filterRef = useRef(null);
   const profileRef = useRef(null);
 
@@ -33,7 +35,6 @@ export default function Navbar() {
     return name.charAt(0).toUpperCase();
   };
 
-  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (filterRef.current && !filterRef.current.contains(event.target)) {
@@ -47,7 +48,6 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // ── Sliding indicator logic ──
   const navItems = [
     { label: 'Trang Chủ', path: '/home' },
     { label: 'Diễn Đàn', path: '/tournaments' },
@@ -83,9 +83,7 @@ export default function Navbar() {
 
   useEffect(() => {
     updateIndicator();
-    // Re-measure after fonts load
     document.fonts?.ready?.then(() => updateIndicator());
-    // Also re-measure after a short delay as fallback
     const timer = setTimeout(updateIndicator, 150);
     window.addEventListener('resize', updateIndicator);
     return () => {
@@ -121,13 +119,10 @@ export default function Navbar() {
 
   return (
     <header className="w-full bg-white dark:bg-[#001F3F] border-b border-gray-200 dark:border-white/10 fixed top-0 left-0 right-0 z-[999] shadow-sm transition-colors duration-500">
-      {/* Row 1: Main Header (Logo, Categories Menu, Search Bar, Action Icons) */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between gap-2 sm:gap-6">
-        
-        {/* Left: Logo */}
         <div className="flex items-center shrink-0">
-          <div 
-            onClick={() => navigate('/home')} 
+          <div
+            onClick={() => navigate('/home')}
             className="cursor-pointer group select-none flex items-center gap-1.5"
           >
             <span className="text-2xl sm:text-3xl font-black bg-gradient-to-r from-[#74C365] to-[#589470] bg-clip-text text-transparent tracking-tight transition-transform group-hover:scale-105" style={{ fontFamily: 'Georgia, serif' }}>
@@ -136,15 +131,13 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Center: Filter Dropdown + Prominent Pill Search Bar */}
         <div className="flex-1 max-w-3xl mx-3 sm:mx-6 flex items-center gap-2 sm:gap-3">
-          {/* Filter Dropdown */}
           <div className="relative shrink-0" ref={filterRef}>
-            <button 
+            <button
               onClick={() => setShowFilterDropdown(!showFilterDropdown)}
               className={`flex items-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-full text-sm sm:text-base font-bold transition-all border ${
-                selectedSport 
-                  ? 'bg-[#589470]/15 dark:bg-[#74C365]/25 text-[#589470] dark:text-[#74C365] border-[#589470] dark:border-[#74C365] shadow-sm' 
+                selectedSport
+                  ? 'bg-[#589470]/15 dark:bg-[#74C365]/25 text-[#589470] dark:text-[#74C365] border-[#589470] dark:border-[#74C365] shadow-sm'
                   : 'bg-transparent hover:bg-black/5 dark:hover:bg-white/10 text-gray-700 dark:text-gray-200 border border-gray-300/80 dark:border-white/20'
               }`}
             >
@@ -152,13 +145,12 @@ export default function Navbar() {
               <span className="whitespace-nowrap">{selectedSport ? SPORTS.find(s => s.id === selectedSport)?.name || 'Bộ lọc' : 'Bộ lọc'}</span>
             </button>
 
-            {/* Dropdown Menu */}
             {showFilterDropdown && (
               <div className="absolute left-0 mt-2 w-56 bg-white dark:bg-[#001F3F] border border-gray-200 dark:border-white/10 rounded-2xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                 <div className="px-3 py-1.5 border-b border-gray-100 dark:border-white/10 flex items-center justify-between text-xs font-bold text-gray-400 uppercase tracking-wider">
                   <span>Chọn môn thể thao</span>
                   {selectedSport && (
-                    <button 
+                    <button
                       onClick={() => { setSelectedSport(null); setShowFilterDropdown(false); }}
                       className="text-[#589470] dark:text-[#74C365] hover:underline normal-case font-semibold"
                     >
@@ -177,8 +169,8 @@ export default function Navbar() {
                           setShowFilterDropdown(false);
                         }}
                         className={`w-full px-3.5 py-2.5 text-left text-sm font-medium flex items-center justify-between transition-colors ${
-                          isSelected 
-                            ? 'bg-[#589470]/10 dark:bg-[#74C365]/15 text-[#589470] dark:text-[#74C365] font-bold' 
+                          isSelected
+                            ? 'bg-[#589470]/10 dark:bg-[#74C365]/15 text-[#589470] dark:text-[#74C365] font-bold'
                             : 'text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-white/5'
                         }`}
                       >
@@ -195,14 +187,13 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* Search Input */}
           <div className="relative flex items-center flex-1 bg-gray-100 dark:bg-white/10 border-2 border-transparent focus-within:border-[#589470] dark:focus-within:border-[#74C365] focus-within:bg-white dark:focus-within:bg-[#001F3F] rounded-full transition-all duration-200 shadow-inner group">
             <input
               type="text"
               placeholder="Tìm kiếm phòng chơi, sân bãi, giải đấu, đội nhóm..."
               className="w-full bg-transparent pl-5 pr-14 py-2.5 text-sm sm:text-base text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none"
             />
-            <button 
+            <button
               className="absolute right-1 bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-90 text-white p-2 rounded-full transition-transform active:scale-95 shadow-md flex items-center justify-center m-0.5"
               title="Tìm kiếm"
             >
@@ -211,16 +202,15 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Right: Action Icons (Bell, Theme Toggle, User Avatar) */}
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           <button className="p-2.5 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full transition-colors text-gray-700 dark:text-gray-200 relative group" title="Thông báo">
             <Bell className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
             <span className="absolute top-2 right-2 w-2 h-2 bg-[#589470] dark:bg-[#74C365] rounded-full ring-2 ring-white dark:ring-[#001F3F]" />
           </button>
 
-          <button 
+          <button
             onClick={toggleTheme}
-            className="p-2.5 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full transition-colors relative group" 
+            className="p-2.5 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full transition-colors relative group"
             title="Chuyển chế độ Sáng / Tối"
           >
             {isDark ? (
@@ -230,9 +220,8 @@ export default function Navbar() {
             )}
           </button>
 
-          {/* Avatar Dropdown */}
           <div className="relative" ref={profileRef}>
-            <button 
+            <button
               onClick={() => setShowProfileDropdown(!showProfileDropdown)}
               className="flex items-center gap-1 p-1 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full transition-colors pl-1.5 pr-2 group ml-1"
               title="Tài khoản cá nhân"
@@ -243,7 +232,6 @@ export default function Navbar() {
               <ChevronDown className={`w-3.5 h-3.5 text-gray-500 group-hover:text-gray-800 dark:group-hover:text-gray-200 transition-transform hidden sm:block ${showProfileDropdown ? 'rotate-180' : ''}`} />
             </button>
 
-            {/* Dropdown Menu */}
             {showProfileDropdown && (
               <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-[#001F3F] border border-gray-200 dark:border-white/10 rounded-2xl shadow-xl z-50 p-4 animate-in fade-in slide-in-from-top-2 duration-200">
                 <div className="flex items-center gap-3 pb-3 mb-3 border-b border-gray-100 dark:border-white/10">
@@ -261,7 +249,7 @@ export default function Navbar() {
                 </div>
 
                 <div className="space-y-1">
-                  <button 
+                  <button
                     onClick={() => {
                       setShowProfileDropdown(false);
                       setIsEditProfileOpen(true);
@@ -272,7 +260,7 @@ export default function Navbar() {
                     <span>Chỉnh sửa hồ sơ</span>
                   </button>
 
-                  <button 
+                  <button
                     onClick={() => {
                       setShowProfileDropdown(false);
                       logout();
@@ -290,9 +278,7 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Row 2: Secondary Navigation Bar (Centered) */}
       <nav ref={navContainerRef} className="w-full max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-center gap-2 sm:gap-10 overflow-x-auto no-scrollbar relative border-t border-gray-100 dark:border-white/5 py-1 sm:py-0">
-        {/* Sliding indicator for sub-nav */}
         <div
           className={`absolute bottom-0 h-0.5 sm:h-1 bg-gradient-to-r from-[#74C365] to-[#589470] rounded-t-full ${
             isInitialRender ? 'transition-none' : 'transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]'
@@ -300,7 +286,6 @@ export default function Navbar() {
           style={{ left: indicator.left, width: indicator.width }}
         />
 
-        {/* Nav items */}
         {navItems.map((item, i) => {
           const isActive = activeIndex === i || (activeIndex < 0 && i === 0);
           return (
@@ -318,11 +303,25 @@ export default function Navbar() {
             </Link>
           );
         })}
+
+        <button
+          onClick={() => setIsPremiumOpen(true)}
+          className="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 z-20 inline-flex items-center gap-1.5 bg-gradient-to-r from-yellow-400 via-yellow-500 to-orange-500 text-white font-bold px-3.5 py-2 rounded-2xl text-xs sm:text-sm shadow-[0_0_15px_rgba(234,179,8,0.35)] hover:scale-[1.02] active:scale-95 transition-transform"
+          title="Premium"
+        >
+          <Crown className="w-4 h-4" />
+          <span>Premium</span>
+          <div className="absolute inset-0 w-[200%] -translate-x-full bg-gradient-to-r from-transparent via-white/40 to-transparent animate-pulse pointer-events-none" />
+        </button>
       </nav>
 
-      {/* Edit Profile Modal */}
-      <EditProfileModal 
-        isOpen={isEditProfileOpen} 
+      <CreateTeamModal
+        isOpen={isPremiumOpen}
+        onClose={() => setIsPremiumOpen(false)}
+      />
+
+      <EditProfileModal
+        isOpen={isEditProfileOpen}
         onClose={() => setIsEditProfileOpen(false)}
         user={user}
         onSave={(data) => {

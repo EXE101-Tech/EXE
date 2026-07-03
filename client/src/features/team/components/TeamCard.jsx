@@ -30,7 +30,7 @@ export default function TeamCard({ team, activeTab, onReview }) {
 
       {/* Green accent bar for captain-owned clubs */}
       {team.isCaptain && (
-        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500" />
+        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500" />
       )}
       
       {/* ── Left Column: Thumbnail Image ── */}

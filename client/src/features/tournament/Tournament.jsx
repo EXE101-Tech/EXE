@@ -225,7 +225,7 @@ export default function Tournament() {
                 onChange={(e) => setFilterLocation(e.target.value)}
                 className="w-full bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-10 pr-3 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all truncate"
               >
-                <option value="all">📍 Tất cả địa điểm</option>
+                <option value="all">Tất cả địa điểm</option>
                 <option value="Quận 10">Quận 10</option>
                 <option value="Quận 7">Quận 7</option>
                 <option value="Thủ Đức">TP. Thủ Đức</option>
@@ -242,7 +242,7 @@ export default function Tournament() {
                 onChange={(e) => setFilterTime(e.target.value)}
                 className="w-full bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-10 pr-3 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all truncate"
               >
-                <option value="all">⏰ Tất cả thời gian</option>
+                <option value="all">Tất cả thời gian</option>
                 <option value="Tối nay">Tối nay</option>
                 <option value="Tối mai">Tối mai</option>
                 <option value="Chiều">Chiều nay</option>
@@ -259,7 +259,7 @@ export default function Tournament() {
                 onChange={(e) => setFilterPrice(e.target.value)}
                 className="w-full bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-10 pr-3 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all truncate"
               >
-                <option value="all">💵 Tất cả mức giá</option>
+                <option value="all">Tất cả mức giá</option>
                 <option value="Dưới 60k">Dưới 60.000đ</option>
                 <option value="60k - 80k">60.000đ - 80.000đ</option>
                 <option value="Trên 80k">Trên 80.000đ</option>
@@ -274,7 +274,7 @@ export default function Tournament() {
                 onChange={(e) => setFilterSkill(e.target.value)}
                 className="w-full bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-10 pr-3 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all truncate"
               >
-                <option value="all">🏆 Tất cả trình độ</option>
+                <option value="all">Tất cả trình độ</option>
                 <option value="Mới chơi">Mới chơi / Vui vẻ</option>
                 <option value="Trung bình yếu">Trung bình yếu</option>
                 <option value="Trung bình">Trung bình</option>

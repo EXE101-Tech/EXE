@@ -239,7 +239,7 @@ export default function Team() {
 
             <button
               onClick={() => setIsCreateModalOpen(true)}
-              className="px-5 py-2.5 rounded-2xl font-bold text-xs sm:text-sm bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-95 text-white shadow-md hover:shadow-lg flex items-center justify-center gap-2 transition-all duration-200 active:scale-95 group shrink-0"
+              className="px-5 py-2.5 rounded-2xl font-bold text-xs sm:text-sm bg-gradient-to-r from-amber-400 to-yellow-500 hover:opacity-95 text-white shadow-md hover:shadow-lg flex items-center justify-center gap-2 transition-all duration-200 active:scale-95 group shrink-0"
             >
               <PlusCircle className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" />
               <span>Thành lập CLB mới</span>
@@ -270,7 +270,7 @@ export default function Team() {
             {(activeTab === 'captain' || activeTab === 'discover') && (
               <button
                 onClick={() => setIsCreateModalOpen(true)}
-                className="px-5 py-2.5 rounded-2xl bg-[#589470] dark:bg-[#74C365] text-white dark:text-[#001F3F] font-bold text-xs shadow-lg active:scale-95 transition-all"
+                className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-amber-400 to-yellow-500 text-white font-bold text-xs shadow-lg active:scale-95 transition-all"
               >
                 + Thành lập CLB mới
               </button>

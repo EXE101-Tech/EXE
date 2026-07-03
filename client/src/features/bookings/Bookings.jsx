@@ -188,7 +188,7 @@ export default function Bookings() {
                 onChange={(e) => setLocationFilter(e.target.value)}
                 className="w-full bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-10 pr-3 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all truncate"
               >
-                <option value="all">📍 Tất cả địa điểm</option>
+                <option value="all">Tất cả địa điểm</option>
                 <option value="Quận 10">Quận 10</option>
                 <option value="Quận 7">Quận 7</option>
                 <option value="Thủ Đức">TP. Thủ Đức</option>
