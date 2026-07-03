@@ -306,7 +306,7 @@ export default function Navbar() {
 
         <button
           onClick={() => setIsPremiumOpen(true)}
-          className="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 z-20 inline-flex items-center gap-1.5 bg-gradient-to-r from-yellow-400 via-yellow-500 to-orange-500 text-white font-bold px-3.5 py-2 rounded-2xl text-xs sm:text-sm shadow-[0_0_15px_rgba(234,179,8,0.35)] hover:scale-[1.02] active:scale-95 transition-transform"
+          className="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 z-20 inline-flex items-center gap-1.5 bg-gradient-to-r from-yellow-400 via-yellow-500 to-orange-500 text-white font-bold px-3.5 py-2 rounded-2xl text-xs sm:text-sm shadow-[0_0_15px_rgba(234,179,8,0.35)] hover:scale-[1.02] active:scale-95 transition-transform overflow-hidden group"
           title="Premium"
         >
           <Crown className="w-4 h-4" />
@@ -318,6 +318,7 @@ export default function Navbar() {
       <CreateTeamModal
         isOpen={isPremiumOpen}
         onClose={() => setIsPremiumOpen(false)}
+        initialView="info"
       />
 
       <EditProfileModal

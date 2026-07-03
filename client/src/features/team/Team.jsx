@@ -5,9 +5,12 @@ import TeamCard from './components/TeamCard';
 import CreateTeamModal from './components/CreateTeamModal';
 import ReviewTeamModal from './components/ReviewTeamModal';
 
-import heroBgImg from '../../assets/images/hero_bg.png';
-import badmintonCenterImg from '../../assets/images/ProtonBadmintonCenter.png';
-import footballArenaImg from '../../assets/images/EliteFootballArena.png';
+import badmintonImg from '../../assets/sports/badminton.avif';
+import footballImg from '../../assets/sports/foodball.avif';
+import pickleballImg from '../../assets/sports/pickleball.jpg';
+import tennisImg from '../../assets/sports/tennis.jpg';
+import basketballImg from '../../assets/sports/bong_ro.jpg';
+import volleyballImg from '../../assets/sports/volleyball.jpg';
 
 // ── Mock Data ──
 // isCaptain = true  → user hiện tại là chủ CLB
@@ -19,8 +22,8 @@ const INITIAL_TEAMS = [
     sportId: 'badminton',
     sportName: 'Cầu lông',
     sportEmoji: '🏸',
-    image: badmintonCenterImg,
-    logo: badmintonCenterImg,
+    image: badmintonImg,
+    logo: badmintonImg,
     description: 'Câu lạc bộ cầu lông chuyên nghiệp tại Q.10, tập luyện 3 buổi/tuần với sân riêng và huấn luyện viên đẳng cấp. Ưu tiên tinh thần thể thao fairplay và giao lưu vui vẻ.',
     location: 'Sân Viettel, Quận 10',
     members: 42,
@@ -40,8 +43,8 @@ const INITIAL_TEAMS = [
     sportId: 'football',
     sportName: 'Bóng đá',
     sportEmoji: '⚽',
-    image: footballArenaImg,
-    logo: footballArenaImg,
+    image: footballImg,
+    logo: footballImg,
     description: 'Đội bóng đá sân 7 hoạt động tại Quận 7, thường xuyên tham gia giải phong trào và tuyển thành viên mới. Tập luyện thứ 3 & thứ 5 hàng tuần.',
     location: 'Sân Chấu Giang, Quận 7',
     members: 28,
@@ -61,8 +64,8 @@ const INITIAL_TEAMS = [
     sportId: 'pickleball',
     sportName: 'Pickleball',
     sportEmoji: '🏓',
-    image: heroBgImg,
-    logo: heroBgImg,
+    image: pickleballImg,
+    logo: pickleballImg,
     description: 'CLB pickleball năng động dành cho mọi trình độ, đặc biệt chào đón người mới bắt đầu. Sân chuẩn quốc tế, có vợt cho mượn.',
     location: 'Sân D-Court, TP. Thủ Đức',
     members: 16,
@@ -82,8 +85,8 @@ const INITIAL_TEAMS = [
     sportId: 'basketball',
     sportName: 'Bóng rổ',
     sportEmoji: '🏀',
-    image: heroBgImg,
-    logo: heroBgImg,
+    image: basketballImg,
+    logo: basketballImg,
     description: 'Giao lưu bóng rổ đường phố 3x3 và 5v5, nhịp độ nhanh, vui vẻ không va chạm mạnh. Anh em ai thích ném 3 điểm hay đột phá thì gia nhập ngay!',
     location: 'Sân Hồ Xuân Hương, Quận 3',
     members: 18,
@@ -103,8 +106,8 @@ const INITIAL_TEAMS = [
     sportId: 'tennis',
     sportName: 'Tennis',
     sportEmoji: '🎾',
-    image: heroBgImg,
-    logo: heroBgImg,
+    image: tennisImg,
+    logo: tennisImg,
     description: 'Nhóm tennis cho anh em văn phòng rèn luyện sức khỏe cuối tuần, sân có mái che không lo mưa nắng. Trình 2.5 - 3.5 NTRP.',
     location: 'Sân Tennis Phú Thọ, Quận 11',
     members: 22,
@@ -124,8 +127,8 @@ const INITIAL_TEAMS = [
     sportId: 'volleyball',
     sportName: 'Bóng chuyền',
     sportEmoji: '🏐',
-    image: heroBgImg,
-    logo: heroBgImg,
+    image: volleyballImg,
+    logo: volleyballImg,
     description: 'CLB bóng chuyền giao lưu thân thiện, tổ chức giải nội bộ hàng quý, chào đón mọi trình độ. Sân tại Q. Bình Thạnh.',
     location: 'Sân Bình Thạnh, TP.HCM',
     members: 30,

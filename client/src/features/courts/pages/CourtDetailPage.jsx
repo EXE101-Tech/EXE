@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import protonImg from '../../../assets/images/ProtonBadmintonCenter.png';
-import eliteImg from '../../../assets/images/EliteFootballArena.png';
-import heroBgImg from '../../../assets/images/hero_bg.png';
+import badmintonImg from '../../../assets/sports/badminton.avif';
+import footballImg from '../../../assets/sports/foodball.avif';
+import pickleballImg from '../../../assets/sports/pickleball.jpg';
+import tennisImg from '../../../assets/sports/tennis.jpg';
+import basketballImg from '../../../assets/sports/bong_ro.jpg';
+import volleyballImg from '../../../assets/sports/volleyball.jpg';
 
 import CourtHero from '../components/CourtHero';
 import CourtInfo from '../components/CourtInfo';
@@ -24,7 +27,7 @@ const FALLBACK_VENUES = {
     price: '50.000đ',
     priceNumber: 50000,
     courtCount: 6,
-    image: protonImg,
+    image: badmintonImg,
     hostName: 'Anh Tuấn Proton',
     facilities: { wifi: true, parking: true, shower: true, canteen: true, rental: true },
     description: 'Sân cầu lông tiêu chuẩn quốc tế thảm lót chuyên dụng, đèn chống chói, không gian thoáng mát.',
@@ -40,7 +43,7 @@ const FALLBACK_VENUES = {
     price: '80.000đ',
     priceNumber: 80000,
     courtCount: 4,
-    image: eliteImg,
+    image: footballImg,
     hostName: 'Chị Mai Elite',
     facilities: { wifi: true, parking: true, shower: true, canteen: true, rental: true },
     description: 'Sân bóng cỏ nhân tạo chất lượng cao FIFA 2 sao, có khu vực chờ mát mẻ, phục vụ nước uống định kỳ.',
@@ -89,7 +92,7 @@ function CourtDetailPage() {
             priceNumber: 50000,
             courtCount: 4,
             description: courtData.venue?.description || 'Sân thể thao chất lượng cao đáp ứng mọi nhu cầu luyện tập và thi đấu.',
-            image: protonImg,
+            image: badmintonImg,
             hostName: 'Chủ Sân Thể Thao',
             facilities: { wifi: true, parking: true, shower: true, canteen: true, rental: true },
           };

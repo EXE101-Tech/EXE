@@ -5,9 +5,12 @@ import { useChat } from '../../shared/context/ChatContext';
 import VenueCard from './components/VenueCard';
 import HostSetupModal from './components/HostSetupModal';
 
-import badmintonCenterImg from '../../assets/images/ProtonBadmintonCenter.png';
-import footballArenaImg from '../../assets/images/EliteFootballArena.png';
-import heroBgImg from '../../assets/images/hero_bg.png';
+import badmintonImg from '../../assets/sports/badminton.avif';
+import footballImg from '../../assets/sports/foodball.avif';
+import pickleballImg from '../../assets/sports/pickleball.jpg';
+import tennisImg from '../../assets/sports/tennis.jpg';
+import basketballImg from '../../assets/sports/bong_ro.jpg';
+import volleyballImg from '../../assets/sports/volleyball.jpg';
 
 const INITIAL_VENUES = [
   {
@@ -23,7 +26,7 @@ const INITIAL_VENUES = [
     price: '50.000đ',
     priceNumber: 50000,
     courtCount: 6,
-    image: badmintonCenterImg,
+    image: badmintonImg,
     hostName: 'Anh Tuấn Proton',
     facilities: { wifi: true, parking: true, shower: true, canteen: true, rental: true },
   },
@@ -40,7 +43,7 @@ const INITIAL_VENUES = [
     price: '80.000đ',
     priceNumber: 80000,
     courtCount: 4,
-    image: footballArenaImg,
+    image: footballImg,
     hostName: 'Chị Mai Elite',
     facilities: { wifi: true, parking: true, shower: true, canteen: true, rental: true },
   },
@@ -57,7 +60,7 @@ const INITIAL_VENUES = [
     price: '60.000đ',
     priceNumber: 60000,
     courtCount: 8,
-    image: heroBgImg,
+    image: pickleballImg,
     hostName: 'Coach Hùng Pickle',
     facilities: { wifi: true, parking: true, shower: true, canteen: true, rental: true },
   },
@@ -74,7 +77,7 @@ const INITIAL_VENUES = [
     price: '90.000đ',
     priceNumber: 90000,
     courtCount: 5,
-    image: heroBgImg,
+    image: tennisImg,
     hostName: 'Ban Quản Lý Phú Thọ',
     facilities: { wifi: true, parking: true, shower: true, canteen: false, rental: true },
   },
@@ -91,7 +94,7 @@ const INITIAL_VENUES = [
     price: '70.000đ',
     priceNumber: 70000,
     courtCount: 3,
-    image: footballArenaImg,
+    image: basketballImg,
     hostName: 'Coach Long SSA',
     facilities: { wifi: true, parking: true, shower: true, canteen: true, rental: true },
   },
@@ -108,7 +111,7 @@ const INITIAL_VENUES = [
     price: '55.000đ',
     priceNumber: 55000,
     courtCount: 4,
-    image: badmintonCenterImg,
+    image: volleyballImg,
     hostName: 'Anh Hoàng Tân Bình',
     facilities: { wifi: true, parking: true, shower: true, canteen: true, rental: false },
   },

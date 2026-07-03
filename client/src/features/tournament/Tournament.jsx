@@ -5,9 +5,12 @@ import PostCard from './components/PostCard';
 import JoinModal from './components/JoinModal';
 import CreatePostModal from './components/CreatePostModal';
 
-import heroBgImg from '../../assets/images/hero_bg.png';
-import badmintonCenterImg from '../../assets/images/ProtonBadmintonCenter.png';
-import footballArenaImg from '../../assets/images/EliteFootballArena.png';
+import badmintonImg from '../../assets/sports/badminton.avif';
+import footballImg from '../../assets/sports/foodball.avif';
+import pickleballImg from '../../assets/sports/pickleball.jpg';
+import tennisImg from '../../assets/sports/tennis.jpg';
+import basketballImg from '../../assets/sports/bong_ro.jpg';
+import volleyballImg from '../../assets/sports/volleyball.jpg';
 
 const INITIAL_POSTS = [
   {
@@ -15,7 +18,7 @@ const INITIAL_POSTS = [
     sportId: 'badminton',
     sportName: 'Cầu lông',
     sportEmoji: '🏸',
-    image: badmintonCenterImg,
+    image: badmintonImg,
     authorName: 'Minh Khang',
     teamName: 'CLB Cầu Lông Proton',
     timeAgo: '2 giờ trước',
@@ -36,7 +39,7 @@ const INITIAL_POSTS = [
     sportId: 'football',
     sportName: 'Bóng đá',
     sportEmoji: '⚽',
-    image: footballArenaImg,
+    image: footballImg,
     authorName: 'Hoàng Long',
     teamName: 'FC Elite Saigon',
     timeAgo: '4 giờ trước',
@@ -57,7 +60,7 @@ const INITIAL_POSTS = [
     sportId: 'pickleball',
     sportName: 'Pickleball',
     sportEmoji: '🏓',
-    image: heroBgImg,
+    image: pickleballImg,
     authorName: 'Thu Hà',
     teamName: 'Thảo Điền Pickleball Club',
     timeAgo: '5 giờ trước',
@@ -78,7 +81,7 @@ const INITIAL_POSTS = [
     sportId: 'tennis',
     sportName: 'Tennis',
     sportEmoji: '🎾',
-    image: heroBgImg,
+    image: tennisImg,
     authorName: 'Quang Vinh',
     teamName: 'Hội Tennis Phú Thọ',
     timeAgo: '1 ngày trước',
@@ -99,7 +102,7 @@ const INITIAL_POSTS = [
     sportId: 'basketball',
     sportName: 'Bóng rổ',
     sportEmoji: '🏀',
-    image: heroBgImg,
+    image: basketballImg,
     authorName: 'Tuấn Kiệt',
     teamName: 'Saigon Street Ballers',
     timeAgo: '1 ngày trước',

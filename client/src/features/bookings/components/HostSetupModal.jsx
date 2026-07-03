@@ -1,16 +1,19 @@
 import React, { useState } from 'react';
 import { X, ShieldCheck, DollarSign, Layers, MapPin, Wifi, Car, Droplets, Coffee, Package, Sparkles, Building2 } from 'lucide-react';
-import badmintonCenterImg from '../../../assets/images/ProtonBadmintonCenter.png';
-import footballArenaImg from '../../../assets/images/EliteFootballArena.png';
-import heroBgImg from '../../../assets/images/hero_bg.png';
+import badmintonImg from '../../../assets/sports/badminton.avif';
+import footballImg from '../../../assets/sports/foodball.avif';
+import pickleballImg from '../../../assets/sports/pickleball.jpg';
+import tennisImg from '../../../assets/sports/tennis.jpg';
+import basketballImg from '../../../assets/sports/bong_ro.jpg';
+import volleyballImg from '../../../assets/sports/volleyball.jpg';
 
 const SPORTS = [
-  { id: 'badminton', name: 'Cầu lông', emoji: '🏸', defaultImg: badmintonCenterImg },
-  { id: 'football', name: 'Bóng đá', emoji: '⚽', defaultImg: footballArenaImg },
-  { id: 'pickleball', name: 'Pickleball', emoji: '🏓', defaultImg: heroBgImg },
-  { id: 'tennis', name: 'Tennis', emoji: '🎾', defaultImg: heroBgImg },
-  { id: 'basketball', name: 'Bóng rổ', emoji: '🏀', defaultImg: heroBgImg },
-  { id: 'volleyball', name: 'Bóng chuyền', emoji: '🏐', defaultImg: heroBgImg },
+  { id: 'badminton', name: 'Cầu lông', emoji: '🏸', defaultImg: badmintonImg },
+  { id: 'football', name: 'Bóng đá', emoji: '⚽', defaultImg: footballImg },
+  { id: 'pickleball', name: 'Pickleball', emoji: '🏓', defaultImg: pickleballImg },
+  { id: 'tennis', name: 'Tennis', emoji: '🎾', defaultImg: tennisImg },
+  { id: 'basketball', name: 'Bóng rổ', emoji: '🏀', defaultImg: basketballImg },
+  { id: 'volleyball', name: 'Bóng chuyền', emoji: '🏐', defaultImg: volleyballImg },
 ];
 
 const FACILITY_OPTIONS = [

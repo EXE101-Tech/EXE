@@ -1,16 +1,19 @@
 import React, { useState } from 'react';
 import { X, PlusCircle, MapPin, Calendar, Users, DollarSign, Award, Sparkles, Image as ImageIcon, Upload, Trash2 } from 'lucide-react';
-import heroBgImg from '../../../assets/images/hero_bg.png';
-import badmintonCenterImg from '../../../assets/images/ProtonBadmintonCenter.png';
-import footballArenaImg from '../../../assets/images/EliteFootballArena.png';
+import badmintonImg from '../../../assets/sports/badminton.avif';
+import footballImg from '../../../assets/sports/foodball.avif';
+import pickleballImg from '../../../assets/sports/pickleball.jpg';
+import tennisImg from '../../../assets/sports/tennis.jpg';
+import basketballImg from '../../../assets/sports/bong_ro.jpg';
+import volleyballImg from '../../../assets/sports/volleyball.jpg';
 
 const SPORTS_LIST = [
-  { id: 'badminton', name: 'Cầu lông', emoji: '🏸', defaultImg: badmintonCenterImg },
-  { id: 'football', name: 'Bóng đá', emoji: '⚽', defaultImg: footballArenaImg },
-  { id: 'pickleball', name: 'Pickleball', emoji: '🏓', defaultImg: heroBgImg },
-  { id: 'tennis', name: 'Tennis', emoji: '🎾', defaultImg: heroBgImg },
-  { id: 'basketball', name: 'Bóng rổ', emoji: '🏀', defaultImg: heroBgImg },
-  { id: 'volleyball', name: 'Bóng chuyền', emoji: '🏐', defaultImg: heroBgImg },
+  { id: 'badminton', name: 'Cầu lông', emoji: '🏸', defaultImg: badmintonImg },
+  { id: 'football', name: 'Bóng đá', emoji: '⚽', defaultImg: footballImg },
+  { id: 'pickleball', name: 'Pickleball', emoji: '🏓', defaultImg: pickleballImg },
+  { id: 'tennis', name: 'Tennis', emoji: '🎾', defaultImg: tennisImg },
+  { id: 'basketball', name: 'Bóng rổ', emoji: '🏀', defaultImg: basketballImg },
+  { id: 'volleyball', name: 'Bóng chuyền', emoji: '🏐', defaultImg: volleyballImg },
 ];
 
 export default function CreatePostModal({ isOpen, onClose, onCreate }) {
