@@ -65,7 +65,7 @@ function Home() {
       <div className="max-w-7xl mx-auto px-6 md:px-8 py-10 grid grid-cols-1 lg:grid-cols-12 gap-10">
         
         {/* ── 2. User Skill Profile Section (Left Column) ── */}
-        <div className="lg:col-span-4 flex flex-col gap-6 relative z-20 -mt-28 lg:-mt-40">
+        <div className="lg:col-span-4 flex flex-col gap-6 relative z-20">
           <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl rounded-3xl p-6 border border-slate-200/50 dark:border-slate-700/50 shadow-2xl shadow-slate-200/30 dark:shadow-black/50">
             <div className="flex items-center gap-3 mb-8">
               <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#589470] to-teal-500 flex items-center justify-center text-white shadow-lg">

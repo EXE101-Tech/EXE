@@ -16,7 +16,6 @@ export default function EditSkillModal({ isOpen, onClose, skills, onSave }) {
 
   useEffect(() => {
     if (isOpen) {
-      // Deep copy to avoid mutating original state directly before save
       setEditedSkills(JSON.parse(JSON.stringify(skills)));
     }
   }, [isOpen, skills]);
@@ -42,7 +41,7 @@ export default function EditSkillModal({ isOpen, onClose, skills, onSave }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"
@@ -50,7 +49,7 @@ export default function EditSkillModal({ isOpen, onClose, skills, onSave }) {
       />
 
       {/* Modal */}
-      <div className="relative bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh]">
+      <div className="relative bg-white dark:bg-slate-900 w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh]">
         
         {/* Header */}
         <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
@@ -71,27 +70,29 @@ export default function EditSkillModal({ isOpen, onClose, skills, onSave }) {
           </button>
         </div>
 
-        {/* Body */}
-        <div className="p-6 overflow-y-auto flex-1 space-y-6">
-          {editedSkills.map((skill, idx) => (
-            <div key={idx} className="space-y-2">
-              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">
-                {skill.sport}
-              </label>
-              <select
-                value={skill.level}
-                onChange={(e) => handleLevelChange(idx, e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium appearance-none cursor-pointer"
-                style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em', paddingRight: '2.5rem' }}
-              >
-                {LEVEL_OPTIONS.map((opt) => (
-                  <option key={opt.label} value={opt.label}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ))}
+        {/* Body - 2 column layout: sport name left, dropdown right */}
+        <div className="p-6 overflow-y-auto flex-1">
+          <div className="space-y-3">
+            {editedSkills.map((skill, idx) => (
+              <div key={idx} className="flex items-center gap-4">
+                <span className="text-sm font-bold text-slate-700 dark:text-slate-300 w-28 shrink-0">
+                  {skill.sport}
+                </span>
+                <select
+                  value={skill.level}
+                  onChange={(e) => handleLevelChange(idx, e.target.value)}
+                  className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm font-medium appearance-none cursor-pointer"
+                  style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em', paddingRight: '2.5rem' }}
+                >
+                  {LEVEL_OPTIONS.map((opt) => (
+                    <option key={opt.label} value={opt.label}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Footer */}
