@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Search, PlusCircle, Users, Sparkles, Filter, MessageSquare, CheckCircle2, SlidersHorizontal, MapPin, Calendar, DollarSign, Award } from 'lucide-react';
 import { useSportFilter } from '../../shared/context/SportFilterContext';
+import { useChat } from '../../shared/context/ChatContext';
 import PostCard from './components/PostCard';
 import JoinModal from './components/JoinModal';
 import CreatePostModal from './components/CreatePostModal';
@@ -122,6 +123,7 @@ const INITIAL_POSTS = [
 
 export default function Tournament() {
   const { selectedSport } = useSportFilter();
+  const { openChat } = useChat();
   const [posts, setPosts] = useState(INITIAL_POSTS);
   const [filterLocation, setFilterLocation] = useState('all');
   const [filterTime, setFilterTime] = useState('all');
@@ -168,7 +170,7 @@ export default function Tournament() {
   };
 
   const handleChatClick = (post) => {
-    showToast(`💬 Đang mở khung chat với trưởng nhóm "${post.authorName}"...`);
+    openChat(post.authorName || 'Trưởng nhóm');
   };
 
   const handleCreatePost = (newPost) => {

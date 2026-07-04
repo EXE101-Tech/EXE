@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Search, Sun, Moon, Check, Bell, ChevronDown, Menu, LogOut, User, Crown } from 'lucide-react';
+import { Search, Sun, Moon, Check, Bell, ChevronDown, Menu, LogOut, User, Crown, MessageSquare } from 'lucide-react';
 import { useSportFilter } from '../context/SportFilterContext';
 import { useAuth } from '../context/AuthContext';
+import { useChat } from '../context/ChatContext';
 import EditProfileModal from '../../features/profile/EditProfileModal';
 import CreateTeamModal from '../../features/team/components/CreateTeamModal';
 
@@ -23,6 +24,7 @@ export default function Navbar() {
   const location = useLocation();
   const { selectedSport, setSelectedSport } = useSportFilter();
   const { user, logout, updateProfile } = useAuth();
+  const { isChatOpen, toggleChat } = useChat();
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
@@ -125,8 +127,8 @@ export default function Navbar() {
             onClick={() => navigate('/home')}
             className="cursor-pointer group select-none flex items-center gap-1.5"
           >
-            <span className="text-2xl sm:text-3xl font-black bg-gradient-to-r from-[#74C365] to-[#589470] bg-clip-text text-transparent tracking-tight transition-transform group-hover:scale-105" style={{ fontFamily: 'Georgia, serif' }}>
-              SportGo
+            <span className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white transition-transform group-hover:scale-105">
+              Sport<span className="text-[#74C365]">Go</span>
             </span>
           </div>
         </div>
@@ -304,15 +306,30 @@ export default function Navbar() {
           );
         })}
 
-        <button
-          onClick={() => setIsPremiumOpen(true)}
-          className="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 z-20 inline-flex items-center gap-1.5 bg-gradient-to-r from-yellow-400 via-yellow-500 to-orange-500 text-white font-bold px-3.5 py-2 rounded-2xl text-xs sm:text-sm shadow-[0_0_15px_rgba(234,179,8,0.35)] hover:scale-[1.02] active:scale-95 transition-transform overflow-hidden group"
-          title="Premium"
-        >
-          <Crown className="w-4 h-4" />
-          <span>Premium</span>
-          <div className="absolute inset-0 w-[200%] -translate-x-full bg-gradient-to-r from-transparent via-white/40 to-transparent animate-pulse pointer-events-none" />
-        </button>
+        <div className="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 z-20 flex items-center gap-2">
+          <button
+            onClick={() => setIsPremiumOpen(true)}
+            className="inline-flex items-center gap-1.5 bg-gradient-to-r from-yellow-400 via-yellow-500 to-orange-500 text-white font-bold px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-2xl text-xs sm:text-sm shadow-[0_0_15px_rgba(234,179,8,0.35)] hover:scale-[1.02] active:scale-95 transition-transform overflow-hidden group relative"
+            title="Premium"
+          >
+            <Crown className="w-4 h-4" />
+            <span>Premium</span>
+            <div className="absolute inset-0 w-[200%] -translate-x-full bg-gradient-to-r from-transparent via-white/40 to-transparent animate-pulse pointer-events-none" />
+          </button>
+          
+          <button
+            onClick={toggleChat}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-2xl text-xs sm:text-sm font-bold shadow-md transition-all ${
+              isChatOpen 
+                ? 'bg-[#74C365] text-white shadow-[0_0_15px_rgba(116,195,101,0.5)] scale-105' 
+                : 'bg-white/50 dark:bg-white/10 hover:bg-[#74C365]/10 dark:hover:bg-[#74C365]/20 text-slate-700 dark:text-gray-200 hover:text-[#74C365] dark:hover:text-[#74C365] border border-gray-200/80 dark:border-white/10'
+            }`}
+            title="Chat"
+          >
+            <MessageSquare className="w-4 h-4" />
+            <span>Chat</span>
+          </button>
+        </div>
       </nav>
 
       <CreateTeamModal

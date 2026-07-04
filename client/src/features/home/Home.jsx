@@ -40,7 +40,7 @@ function Home() {
             Nền tảng thể thao & ghép kèo số 1
           </div>
           <h1 className="text-5xl md:text-7xl font-black tracking-tight text-white mb-6 drop-shadow-lg">
-            Sport<span className="text-[#589470] dark:text-[#DBE64C]">Go</span>
+            Sport<span className="text-[#74C365]">Go</span>
           </h1>
           <p className="text-xl md:text-2xl font-semibold text-white/90 mb-10 drop-shadow-md">
             Chơi đúng người - Ghép đúng trình độ
@@ -48,7 +48,7 @@ function Home() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <button 
               onClick={() => navigate('/tournaments')}
-              className="px-8 py-3.5 bg-[#589470] hover:bg-[#4a7c5d] dark:bg-[#DBE64C] dark:hover:bg-[#c4cf44] dark:text-slate-900 text-white font-bold rounded-xl shadow-lg shadow-[#589470]/30 transition-all flex items-center justify-center gap-2"
+              className="px-8 py-3.5 bg-[#74C365] hover:bg-[#60a852] text-white font-bold rounded-xl shadow-lg shadow-[#74C365]/30 transition-all flex items-center justify-center gap-2"
             >
               Khám phá diễn đàn <ArrowRight className="w-5 h-5" />
             </button>

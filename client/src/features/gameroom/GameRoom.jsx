@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Search, Plus, PlusCircle, Gamepad2, Trophy, Award, Filter, Sparkles, SlidersHorizontal, RefreshCw, AlertCircle, MessageSquare, Send, X, Crown, CheckCircle2, MapPin, Calendar, DollarSign, Users } from 'lucide-react';
 import { gameRoomService } from '../../shared/services/api';
 import { useSportFilter } from '../../shared/context/SportFilterContext';
+import { useChat } from '../../shared/context/ChatContext';
 import RoomCard from './components/RoomCard';
 import CreateRoomModal from './components/CreateRoomModal';
 import JoinRoomModal from './components/JoinRoomModal';
@@ -115,6 +116,7 @@ const INITIAL_ROOMS = [
 
 function GameRoom() {
   const { selectedSport } = useSportFilter();
+  const { openChat } = useChat();
   const [rooms, setRooms] = useState(INITIAL_ROOMS);
   const [selectedLevel, setSelectedLevel] = useState('all');
   const [selectedLocation, setSelectedLocation] = useState('all');
@@ -128,11 +130,6 @@ function GameRoom() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [joiningRoom, setJoiningRoom] = useState(null);
   const [managingRoom, setManagingRoom] = useState(null);
-  const [chattingRoom, setChattingRoom] = useState(null);
-
-  // Chat window state
-  const [chatMessages, setChatMessages] = useState([]);
-  const [newChatMessage, setNewChatMessage] = useState('');
 
   // Load from API on mount (Tạm thời vô hiệu hóa endpoint theo yêu cầu, sử dụng trực tiếp dữ liệu mẫu INITIAL_ROOMS)
   useEffect(() => {
@@ -284,39 +281,7 @@ function GameRoom() {
 
   // Handle Open Chat
   const handleOpenChat = (room) => {
-    setChattingRoom(room);
-    setChatMessages([
-      { id: 1, sender: room.host?.name || 'Trưởng phòng', text: `Chào bạn! Mình là chủ phòng "${room.title}". Bạn cần hỏi thêm thông tin gì về sân hay trình độ không?`, isHost: true, time: 'Vừa xong' },
-    ]);
-  };
-
-  // Handle Send Chat Message
-  const handleSendMessage = (e) => {
-    e.preventDefault();
-    if (!newChatMessage.trim() || !chattingRoom) return;
-
-    const userMsg = {
-      id: Date.now(),
-      sender: 'Bạn',
-      text: newChatMessage.trim(),
-      isHost: false,
-      time: 'Bây giờ',
-    };
-
-    setChatMessages((prev) => [...prev, userMsg]);
-    setNewChatMessage('');
-
-    // Simulate auto-reply from host after 1 second
-    setTimeout(() => {
-      const replyMsg = {
-        id: Date.now() + 1,
-        sender: chattingRoom.host?.name || 'Trưởng phòng',
-        text: 'Okey bạn nhé! Sân đã bao cầu và trà đá đầy đủ rồi, bạn cứ qua đúng giờ là anh em bắt cặp giao lưu luôn nha 🏸🔥!',
-        isHost: true,
-        time: 'Bây giờ',
-      };
-      setChatMessages((prev) => [...prev, replyMsg]);
-    }, 1200);
+    openChat(room.host?.name || 'Trưởng phòng');
   };
 
   return (
@@ -511,71 +476,6 @@ function GameRoom() {
         onUpdateStatus={handleUpdateStatus}
         isLoading={isLoading}
       />
-
-      {/* Simulated Live Chat Drawer with Host */}
-      {chattingRoom && (
-        <div className="fixed bottom-0 right-4 sm:right-8 w-full max-w-sm sm:max-w-md z-50 bg-white dark:bg-[#001F3F] rounded-t-3xl border border-slate-200 dark:border-white/10 shadow-[0_-10px_40px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col h-[480px] animate-slideUp">
-          {/* Chat Header */}
-          <div className="p-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#589470] to-teal-600 text-white font-bold flex items-center justify-center shrink-0 text-sm shadow">
-                {(chattingRoom.host?.name || 'H').charAt(0).toUpperCase()}
-              </div>
-              <div className="min-w-0">
-                <span className="text-xs font-bold text-white block truncate">
-                  {chattingRoom.host?.name || 'Trưởng phòng'} <span className="text-[10px] text-emerald-400 font-normal">• Trực tuyến</span>
-                </span>
-                <span className="text-[10px] text-slate-400 block truncate">
-                  Phòng: {chattingRoom.title}
-                </span>
-              </div>
-            </div>
-            <button
-              onClick={() => setChattingRoom(null)}
-              className="p-1.5 rounded-xl hover:bg-white/10 text-slate-300 hover:text-white transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Messages List */}
-          <div className="p-4 overflow-y-auto custom-scrollbar flex-1 space-y-3 bg-slate-50 dark:bg-black/20 text-xs">
-            {chatMessages.map((msg) => (
-              <div key={msg.id} className={`flex flex-col ${msg.isHost ? 'items-start' : 'items-end'}`}>
-                <div className="flex items-center gap-1.5 mb-1">
-                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">{msg.sender}</span>
-                  <span className="text-[9px] text-slate-400">{msg.time}</span>
-                </div>
-                <div className={`px-4 py-2.5 rounded-2xl max-w-[85%] leading-relaxed ${
-                  msg.isHost
-                    ? 'bg-white dark:bg-white/10 text-slate-900 dark:text-white rounded-tl-none border border-slate-200 dark:border-white/5 shadow-sm'
-                    : 'bg-[#589470] dark:bg-[#DBE64C] text-white dark:text-[#001F3F] rounded-tr-none font-medium shadow-md'
-                }`}>
-                  {msg.text}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Chat Input */}
-          <form onSubmit={handleSendMessage} className="p-3 border-t border-slate-200 dark:border-white/10 bg-white dark:bg-[#001F3F] flex items-center gap-2 shrink-0">
-            <input
-              type="text"
-              value={newChatMessage}
-              onChange={(e) => setNewChatMessage(e.target.value)}
-              placeholder="Nhập tin nhắn cho trưởng phòng..."
-              className="flex-1 px-4 py-2.5 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:border-[#589470] dark:focus:border-[#DBE64C] focus:outline-none text-xs font-medium text-slate-900 dark:text-white"
-            />
-            <button
-              type="submit"
-              disabled={!newChatMessage.trim()}
-              className="p-2.5 rounded-2xl bg-[#589470] dark:bg-[#DBE64C] text-white dark:text-[#001F3F] font-bold hover:scale-105 active:scale-95 disabled:opacity-50 transition-all shadow"
-            >
-              <Send className="w-4 h-4" />
-            </button>
-          </form>
-        </div>
-      )}
     </div>
   );
 }
