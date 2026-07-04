@@ -115,7 +115,7 @@ export default function TeamCard({ team, activeTab, onReview }) {
           </div>
 
           {/* Team Name (Title) */}
-          <h3 className="text-lg md:text-xl font-black text-[#589470] dark:text-[#DBE64C] mb-1.5 transition-colors leading-snug">
+          <h3 className="text-lg md:text-xl font-black text-slate-900 dark:text-white group-hover:text-[#589470] dark:group-hover:text-[#74C365] mb-1.5 transition-colors leading-snug">
             {team.name}
           </h3>
 

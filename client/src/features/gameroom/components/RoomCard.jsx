@@ -169,7 +169,7 @@ function RoomCard({ room, currentUserId = 1, onJoin, onChat, onManage }) {
         </div>
 
         {/* Room Title */}
-        <h3 className="text-lg md:text-xl font-bold text-[#589470] dark:text-[#DBE64C] mb-1.5 transition-colors leading-snug">
+        <h3 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white group-hover:text-[#589470] dark:group-hover:text-[#74C365] mb-1.5 transition-colors leading-snug">
           {title}
         </h3>
 
