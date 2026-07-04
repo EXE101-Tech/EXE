@@ -13,7 +13,7 @@ DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localho
 if "?pgbouncer=true" in DATABASE_URL:
     DATABASE_URL = DATABASE_URL.replace("?pgbouncer=true", "")
 
-engine = create_engine(DATABASE_URL)
+engine = create_engine(DATABASE_URL, pool_pre_ping=True, pool_recycle=3600)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()

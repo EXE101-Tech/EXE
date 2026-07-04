@@ -6,7 +6,7 @@ const LEVEL_STYLES = {
 
 const AVATAR_COLORS = {
   B: 'bg-blue-500',
-  P: 'bg-purple-500',
+  P: 'bg-sky-500',
   M: 'bg-green-500',
   L: 'bg-pink-500',
   T: 'bg-teal-500',

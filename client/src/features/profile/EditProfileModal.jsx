@@ -72,7 +72,7 @@ function EditProfileModal({ isOpen, onClose, user, onSave }) {
   if (!isRendered) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[1050] flex items-center justify-center p-4">
       {/* Backdrop */}
       <div 
         className={`absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 ${
@@ -112,7 +112,7 @@ function EditProfileModal({ isOpen, onClose, user, onSave }) {
               >
                 {/* Front Face: Avatar */}
                 <div 
-                  className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white text-3xl font-bold shadow-lg shadow-blue-500/30 group"
+                  className="absolute inset-0 rounded-full bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center text-white text-3xl font-bold shadow-lg shadow-blue-500/30 group"
                   style={{ backfaceVisibility: 'hidden' }}
                 >
                   {(formData.name || user?.email || '').charAt(0).toUpperCase()}

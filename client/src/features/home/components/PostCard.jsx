@@ -9,7 +9,7 @@ const LEVEL_STYLES = {
 };
 
 const AVATAR_COLORS = [
-  'bg-blue-500', 'bg-purple-500', 'bg-green-500', 'bg-pink-500',
+  'bg-blue-500', 'bg-sky-500', 'bg-green-500', 'bg-pink-500',
   'bg-teal-500', 'bg-amber-500', 'bg-indigo-500', 'bg-rose-500',
 ];
 
@@ -52,7 +52,7 @@ function PostCard({ post, onChat }) {
                 {author}
               </h3>
               {isTeam && (
-                <span className="bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-400 text-[9px] font-bold px-1.5 py-0.5 rounded">
+                <span className="bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300 text-[9px] font-bold px-1.5 py-0.5 rounded">
                   TEAM
                 </span>
               )}

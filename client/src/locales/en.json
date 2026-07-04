@@ -162,5 +162,65 @@
     "noTeams": "You haven't joined any teams for this sport yet.",
     "captain": "Captain",
     "member": "Member"
+  },
+  "landing": {
+    "nav": {
+      "home": "Home",
+      "features": "Features",
+      "reasons": "Why Us",
+      "testimonials": "Testimonials",
+      "contact": "Contact",
+      "getStarted": "Get started",
+      "signIn": "Sign in",
+      "signUp": "Sign up"
+    },
+    "hero": {
+      "heroTitle": "Connect passion, unleash your sports",
+      "subtitle": "Find matching opponents, join thrilling tournaments, and book courts instantly with just a few clicks. Badminton, Football, Pickleball, Tennis, and more!",
+      "ctaStart": "Get started",
+      "ctaDemo": "Explore Courts"
+    },
+    "features": {
+      "headerTitle": "All-in-One Sports Ecosystem",
+      "headerSubtitle": "Everything you need to enjoy your sports passion, integrated seamlessly into one powerful platform.",
+      "f1Title": "Matchmaking & Game Room",
+      "f1Desc": "Create rooms or find opponents of matching skill levels from Beginner to Pro. Never worry about missing players or unbalanced games again!",
+      "f2Title": "24/7 Instant Court Booking",
+      "f2Desc": "Explore interactive venue maps, check real-time availability, and book slots instantly with exclusive prime-time Flash Deals.",
+      "f3Title": "Tournaments & Team Management",
+      "f3Desc": "Create sports clubs, manage team rosters, and participate in local tournaments around your area effortlessly."
+    },
+    "reasons": {
+      "headerTitle": "Why Choose SportGo?",
+      "headerSubtitle": "Modernly designed and optimized for both individual sports enthusiasts and venue owners.",
+      "r1Title": "Lightning-Fast Matching",
+      "r1Desc": "Smart algorithms match you with ideal opponents and venues based on your location, schedule, and skill level.",
+      "r2Title": "Stunning Nebula Interface",
+      "r2Desc": "State-of-the-art Nebula-inspired design, refined dark mode, and responsive performance across desktop and mobile devices.",
+      "r3Title": "Vibrant Community",
+      "r3Desc": "Thousands of active players and hundreds of verified sports venues across the country waiting for you."
+    },
+    "testimonials": {
+      "headerTitle": "Loved by the Sports Community",
+      "headerSubtitle": "Hear what players, captains, and venue managers say about their SportGo experience.",
+      "t1Quote": "Since using SportGo, finding weekend badminton players is effortless. Just create a room and within 15 minutes we have matching players joining!",
+      "t1Name": "Nguyen Hoang Long",
+      "t1Role": "Badminton Club Captain",
+      "t2Quote": "The interface is gorgeous and intuitive. The Flash Deals booking feature helps my group save a lot on prime-time court rentals.",
+      "t2Name": "Tran Thu Ha",
+      "t2Role": "Pickleball Enthusiast",
+      "t3Quote": "Managing court schedules and reaching new players is so convenient. Our off-peak booking rate has increased by nearly 40%!",
+      "t3Name": "Le Minh Quan",
+      "t3Role": "Tennis Court Manager"
+    },
+    "cta": {
+      "title": "Ready to Hit the Court?",
+      "subtitle": "Join thousands of badminton, football, pickleball, and tennis enthusiasts nationwide today.",
+      "boxTitle": "Get Latest Deals & News",
+      "boxSubtitle": "Subscribe to our newsletter for weekly Flash Deal coupons and exciting sports tournament updates.",
+      "emailPlaceholder": "Enter your email address...",
+      "subscribeBtn": "Subscribe",
+      "copyright": "Copyright 2026 © SportGo. All Rights Reserved."
+    }
   }
 }

@@ -1,515 +1,481 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
-import { Moon, Sun, LogIn, Sparkles, LogOut, Crown, Check, X } from 'lucide-react';
-import gpsImg from '../../assets/svgs/gps.svg';
-import arrowDownImg from '../../assets/svgs/arrow_down.svg';
-import notificationImg from '../../assets/svgs/notification.svg';
-import searchImg from '../../assets/svgs/search.svg';
-import badmintonImg from '../../assets/icons/badminton.png';
-import pickleballImg from '../../assets/icons/pickelball.png';
-import tennisImg from '../../assets/icons/tennis.png';
-import footballImg from '../../assets/icons/football.png';
-import { useAuth } from '../../shared/context/AuthContext';
-import Header from '../../shared/components/Header';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Search, Plus, PlusCircle, Gamepad2, Trophy, Award, Filter, Sparkles, SlidersHorizontal, RefreshCw, AlertCircle, MessageSquare, Send, X, Crown, CheckCircle2, MapPin, Calendar, DollarSign, Users } from 'lucide-react';
 import { gameRoomService } from '../../shared/services/api';
+import { useSportFilter } from '../../shared/context/SportFilterContext';
+import { useChat } from '../../shared/context/ChatContext';
+import RoomCard from './components/RoomCard';
+import CreateRoomModal from './components/CreateRoomModal';
+import JoinRoomModal from './components/JoinRoomModal';
+import ManageRoomModal from './components/ManageRoomModal';
 
-/* ─── Danh mục môn thể thao ─── */
-const MOCK_SPORTS = [
-  { id: 1, name: 'Badminton', image: badmintonImg, key: 'badminton' },
-  { id: 2, name: 'Football', image: footballImg, key: 'football' },
-  { id: 3, name: 'Pickleball', image: pickleballImg, key: 'pickleball' },
-  { id: 4, name: 'Tennis', image: tennisImg, key: 'tennis' },
+const SPORTS_TABS = [
+  { id: 'all', name: 'Tất cả môn', emoji: '🌟' },
+  { id: 'badminton', name: 'Cầu lông', emoji: '🏸' },
+  { id: 'football', name: 'Bóng đá', emoji: '⚽' },
+  { id: 'pickleball', name: 'Pickleball', emoji: '🏓' },
+  { id: 'tennis', name: 'Tennis', emoji: '🎾' },
+  { id: 'basketball', name: 'Bóng rổ', emoji: '🏀' },
 ];
 
-const LEVEL_STYLES = {
-  BEGINNER: 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-400',
-  INTERMEDIATE: 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-400',
-  ADVANCED: 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-400',
-  PRO: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400',
-};
+const LEVEL_TABS = [
+  { id: 'all', label: 'Tất cả trình độ' },
+  { id: 'Beginner', label: 'Beginner (Mới tập)' },
+  { id: 'Intermediate', label: 'Intermediate (Trung bình)' },
+  { id: 'Advanced', label: 'Advanced (Khá giỏi)' },
+  { id: 'Expert', label: 'Expert (Chuyên nghiệp)' },
+];
 
-const BORDER_COLORS = {
-  BEGINNER: 'border-green-500',
-  INTERMEDIATE: 'border-blue-500',
-  ADVANCED: 'border-orange-400',
-  PRO: 'border-red-500',
-};
-
-const AVATAR_COLORS = {
-  B: 'bg-blue-500', P: 'bg-purple-500', M: 'bg-green-500', L: 'bg-pink-500',
-  T: 'bg-teal-500', D: 'bg-amber-500', H: 'bg-indigo-500', K: 'bg-rose-500',
-};
-
-/* ─── Room Card ─── */
-function RoomCard({ room, onJoin, onCancel, onApprove, onEdit, onChat, t }) {
-  const { id, title, description, hostName, level, sportLabel, time, avatarBadge, players, isHost, userStatus } = room;
-  const slotsLeft = players.required - players.joined;
-
-  return (
-    <div className={`flex items-start gap-4 p-5 bg-gray-50 dark:bg-gray-900 rounded-2xl border-l-4 ${BORDER_COLORS[level] ?? 'border-gray-400'} shadow-sm`}>
-      {/* Avatar */}
-      <div className={`w-12 h-12 rounded-full shrink-0 flex items-center justify-center mt-1 ${AVATAR_COLORS[avatarBadge] ?? 'bg-blue-500'}`}>
-        <span className="text-white font-bold text-lg select-none">{avatarBadge}</span>
-      </div>
-
-      {/* Thông tin */}
-      <div className="flex-1 min-w-0 space-y-1">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="text-gray-900 dark:text-white font-bold text-base line-clamp-1">{title || ''}</h3>
-          <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${LEVEL_STYLES[level] ?? 'bg-gray-100 text-gray-600'}`}>
-            {t(`sports.${level?.toLowerCase()}`, level)}
-          </span>
-        </div>
-        
-        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-          {t('roomCard.host')} <span className="text-gray-900 dark:text-white">{hostName}</span>
-        </p>
-
-        {description && (
-          <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 italic">
-            "{description}"
-          </p>
-        )}
-
-        <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 pt-1">
-          {t(`sports.${room.sport}`, sportLabel)} • {time}
-        </p>
-        
-        <p className={`text-xs font-bold pt-0.5 ${slotsLeft <= 1 ? 'text-red-500' : 'text-green-600 dark:text-green-400'}`}>
-          {t('roomCard.lookingFor')} {players.joined}/{players.required} {t('roomCard.players')} {slotsLeft <= 1 && `• ${t('roomCard.almostFull')}`}
-        </p>
-      </div>
-
-      {/* Action Buttons */}
-      <div className="flex flex-col justify-center gap-2 self-stretch ml-2 w-28">
-        {isHost ? (
-          <>
-            <button onClick={() => onEdit?.(id)} className="w-full shrink-0 bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-300 text-xs font-bold px-4 py-2 rounded-xl hover:bg-gray-300 dark:hover:bg-gray-700 transition-all">
-              {t('roomCard.edit')}
-            </button>
-            <button onClick={() => onApprove?.(room)} className="w-full shrink-0 bg-blue-600 text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-blue-500 active:scale-95 transition-all shadow-md shadow-blue-500/30">
-              {t('roomCard.approve')}
-            </button>
-          </>
-        ) : (
-          <>
-            <button onClick={() => onChat?.(room.hostId)} className="w-full shrink-0 bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-300 text-[11px] font-bold px-3 py-2 rounded-xl hover:bg-gray-300 dark:hover:bg-gray-700 transition-all">
-              {t('roomCard.chatHost')}
-            </button>
-            {(userStatus === 'NONE' || userStatus === 'REJECTED') ? (
-              <button onClick={() => onJoin?.(room)} className="w-full shrink-0 bg-blue-600 text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-blue-500 active:scale-95 transition-all shadow-md shadow-blue-500/30">
-                {t('roomCard.join')}
-              </button>
-            ) : userStatus === 'PENDING' ? (
-              <div className="flex flex-col gap-1 w-full">
-                <button disabled className="w-full shrink-0 bg-gray-400 text-white text-[10px] font-bold px-2 py-1.5 rounded-xl cursor-not-allowed">{t('roomCard.pending')}</button>
-                <button onClick={() => onCancel?.(id)} className="w-full shrink-0 bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 text-[10px] font-bold px-2 py-1.5 rounded-xl hover:bg-red-200 transition-all">{t('roomCard.cancel')}</button>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-1 w-full">
-                <button disabled className="w-full shrink-0 bg-green-500 text-white text-[10px] font-bold px-2 py-1.5 rounded-xl cursor-not-allowed">{t('roomCard.joined')}</button>
-                <button onClick={() => onCancel?.(id)} className="w-full shrink-0 bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-300 text-[10px] font-bold px-2 py-1.5 rounded-xl hover:bg-gray-300 transition-all">{t('roomCard.leave')}</button>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function RoomCardSkeleton() {
-  return (
-    <div className="flex items-start gap-4 p-5 bg-gray-50 dark:bg-gray-900 rounded-2xl border-l-4 border-gray-200 dark:border-gray-800 shadow-sm animate-pulse">
-      <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 shrink-0 mt-1"></div>
-      <div className="flex-1 space-y-3 py-1">
-        <div className="flex justify-between items-center">
-          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded-full w-1/2"></div>
-          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded-full w-16"></div>
-        </div>
-        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded-full w-1/3"></div>
-      </div>
-      <div className="flex flex-col gap-2 ml-2">
-        <div className="w-20 h-8 bg-gray-200 dark:bg-gray-700 rounded-xl"></div>
-        <div className="w-20 h-8 bg-gray-200 dark:bg-gray-700 rounded-xl"></div>
-      </div>
-    </div>
-  );
-}
+// Rich Mock Fallback Data
+const INITIAL_ROOMS = [
+  {
+    id: 101,
+    title: 'Kèo Cầu lông tối thứ 5 giao lưu trình độ Trung bình - Khá',
+    description: 'Nhóm cố định 2-4-6 tại sân số 2 Viettel Q.10. Tối nay có 2 bạn bận đột xuất nên cần tìm 2 vđv trình độ trung bình yếu đến đánh giao lưu vui vẻ, bao cầu Yonex, trà đá đầy đủ!',
+    sportId: 'badminton',
+    sportName: 'Cầu lông',
+    required_level: 'Intermediate',
+    start_time: new Date(Date.now() + 3 * 3600 * 1000).toISOString(),
+    end_time: new Date(Date.now() + 5 * 3600 * 1000).toISOString(),
+    max_players: 6,
+    status: 'OPEN',
+    location: 'Sân cầu lông Viettel, Số 1 Đào Duy Anh, Q.10',
+    price_info: '~50.000đ / người (Chia đều)',
+    host: { id: 201, name: 'Minh Khang', avatar: '' },
+    participants: [
+      { id: 301, user_id: 301, name: 'Hoàng Long', status: 'APPROVED' },
+      { id: 302, user_id: 302, name: 'Thu Thảo', status: 'APPROVED' },
+      { id: 303, user_id: 303, name: 'Tuấn Anh', status: 'PENDING' },
+    ],
+  },
+  {
+    id: 102,
+    title: 'FC Elite tìm 2 hậu vệ đá sân 7 tối mai tại Sân Chấu Giang',
+    description: 'Đội hình đá giải cần rà soát lại lối chơi, tìm 2 anh em đá vị trí hậu vệ biên hoặc trung vệ có thể lực tốt, chơi fairplay không quạu. Sân đẹp, nước suối bao trọn gói.',
+    sportId: 'football',
+    sportName: 'Bóng đá',
+    required_level: 'Advanced',
+    start_time: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
+    end_time: new Date(Date.now() + 26 * 3600 * 1000).toISOString(),
+    max_players: 14,
+    status: 'OPEN',
+    location: 'Sân bóng đá Chấu Giang, Quận 7',
+    price_info: '70.000đ / người',
+    host: { id: 202, name: 'Quốc Đạt', avatar: '' },
+    participants: [
+      { id: 304, user_id: 304, name: 'Văn Toàn', status: 'APPROVED' },
+      { id: 305, user_id: 305, name: 'Đức Huy', status: 'APPROVED' },
+      { id: 306, user_id: 306, name: 'Tiến Linh', status: 'APPROVED' },
+      { id: 307, user_id: 307, name: 'Quang Hải', status: 'APPROVED' },
+      { id: 308, user_id: 308, name: 'Hùng Dũng', status: 'APPROVED' },
+      { id: 309, user_id: 309, name: 'Thành Chung', status: 'APPROVED' },
+      { id: 310, user_id: 310, name: 'Tấn Tài', status: 'APPROVED' },
+      { id: 311, user_id: 311, name: 'Tuấn Hải', status: 'APPROVED' },
+      { id: 312, user_id: 312, name: 'Duy Mạnh', status: 'APPROVED' },
+      { id: 313, user_id: 313, name: 'Hoàng Đức', status: 'APPROVED' },
+      { id: 314, user_id: 314, name: 'Bùi Hoàng', status: 'PENDING' },
+    ],
+  },
+  {
+    id: 103,
+    title: 'Pickleball chiều Chủ Nhật trình 2.0+ vui vẻ ra mồ hôi',
+    description: 'Tìm 2 bạn đánh đôi nam nữ hoặc đôi nam vui vẻ, sân mát mẻ, anh em thân thiện hòa đồng.',
+    sportId: 'pickleball',
+    sportName: 'Pickleball',
+    required_level: 'Beginner',
+    start_time: new Date(Date.now() + 48 * 3600 * 1000).toISOString(),
+    end_time: new Date(Date.now() + 50 * 3600 * 1000).toISOString(),
+    max_players: 4,
+    status: 'OPEN',
+    location: 'Sân Pickleball D-Court, Quận 2',
+    price_info: '~60.000đ / người',
+    host: { id: 203, name: 'Thanh Vân', avatar: '' },
+    participants: [
+      { id: 315, user_id: 315, name: 'Minh Tùng', status: 'APPROVED' },
+    ],
+  },
+  {
+    id: 104,
+    title: 'Giao lưu Tennis đơn nam trình độ Khá, đánh giải nội bộ mini',
+    description: 'Cần tìm đối thủ ngang trình đánh giao lưu 3 set chuẩn, sân đẹp bóng mới.',
+    sportId: 'tennis',
+    sportName: 'Tennis',
+    required_level: 'Expert',
+    start_time: new Date(Date.now() + 12 * 3600 * 1000).toISOString(),
+    end_time: new Date(Date.now() + 14 * 3600 * 1000).toISOString(),
+    max_players: 4,
+    status: 'OPEN',
+    location: 'Cụm sân Tennis Lan Anh, Quận 10',
+    price_info: '100.000đ / người',
+    host: { id: 204, name: 'Victor Vũ', avatar: '' },
+    participants: [
+      { id: 316, user_id: 316, name: 'Alex Trần', status: 'APPROVED' },
+      { id: 317, user_id: 317, name: 'David Nguyễn', status: 'APPROVED' },
+    ],
+  },
+];
 
 function GameRoom() {
-  const { t } = useTranslation();
-  const navigate = useNavigate();
-  const { isAuthenticated, user, logout, updateProfile } = useAuth();
-  
-  const [searchKeyword, setSearchKeyword] = useState('');
-  const [selectedSport, setSelectedSport] = useState(null);
-  const [currentLocation] = useState('Hồ Chí Minh');
-  const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') !== 'light');
-  
-  const [activeTab, setActiveTab] = useState('open'); // 'open' or 'my'
-  
-  // Modals
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isModalRendered, setIsModalRendered] = useState(false);
-  const [isCreateSuccess, setIsCreateSuccess] = useState(false);
-  
-  const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
-  const [currentJoinRoom, setCurrentJoinRoom] = useState(null);
-  
-  const [isApproveModalOpen, setIsApproveModalOpen] = useState(false);
-  const [currentApproveRoom, setCurrentApproveRoom] = useState(null);
+  const { selectedSport } = useSportFilter();
+  const { openChat } = useChat();
+  const [rooms, setRooms] = useState(INITIAL_ROOMS);
+  const [selectedLevel, setSelectedLevel] = useState('all');
+  const [selectedLocation, setSelectedLocation] = useState('all');
+  const [selectedTime, setSelectedTime] = useState('all');
+  const [selectedPrice, setSelectedPrice] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
 
-  // Data
-  const [myRooms, setMyRooms] = useState([]);
-  const [openRooms, setOpenRooms] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  
-  const [formData, setFormData] = useState({
-    title: '', description: '', location: '', sport: 'badminton', level: 'BEGINNER', date: '', time: '', maxPlayers: 4,
-  });
+  // Modals state
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [joiningRoom, setJoiningRoom] = useState(null);
+  const [managingRoom, setManagingRoom] = useState(null);
 
-  const fetchRooms = async () => {
-    setIsLoading(true);
-    try {
-      const data = await gameRoomService.getAll();
-      const mappedRooms = data.map(match => {
-        const hostName = match.host?.profile?.full_name || match.host?.email || '';
-        const joinedCount = match.participants?.filter(p => p.status === "APPROVED" && p.role !== 'HOST').length || 0;
-        const slotsLeft = match.max_players - joinedCount - 1; // -1 for host
-        
-        const isHost = match.host_id === user?.id;
-        let userStatus = 'NONE';
-        if (match.participants) {
-          const p = match.participants.find(p => p.user_id === user?.id);
-          if (p && !isHost) userStatus = p.status;
-        }
-
-        return {
-          id: match.id,
-          hostId: match.host_id,
-          isHost,
-          userStatus,
-          title: match.title,
-          description: match.description,
-          hostName: hostName,
-          level: match.required_level?.toUpperCase() || '',
-          sport: MOCK_SPORTS.find(s => s.id === match.sport_id)?.key || 'badminton',
-          rawSportId: match.sport_id,
-          sportLabel: match.sport?.name || MOCK_SPORTS.find(s => s.id === match.sport_id)?.name || '',
-          time: new Date(match.start_time).toLocaleString('vi-VN', {
-            year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
-          }),
-          avatarBadge: hostName ? hostName.charAt(0).toUpperCase() : '',
-          players: { joined: joinedCount, required: match.max_players - 1 },
-          participants: match.participants || []
-        };
-      });
-      
-      setMyRooms(mappedRooms.filter(r => r.isHost));
-      setOpenRooms(mappedRooms.filter(r => !r.isHost));
-    } catch (err) {
-      console.error("Lỗi khi tải danh sách phòng:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  // Load from API on mount (Tạm thời vô hiệu hóa endpoint theo yêu cầu, sử dụng trực tiếp dữ liệu mẫu INITIAL_ROOMS)
   useEffect(() => {
-    fetchRooms();
-  }, [user]); // refetch if user changes
+    // const fetchRooms = async () => {
+    //   setIsLoading(true);
+    //   try {
+    //     const data = await gameRoomService.getAll();
+    //     if (data && Array.isArray(data) && data.length > 0) {
+    //       setRooms(data);
+    //     }
+    //   } catch (err) {
+    //     console.warn('GameRoom API fallback:', err.message);
+    //   } finally {
+    //     setIsLoading(false);
+    //   }
+    // };
+    // fetchRooms();
+  }, []);
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+  // Show auto-dismissing toast
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(''), 4000);
   };
 
-  const handleCreateRoom = async () => {
-    if (!formData.title || !formData.date || !formData.time) {
-      alert(t('gameroom.errorCreate') + " Missing required fields."); return;
-    }
-    try {
-      const startTime = new Date(`${formData.date}T${formData.time}`);
-      const endTime = new Date(startTime.getTime() + 2 * 60 * 60 * 1000);
-      const sportObj = MOCK_SPORTS.find(s => s.key === formData.sport);
-      const sport_id = sportObj ? sportObj.id : 1;
-      const levelMap = { 'BEGINNER': 'Beginner', 'INTERMEDIATE': 'Intermediate', 'ADVANCED': 'Advanced', 'PRO': 'Expert' };
-      
-      const payload = {
-        title: formData.title, description: formData.description || null,
-        sport_id: sport_id, court_id: null,
-        required_level: levelMap[formData.level] || 'Beginner',
-        start_time: startTime.toISOString(), end_time: endTime.toISOString(),
-        max_players: (parseInt(formData.maxPlayers) || 4) + 1 // +1 for host
+  // Filtered rooms
+  const filteredRooms = useMemo(() => {
+    return rooms.filter((room) => {
+      // Filter by Sport from Navbar
+      if (selectedSport && selectedSport !== 'all') {
+        const s = selectedSport.toLowerCase();
+        const matchSport = room.sportId === s ||
+          (s === 'badminton' && room.sportName?.toLowerCase().includes('cầu lông')) ||
+          (s === 'football' && room.sportName?.toLowerCase().includes('bóng đá')) ||
+          (s === 'pickleball' && room.sportName?.toLowerCase().includes('pickleball')) ||
+          (s === 'tennis' && room.sportName?.toLowerCase().includes('tennis')) ||
+          (s === 'basketball' && room.sportName?.toLowerCase().includes('bóng rổ')) ||
+          (s === 'volleyball' && room.sportName?.toLowerCase().includes('bóng chuyền'));
+        if (!matchSport) return false;
+      }
+      // Filter by Level
+      if (selectedLevel !== 'all' && room.required_level !== selectedLevel) {
+        return false;
+      }
+      // Filter by Location
+      if (selectedLocation !== 'all' && !room.location?.toLowerCase().includes(selectedLocation.toLowerCase())) {
+        return false;
+      }
+      // Filter by Time
+      if (selectedTime !== 'all' && !room.start_time?.toLowerCase().includes(selectedTime.toLowerCase())) {
+        return false;
+      }
+      // Filter by Price
+      if (selectedPrice !== 'all') {
+        const p = parseInt(room.price_info?.replace(/\D/g, '')) || 50000;
+        if (selectedPrice === 'duoi50' && p > 50000) return false;
+        if (selectedPrice === '50-80' && (p <= 50000 || p > 80000)) return false;
+        if (selectedPrice === 'tren80' && p <= 80000) return false;
+      }
+      // Filter by Search Query
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchTitle = room.title?.toLowerCase().includes(q);
+        const matchLoc = room.location?.toLowerCase().includes(q);
+        const matchHost = room.host?.name?.toLowerCase().includes(q);
+        if (!matchTitle && !matchLoc && !matchHost) return false;
+      }
+      return true;
+    });
+  }, [rooms, selectedSport, selectedLevel, selectedLocation, selectedTime, selectedPrice, searchQuery]);
+
+  // Handle Create Room (Sử dụng hoàn toàn mock data tạm thời không gọi API endpoint)
+  const handleCreateSubmit = async (newRoomData) => {
+    setIsLoading(true);
+    setTimeout(() => {
+      const mockCreated = {
+        id: Date.now(),
+        ...newRoomData,
+        host: { id: 1, name: 'Bạn (Trưởng phòng)', avatar: '' },
+        status: 'OPEN',
+        participants: [],
+        isMyRoom: true,
+      };
+      setRooms((prev) => [mockCreated, ...prev]);
+      showToast('🎉 Đã khởi tạo Phòng chờ mới thành công! Bạn là Trưởng phòng.');
+      setIsLoading(false);
+      setIsCreateOpen(false);
+    }, 400);
+  };
+
+  // Handle Join Room Confirm (Sử dụng mock data tạm thời)
+  const handleJoinConfirm = async (roomId, note) => {
+    setIsLoading(true);
+    setTimeout(() => {
+      setRooms((prev) =>
+        prev.map((r) => {
+          if (r.id === roomId) {
+            const exists = r.participants.some((p) => p.user_id === 1 || p.id === 1);
+            if (!exists) {
+              return {
+                ...r,
+                participants: [
+                  ...r.participants,
+                  { id: 1, user_id: 1, name: 'Bạn', status: 'PENDING', note },
+                ],
+              };
+            }
+          }
+          return r;
+        })
+      );
+      showToast('🚀 Đã gửi yêu cầu xin vào phòng! Trạng thái: Đang chờ duyệt.');
+      setIsLoading(false);
+      setJoiningRoom(null);
+    }, 400);
+  };
+
+  // Handle Host Approve / Reject Participant (Sử dụng mock data tạm thời)
+  const handleUpdateStatus = async (roomId, userId, status) => {
+    setIsLoading(true);
+    setTimeout(() => {
+      const updateFn = (r) => {
+        if (r.id === roomId) {
+          if (status === 'REJECTED') {
+            return {
+              ...r,
+              participants: r.participants.filter((p) => (p.user_id || p.id) !== userId),
+            };
+          } else {
+            return {
+              ...r,
+              participants: r.participants.map((p) =>
+                (p.user_id || p.id) === userId ? { ...p, status: 'APPROVED' } : p
+              ),
+            };
+          }
+        }
+        return r;
       };
 
-      await gameRoomService.create(payload);
-      setIsCreateSuccess(true);
-      setTimeout(() => {
-        setIsCreateModalOpen(false);
-        setTimeout(() => {
-          setIsCreateSuccess(false);
-          setFormData({ title: '', description: '', location: '', sport: 'badminton', level: 'BEGINNER', date: '', time: '', maxPlayers: 4 });
-          fetchRooms();
-          setActiveTab('my'); // switch to my rooms tab automatically
-        }, 300);
-      }, 2000);
-    } catch (err) { alert(t('gameroom.errorCreate') + err.message); }
+      setRooms((prev) => prev.map(updateFn));
+      if (managingRoom && managingRoom.id === roomId) {
+        setManagingRoom((prev) => updateFn(prev));
+      }
+      showToast(`✔ Đã cập nhật trạng thái thành viên: ${status === 'APPROVED' ? 'Đã duyệt' : 'Đã từ chối'}`);
+      setIsLoading(false);
+    }, 300);
   };
 
-  useEffect(() => {
-    if (isCreateModalOpen) setIsModalRendered(true);
-    else { const t_timeout = setTimeout(() => setIsModalRendered(false), 300); return () => clearTimeout(t_timeout); }
-  }, [isCreateModalOpen]);
-
-  useEffect(() => {
-    if (isDark) { document.documentElement.classList.add('dark'); localStorage.setItem('theme', 'dark'); }
-    else { document.documentElement.classList.remove('dark'); localStorage.setItem('theme', 'light'); }
-  }, [isDark]);
-
-  const handleFilterSport = (sportId) => {
-    setSelectedSport(sportId === selectedSport ? null : sportId);
-  };
-
-  const selectedSportKey = selectedSport ? MOCK_SPORTS.find((s) => s.id === selectedSport)?.key : null;
-  const currentList = activeTab === 'my' ? myRooms : openRooms;
-  const filteredRooms = selectedSportKey ? currentList.filter((r) => r.sport === selectedSportKey) : currentList;
-
-  // Actions
-  const handleEdit = () => { alert(t('gameroom.comingSoon')); };
-  const handleChat = () => { alert(t('gameroom.comingSoon')); };
-  
-  const handleJoinClick = (room) => {
-    if(!isAuthenticated) return alert(t('gameroom.loginRequired'));
-    setCurrentJoinRoom(room);
-    setIsJoinModalOpen(true);
-  };
-
-  const confirmJoin = async () => {
-    if(!currentJoinRoom) return;
-    try {
-      await gameRoomService.join(currentJoinRoom.id);
-      setIsJoinModalOpen(false);
-      setCurrentJoinRoom(null);
-      fetchRooms();
-    } catch(err) { alert(t('gameroom.errorJoin') + err.message); }
-  };
-
-  const handleCancel = async (roomId) => {
-    try {
-      await gameRoomService.leave(roomId);
-      fetchRooms();
-    } catch(err) { alert(t('gameroom.errorJoin') + err.message); }
-  };
-
-  const handleApproveClick = (room) => {
-    setCurrentApproveRoom(room);
-    setIsApproveModalOpen(true);
-  };
-
-  const handleParticipantStatus = async (userId, status) => {
-    if(!currentApproveRoom) return;
-    try {
-      await gameRoomService.approveParticipant(currentApproveRoom.id, userId, status);
-      // Cập nhật lại list sau khi duyệt
-      fetchRooms();
-      // Tạm cập nhật local modal state để không phải đóng modal
-      setCurrentApproveRoom(prev => ({
-        ...prev,
-        participants: prev.participants.map(p => p.user_id === userId ? {...p, status} : p)
-      }));
-    } catch(err) { alert(t('gameroom.errorJoin') + err.message); }
+  // Handle Open Chat
+  const handleOpenChat = (room) => {
+    openChat(room.host?.name || 'Trưởng phòng');
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-950 pb-24">
-      <Header currentLocation={currentLocation} isDark={isDark} setIsDark={setIsDark} searchKeyword={searchKeyword} setSearchKeyword={setSearchKeyword} />
+    <div className="min-h-screen bg-transparent dark:bg-transparent text-slate-900 dark:text-[#F6F7ED] relative w-full overflow-x-clip font-sans transition-colors duration-500 selection:bg-[#589470]/30 pb-20">
+      
+      {/* Toast Alert */}
+      {toastMessage && (
+        <div className="fixed top-24 right-6 z-50 bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-5 py-3.5 rounded-2xl shadow-2xl border border-white/10 flex items-center gap-3 animate-bounce">
+          <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+          <span className="text-xs font-bold">{toastMessage}</span>
+        </div>
+      )}
 
-      <div className="px-4 pt-5 space-y-7">
-        <section>
-          <div className="flex justify-around">
-            {MOCK_SPORTS.map((sport) => (
-              <button key={sport.id} onClick={() => handleFilterSport(sport.id)} className="flex flex-col items-center gap-2">
-                <div className={`relative w-14 h-14 rounded-full overflow-hidden transition-all flex items-center justify-center ${selectedSport === sport.id ? 'scale-105' : 'hover:scale-105'}`}>
-                  <img src={sport.image} alt={sport.name} className="w-full h-full object-cover" />
-                  {selectedSport === sport.id && <div className="absolute inset-0 rounded-full border-[3px] border-blue-500 pointer-events-none"></div>}
-                </div>
-                <span className={`text-xs font-medium ${selectedSport === sport.id ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'}`}>
-                  {t(`sports.${sport.key}`, sport.name)}
-                </span>
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <section>
-          <div className="flex items-center justify-between mb-4 border-b border-gray-200 dark:border-gray-800 pb-2">
-            <div className="flex gap-4">
-              <button 
-                onClick={() => setActiveTab('open')} 
-                className={`font-bold text-lg pb-2 transition-all ${activeTab === 'open' ? 'text-blue-600 border-b-2 border-blue-600 dark:text-blue-400 dark:border-blue-400' : 'text-gray-400 dark:text-gray-600'}`}
-              >{t('gameroom.openRooms')}</button>
-              {isAuthenticated && (
-                <button 
-                  onClick={() => setActiveTab('my')} 
-                  className={`font-bold text-lg pb-2 transition-all ${activeTab === 'my' ? 'text-blue-600 border-b-2 border-blue-600 dark:text-blue-400 dark:border-blue-400' : 'text-gray-400 dark:text-gray-600'}`}
-                >{t('gameroom.myRooms')}</button>
-              )}
+      {/* Hero Banner Section */}
+      <div className="relative bg-transparent pt-10 pb-2 px-4 sm:px-6">
+        <div className="max-w-[1600px] mx-auto">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#589470]/10 dark:bg-[#74C365]/15 text-[#589470] dark:text-[#74C365] text-xs font-black uppercase tracking-wider mb-3 border border-[#589470]/20">
+              <Gamepad2 className="w-3.5 h-3.5" />
+              <span>Sảnh Game • Game Rooms</span>
             </div>
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 dark:text-white tracking-tight">
+              Game Rooms & Ghép Đấu
+            </h1>
+            <p className="text-slate-600 dark:text-slate-300 text-sm sm:text-base max-w-2xl mt-2 leading-relaxed">
+              Bạn là người chơi lẻ chưa có nhóm? Hãy tự mở phòng chờ hoặc tham gia các sảnh đấu đang tìm bạn chơi phù hợp theo thời gian, trình độ và địa điểm ngay hôm nay!
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Filter Bar Section ── */}
+      <div className="pb-4 pt-1 px-4 sm:px-6 sticky top-[104px] sm:top-[124px] z-40 transition-all duration-300">
+        <div className="max-w-[1600px] mx-auto bg-white/35 dark:bg-white/[0.08] backdrop-blur-2xl backdrop-saturate-[180%] border border-white/60 dark:border-white/15 rounded-3xl p-3.5 sm:p-4 shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_1px_0_rgba(255,255,255,0.8),inset_0_0_16px_rgba(255,255,255,0.4)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3),inset_0_1px_1px_0_rgba(255,255,255,0.25),inset_0_0_16px_rgba(255,255,255,0.05)] flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 transition-all duration-300">
+          
+          {/* Filter Boxes Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 flex-1 max-w-4xl">
             
-            <button onClick={() => {
-                if(!isAuthenticated) return alert(t('gameroom.loginRequired'));
-                setIsCreateModalOpen(true);
-              }} 
-              className="bg-blue-600 text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-blue-500 active:scale-95 transition-all shadow-md shadow-blue-500/30 flex items-center gap-1 mb-2">
-              <span className="text-lg leading-none">+</span> {t('gameroom.createRoom')}
+            {/* 1. Địa điểm (Location) */}
+            <div className="relative">
+              <MapPin className="w-4 h-4 text-rose-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+              <select
+                value={selectedLocation}
+                onChange={(e) => setSelectedLocation(e.target.value)}
+                className="w-full bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-10 pr-3 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all truncate"
+              >
+                <option value="all">Tất cả địa điểm</option>
+                <option value="quận 10">Quận 10</option>
+                <option value="quận 7">Quận 7</option>
+                <option value="quận 2">Quận 2</option>
+                <option value="quận 1">Quận 1</option>
+                <option value="bình thạnh">Q. Bình Thạnh</option>
+              </select>
+            </div>
+
+            {/* 2. Thời gian (Time) */}
+            <div className="relative">
+              <Calendar className="w-4 h-4 text-blue-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+              <select
+                value={selectedTime}
+                onChange={(e) => setSelectedTime(e.target.value)}
+                className="w-full bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-10 pr-3 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all truncate"
+              >
+                <option value="all">Tất cả thời gian</option>
+                <option value="tối">Tối nay</option>
+                <option value="mai">Tối mai</option>
+                <option value="chiều">Chiều nay</option>
+                <option value="sáng">Sáng</option>
+                <option value="cuối tuần">Cuối tuần</option>
+              </select>
+            </div>
+
+            {/* 3. Giá (Price) */}
+            <div className="relative">
+              <DollarSign className="w-4 h-4 text-amber-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+              <select
+                value={selectedPrice}
+                onChange={(e) => setSelectedPrice(e.target.value)}
+                className="w-full bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-10 pr-3 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all truncate"
+              >
+                <option value="all">Tất cả mức giá</option>
+                <option value="duoi50">Dưới 50k / người</option>
+                <option value="50-80">50k - 80k / người</option>
+                <option value="tren80">Trên 80k / người</option>
+              </select>
+            </div>
+
+            {/* 4. Trình độ (Skill) */}
+            <div className="relative">
+              <Award className="w-4 h-4 text-[#589470] dark:text-[#74C365] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+              <select
+                value={selectedLevel}
+                onChange={(e) => setSelectedLevel(e.target.value)}
+                className="w-full bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-10 pr-3 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all truncate"
+              >
+                <option value="all">Tất cả trình độ</option>
+                <option value="Beginner">Beginner (Mới tập)</option>
+                <option value="Intermediate">Intermediate (Trung bình)</option>
+                <option value="Advanced">Advanced (Khá giỏi)</option>
+                <option value="Expert">Expert (Chuyên nghiệp)</option>
+              </select>
+            </div>
+
+          </div>
+
+          {/* Right actions: Filter status + Create Button */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between lg:justify-end gap-3 sm:gap-4 shrink-0 border-t lg:border-t-0 pt-3 lg:pt-0 border-slate-200/50 dark:border-white/10">
+            <div className="flex items-center gap-2 text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 px-2">
+              <SlidersHorizontal className="w-4 h-4 text-[#589470] dark:text-[#74C365]" />
+              <span>
+                Hiển thị: <strong className="text-slate-900 dark:text-white font-bold">{filteredRooms.length}</strong> phòng chờ
+              </span>
+            </div>
+
+            <button
+              onClick={() => setIsCreateOpen(true)}
+              className="px-5 py-2.5 rounded-2xl font-bold text-xs sm:text-sm bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-95 text-white shadow-md hover:shadow-lg flex items-center justify-center gap-2 transition-all duration-200 active:scale-95 group shrink-0"
+            >
+              <PlusCircle className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" />
+              <span>Mở phòng chờ ngay</span>
             </button>
           </div>
 
-          {isLoading ? (
-            <div className="flex flex-col gap-3">
-              <RoomCardSkeleton /><RoomCardSkeleton />
-            </div>
-          ) : filteredRooms.length > 0 ? (
-            <div className="flex flex-col gap-3">
-              {filteredRooms.map((room) => (
-                <RoomCard key={room.id} room={room} onJoin={handleJoinClick} onCancel={handleCancel} onApprove={handleApproveClick} onEdit={handleEdit} onChat={handleChat} t={t} />
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
-                <span className="text-2xl">🎮</span>
-              </div>
-              <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">
-                {activeTab === 'my' ? t('gameroom.noMyRooms') : t('gameroom.noOpenRooms')}
-              </p>
-            </div>
-          )}
-        </section>
+        </div>
       </div>
 
-      {/* CREATE MODAL */}
-      {isModalRendered && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className={`absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 ${isCreateModalOpen ? 'opacity-100' : 'opacity-0'}`} onClick={() => setIsCreateModalOpen(false)}></div>
-          <div className={`relative w-full max-w-sm bg-white/90 dark:bg-gray-900/90 backdrop-blur-md rounded-[2.5rem] rounded-tl-[4rem] rounded-br-[4rem] border border-white/20 dark:border-gray-800/50 p-6 shadow-2xl transition-all duration-300 ${isCreateModalOpen ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-90 translate-y-8'}`}>
-            <button onClick={() => setIsCreateModalOpen(false)} className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-black/5 dark:bg-white/10 text-gray-600 dark:text-gray-300 hover:bg-red-100 transition-colors"><X size={16} /></button>
-            {isCreateSuccess ? (
-              <div className="flex flex-col items-center justify-center py-12 opacity-100 transition-opacity duration-500">
-                <div className="relative w-24 h-24 flex items-center justify-center mb-6">
-                  <div className="absolute inset-0 bg-green-500 rounded-full animate-ping opacity-20"></div>
-                  <div className="w-full h-full bg-gradient-to-tr from-green-400 to-green-600 rounded-full flex items-center justify-center"><Check size={32} color="white" /></div>
-                </div>
-                <h3 className="text-xl font-black text-gray-900 dark:text-white mb-2">{t('gameroom.createRoomSuccess')}</h3>
-              </div>
-            ) : (
-              <>
-                <h3 className="text-xl font-black text-gray-900 dark:text-white mb-5 text-center mt-2">{t('gameroom.createNewRoom')}</h3>
-                <div className="space-y-4 max-h-[60vh] overflow-y-auto scrollbar-hide px-1 pb-2">
-                  <div><label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{t('gameroom.roomName')}</label><input type="text" name="title" value={formData.title} onChange={handleInputChange} className="w-full bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 rounded-2xl px-4 py-3 text-sm outline-none focus:border-blue-500" /></div>
-                  <div><label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{t('gameroom.description')}</label><textarea name="description" value={formData.description} onChange={handleInputChange} className="w-full bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 rounded-2xl px-4 py-3 text-sm outline-none focus:border-blue-500 resize-none" rows="2"></textarea></div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{t('gameroom.sport')}</label>
-                      <select name="sport" value={formData.sport} onChange={handleInputChange} className="w-full bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 rounded-2xl px-3 py-3 text-sm outline-none focus:border-blue-500">
-                        <option value="badminton">Badminton</option><option value="football">Football</option><option value="pickleball">Pickleball</option><option value="tennis">Tennis</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{t('gameroom.level')}</label>
-                      <select name="level" value={formData.level} onChange={handleInputChange} className="w-full bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 rounded-2xl px-3 py-3 text-sm outline-none focus:border-blue-500">
-                        <option value="BEGINNER">Beginner</option><option value="INTERMEDIATE">Intermediate</option><option value="ADVANCED">Advanced</option><option value="PRO">Pro</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="col-span-2">
-                      <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{t('gameroom.playTime')}</label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <input type="date" name="date" value={formData.date} onChange={handleInputChange} className="w-full bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 rounded-2xl px-3 py-3 text-[11px] outline-none" />
-                        <input type="time" name="time" value={formData.time} onChange={handleInputChange} className="w-full bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 rounded-2xl px-3 py-3 text-[11px] outline-none" />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{t('gameroom.playerCount')}</label>
-                      <input type="number" name="maxPlayers" value={formData.maxPlayers} onChange={handleInputChange} className="w-full bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 rounded-2xl px-3 py-3 text-sm outline-none" />
-                    </div>
-                  </div>
-                </div>
-                <button onClick={handleCreateRoom} className="w-full mt-6 bg-blue-600 text-white font-black py-3.5 rounded-2xl hover:bg-blue-500 active:scale-95 transition-all">{t('gameroom.confirmCreate')}</button>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      {/* Main Content Area */}
+      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 md:px-12 pt-8">
 
-      {/* JOIN CONFIRM MODAL */}
-      {isJoinModalOpen && currentJoinRoom && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsJoinModalOpen(false)}></div>
-          <div className="relative w-full max-w-sm bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-2xl">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">{t('gameroom.joinConfirmTitle')}</h3>
-            <p className="text-gray-600 dark:text-gray-300 text-sm mb-6">{t('gameroom.joinConfirmDesc')} <strong>{currentJoinRoom.title}</strong>?</p>
-            <div className="flex gap-3">
-              <button onClick={() => setIsJoinModalOpen(false)} className="flex-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-bold py-2.5 rounded-xl">{t('gameroom.cancel')}</button>
-              <button onClick={confirmJoin} className="flex-1 bg-blue-600 text-white font-bold py-2.5 rounded-xl hover:bg-blue-500">{t('gameroom.confirm')}</button>
-            </div>
+        {/* Room Cards Grid */}
+        {isLoading ? (
+          <div className="py-20 text-center flex flex-col items-center justify-center">
+            <RefreshCw className="w-8 h-8 text-[#589470] dark:text-[#DBE64C] animate-spin mb-3" />
+            <span className="text-sm font-semibold text-slate-500">Đang tải danh sách sảnh chờ...</span>
           </div>
-        </div>
-      )}
-
-      {/* APPROVE MODAL */}
-      {isApproveModalOpen && currentApproveRoom && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsApproveModalOpen(false)}></div>
-          <div className="relative w-full max-w-md bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-2xl flex flex-col max-h-[80vh]">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">{t('gameroom.approvalList')}</h3>
-              <button onClick={() => setIsApproveModalOpen(false)} className="text-gray-500 hover:text-red-500 transition-colors"><X size={20}/></button>
+        ) : filteredRooms.length === 0 ? (
+          <div className="py-20 text-center bg-slate-50 dark:bg-white/5 rounded-3xl border border-dashed border-slate-300 dark:border-white/10 p-8">
+            <div className="w-16 h-16 rounded-3xl bg-slate-200 dark:bg-white/10 flex items-center justify-center mx-auto mb-4 text-3xl">
+              🔍
             </div>
-            
-            <div className="overflow-y-auto space-y-3 flex-1">
-              {currentApproveRoom.participants
-                .filter(p => p.role !== 'HOST')
-                .sort((a, b) => new Date(a.joined_at) - new Date(b.joined_at))
-                .map(p => {
-                  const applicantSport = p.user?.sports?.find(s => s.sport_id === currentApproveRoom.rawSportId);
-                  const skillLevel = applicantSport ? applicantSport.skill_level : 'Beginner';
-                  
-                  return (
-                    <div key={p.user_id} className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 p-3 rounded-xl border border-gray-100 dark:border-gray-700">
-                      <div>
-                        <p className="text-sm font-bold text-gray-900 dark:text-white">{p.user?.profile?.full_name || p.user?.email}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{t('gameroom.sportLevelLabel')} <span className="font-semibold">{skillLevel}</span></p>
-                        <p className="text-[10px] text-gray-400 mt-0.5">{t('gameroom.joinedAt')} {new Date(p.joined_at).toLocaleTimeString('vi-VN')}</p>
-                      </div>
-                      
-                      {p.status === 'PENDING' ? (
-                        <div className="flex gap-2">
-                          <button onClick={() => handleParticipantStatus(p.user_id, 'REJECTED')} className="w-9 h-9 flex items-center justify-center rounded-xl bg-red-100 text-red-600 hover:bg-red-200 active:scale-95 transition-all"><X size={18}/></button>
-                          <button onClick={() => handleParticipantStatus(p.user_id, 'APPROVED')} className="w-9 h-9 flex items-center justify-center rounded-xl bg-green-100 text-green-600 hover:bg-green-200 active:scale-95 transition-all"><Check size={18}/></button>
-                        </div>
-                      ) : (
-                        <span className={`text-[10px] font-bold px-3 py-1.5 rounded-xl uppercase ${p.status === 'APPROVED' ? 'bg-green-100 text-green-700 dark:bg-green-900/30' : 'bg-red-100 text-red-700 dark:bg-red-900/30'}`}>
-                          {p.status === 'APPROVED' ? t('gameroom.approved') : t('gameroom.rejected')}
-                        </span>
-                      )}
-                    </div>
-                  );
-              })}
-              
-              {currentApproveRoom.participants.filter(p => p.role !== 'HOST').length === 0 && (
-                <div className="text-center text-gray-500 dark:text-gray-400 py-10 text-sm">
-                  {t('gameroom.noApplicants')}
-                </div>
-              )}
-            </div>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Không tìm thấy phòng chờ phù hợp</h3>
+            <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto mb-6">
+              Bạn có thể thử chọn môn thể thao khác, thay đổi bộ lọc trình độ, hoặc tự mở một phòng chờ mới cho riêng bạn ngay!
+            </p>
+            <button
+              onClick={() => setIsCreateOpen(true)}
+              className="px-5 py-3 rounded-2xl bg-[#589470] dark:bg-[#DBE64C] text-white dark:text-[#001F3F] font-bold text-xs shadow-lg active:scale-95 transition-all"
+            >
+              + Mở Phòng Chờ Mới
+            </button>
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {filteredRooms.map((room) => (
+              <RoomCard
+                key={room.id}
+                room={room}
+                currentUserId={1}
+                onJoin={(r) => setJoiningRoom(r)}
+                onChat={(r) => handleOpenChat(r)}
+                onManage={(r) => setManagingRoom(r)}
+              />
+            ))}
+          </div>
+        )}
+      </main>
 
+      {/* ── MODALS ── */}
+
+      {/* Create Room Modal */}
+      <CreateRoomModal
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        onSubmit={handleCreateSubmit}
+        isLoading={isLoading}
+      />
+
+      {/* Join Room Modal */}
+      <JoinRoomModal
+        isOpen={!!joiningRoom}
+        room={joiningRoom}
+        onClose={() => setJoiningRoom(null)}
+        onConfirm={handleJoinConfirm}
+        isLoading={isLoading}
+      />
+
+      {/* Manage Room Modal (For Host) */}
+      <ManageRoomModal
+        isOpen={!!managingRoom}
+        room={managingRoom}
+        onClose={() => setManagingRoom(null)}
+        onUpdateStatus={handleUpdateStatus}
+        isLoading={isLoading}
+      />
     </div>
   );
 }

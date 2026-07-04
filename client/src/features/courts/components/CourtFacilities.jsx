@@ -1,32 +1,40 @@
-import wifiImg from '../../../assets/svgs/wifi.svg';
-import parkingImg from '../../../assets/svgs/parking.svg';
-import showerImg from '../../../assets/svgs/shower.svg';
-import canteenImg from '../../../assets/svgs/canteen.svg';
-import rentalImg from '../../../assets/svgs/rental.svg';
+import React from 'react';
+import { Wifi, Car, Droplets, Coffee, Package, CheckCircle2 } from 'lucide-react';
 
 const FACILITY_LIST = [
-  { key: 'wifi', label: 'WiFi', icon: wifiImg },
-  { key: 'parking', label: 'Bãi đỗ xe', icon: parkingImg },
-  { key: 'shower', label: 'Phòng tắm', icon: showerImg },
-  { key: 'canteen', label: 'Căng-tin', icon: canteenImg },
-  { key: 'rental', label: 'Thiết bị', icon: rentalImg },
+  { key: 'wifi', label: 'WiFi Tốc Độ Cao', icon: Wifi, color: 'text-blue-500 bg-blue-500/10 border-blue-500/20' },
+  { key: 'parking', label: 'Bãi Xe An Toàn', icon: Car, color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' },
+  { key: 'shower', label: 'Phòng Tắm Sạch Sẽ', icon: Droplets, color: 'text-cyan-500 bg-cyan-500/10 border-cyan-500/20' },
+  { key: 'canteen', label: 'Căng-tin Nước Giải Khát', icon: Coffee, color: 'text-amber-500 bg-amber-500/10 border-amber-500/20' },
+  { key: 'rental', label: 'Thuê Vợt / Giày / Bóng', icon: Package, color: 'text-purple-500 bg-purple-500/10 border-purple-500/20' },
 ];
 
 function CourtFacilities({ facilities }) {
   return (
-    <div className="px-4 py-5">
-      <h2 className="text-base font-bold text-gray-900 dark:text-white mb-4">Tiện ích</h2>
+    <div className="p-6 bg-white dark:bg-[#001F3F]/80 border border-gray-200 dark:border-white/10 rounded-3xl shadow-xl mt-6 backdrop-blur-md">
+      <h2 className="text-base font-black text-slate-900 dark:text-white uppercase tracking-wider mb-4 flex items-center gap-2">
+        <span>✨ Dịch Vụ & Tiện Ích Đi Kèm</span>
+      </h2>
 
-      <div className="flex justify-between gap-2">
-        {FACILITY_LIST.map(({ key, label, icon }) => {
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+        {FACILITY_LIST.map(({ key, label, icon: IconComp, color }) => {
           const available = facilities?.[key] ?? false;
           return (
-            <div key={key} className={`flex flex-col items-center gap-2 ${!available ? 'opacity-35' : ''}`}>
-              {/* Hộp icon dạng vuông bo tròn */}
-              <div className="w-14 h-14 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                <img src={icon} alt={label} className="w-7 h-7 object-contain" />
+            <div 
+              key={key} 
+              className={`p-4 rounded-2xl border flex flex-col items-center justify-center gap-2.5 text-center transition-all ${
+                available 
+                  ? `${color} font-bold shadow-md hover:scale-105` 
+                  : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/5 opacity-40 grayscale'
+              }`}
+            >
+              <div className="relative">
+                <IconComp className="w-6 h-6" />
+                {available && (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 absolute -bottom-1 -right-1 bg-white dark:bg-[#001F3F] rounded-full" />
+                )}
               </div>
-              <span className="text-[11px] font-medium text-gray-600 dark:text-gray-400 text-center leading-tight">
+              <span className="text-xs leading-tight">
                 {label}
               </span>
             </div>

@@ -1,296 +1,188 @@
-import { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Moon, Sun, LogIn, Sparkles, LogOut, Crown } from 'lucide-react';
-import gpsImg from '../../assets/svgs/gps.svg';
-import arrowDownImg from '../../assets/svgs/arrow_down.svg';
-import notificationImg from '../../assets/svgs/notification.svg';
-import searchImg from '../../assets/svgs/search.svg';
-import badmintonImg from '../../assets/icons/badminton.png';
-import footballImg from '../../assets/icons/football.png';
-import pickleballImg from '../../assets/icons/pickelball.png';
-import tennisImg from '../../assets/icons/tennis.png';
-import protonImg from '../../assets/images/ProtonBadmintonCenter.png';
-import eliteImg from '../../assets/images/EliteFootballArena.png';
-import PostCard from './components/PostCard';
-import { useChat } from '../../shared/context/ChatContext';
-import Header from '../../shared/components/Header';
-import { useTranslation } from 'react-i18next';
+import { Gamepad2, CalendarCheck, ShieldCheck, MessageSquare, ArrowRight, Activity, TrendingUp, Sparkles, Pencil } from 'lucide-react';
+import heroBgImg from '../../assets/sports/badminton.avif';
+import EditSkillModal from './components/EditSkillModal';
 
-/* ─── Danh mục môn thể thao ─── */
-
-const MOCK_SPORTS = [
-  { id: 1, name: 'Badminton', image: badmintonImg, key: 'badminton' },
-  { id: 2, name: 'Football', image: footballImg, key: 'football' },
-  { id: 3, name: 'Pickleball', image: pickleballImg, key: 'pickleball' },
-  { id: 4, name: 'Tennis', image: tennisImg, key: 'tennis' },
+const INITIAL_USER_SKILLS = [
+  { sport: 'Cầu lông', level: 'Khá', percentage: 75, color: 'bg-blue-500' },
+  { sport: 'Bóng đá', level: 'Trung bình khá', percentage: 65, color: 'bg-green-500' },
+  { sport: 'Pickleball', level: 'Mới chơi', percentage: 25, color: 'bg-teal-500' },
+  { sport: 'Tennis', level: 'Khá', percentage: 70, color: 'bg-orange-500' },
+  { sport: 'Bóng rổ', level: 'Trung bình', percentage: 50, color: 'bg-indigo-500' },
+  { sport: 'Bóng chuyền', level: 'Cơ bản', percentage: 40, color: 'bg-yellow-500' },
 ];
-
-/* ─── Dữ liệu mẫu - Top Teams ─── */
-
-const MOCK_TOP_TEAMS = [
-  {
-    id: 1,
-    name: 'FC Tiến Phát',
-    sport: 'football',
-    rating: '4.9',
-    members: 15,
-    avatarBadge: 'TP',
-    bgGradient: 'from-green-600 to-green-800',
-  },
-  {
-    id: 2,
-    name: 'Pro Badminton Team',
-    sport: 'badminton',
-    rating: '4.8',
-    members: 8,
-    avatarBadge: 'PB',
-    bgGradient: 'from-blue-600 to-blue-800',
-  },
-  {
-    id: 3,
-    name: 'Saigon Pickleball',
-    sport: 'pickleball',
-    rating: '4.7',
-    members: 12,
-    avatarBadge: 'SP',
-    bgGradient: 'from-teal-600 to-teal-800',
-  },
-  {
-    id: 4,
-    name: 'Elite Tennis',
-    sport: 'tennis',
-    rating: '4.8',
-    members: 6,
-    avatarBadge: 'ET',
-    bgGradient: 'from-orange-500 to-red-600',
-  },
-];
-
-/* ─── Dữ liệu mẫu - Bài đăng (Posts) ─── */
-
-const MOCK_POSTS = [
-  {
-    id: 1,
-    author: 'Minh Tran',
-    isTeam: false,
-    avatarBadge: 'M',
-    sport: 'badminton',
-    sportLabel: 'Badminton',
-    level: 'INTERMEDIATE',
-    time: '2 hours ago',
-    location: 'Proton Badminton Center, Quận 7',
-    description: 'Mình cần tìm 2 bạn đánh đôi tối nay lúc 19:00. Trình độ trung bình khá, nam nữ đều được, share tiền sân, ai rảnh ib mình nha!',
-    images: [protonImg],
-  },
-  {
-    id: 2,
-    author: 'FC Tiến Phát',
-    isTeam: true,
-    avatarBadge: 'TP',
-    sport: 'football',
-    sportLabel: 'Football',
-    level: 'ADVANCED',
-    time: '5 hours ago',
-    location: 'Elite Football Arena, Quận 2',
-    description: 'Team mình đang thiếu 1 thủ môn cứng cho trận đấu giao hữu 7v7 tối mai lúc 20:00. Đối thủ đá hay, fairplay. Anh em nào muốn thử sức thì liên hệ, tiền nước nôi team bao.',
-    images: [eliteImg],
-  },
-  {
-    id: 3,
-    author: 'Lan Nguyen',
-    isTeam: false,
-    avatarBadge: 'L',
-    sport: 'pickleball',
-    sportLabel: 'Pickleball',
-    level: 'BEGINNER',
-    time: '1 day ago',
-    location: 'Riverside Pickle Court, Quận 1',
-    description: 'Có nhóm bạn nào mới tập chơi pickleball cho mình tham gia với. Mình mới sắm vợt, biết luật cơ bản nhưng chưa có team để giao lưu.',
-    images: [],
-  },
-  {
-    id: 4,
-    author: 'Huy Pham',
-    isTeam: false,
-    avatarBadge: 'H',
-    sport: 'tennis',
-    sportLabel: 'Tennis',
-    level: 'PRO',
-    time: '2 days ago',
-    location: 'VinCity Tennis Club, Quận 9',
-    description: 'Sáng cuối tuần (7:00 AM) ai rảnh giao lưu không? Kèo giao lưu vui vẻ nâng cao sức khỏe, đánh đơn hoặc đôi đều ok. Ai rảnh thì cmt sđt mình add zalo nhé.',
-    images: [],
-  },
-];
-
-/* ─── Component chính ─── */
 
 function Home() {
-  const { t } = useTranslation();
   const navigate = useNavigate();
-  const { startChat } = useChat(); // Dùng context để mở chat
-  const [searchKeyword, setSearchKeyword] = useState('');
-  const [selectedSport, setSelectedSport] = useState(null);
-  const [currentLocation] = useState('Hồ Chí Minh');
-  const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') !== 'light');
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
-
-  useEffect(() => {
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-  }, [isDark]);
-
-  const handleFilterSport = (sportId) => {
-    const next = sportId === selectedSport ? null : sportId;
-    setSelectedSport(next);
-  };
-
-  /* Lọc dữ liệu theo môn thể thao */
-  const selectedSportKey = selectedSport
-    ? MOCK_SPORTS.find((s) => s.id === selectedSport)?.key
-    : null;
-
-  const filteredTeams = selectedSportKey
-    ? MOCK_TOP_TEAMS.filter((t) => t.sport === selectedSportKey)
-    : MOCK_TOP_TEAMS;
-
-  const filteredPosts = selectedSportKey
-    ? MOCK_POSTS.filter((p) => p.sport === selectedSportKey)
-    : MOCK_POSTS;
-
-  const handleChat = (postId, authorName) => {
-    // Tạo mock user từ tác giả bài viết để nhảy thẳng vào chat
-    const chatUser = {
-      id: `post-${postId}`,
-      name: authorName,
-      avatar: authorName.charAt(0).toUpperCase(),
-      lastMessage: 'Chào bạn, mình quan tâm đến bài đăng này!',
-      time: 'Vừa xong',
-      unread: 0,
-      online: true,
-    };
-    startChat(chatUser);
-    console.log(`Bắt đầu chat với: ${authorName} từ bài viết ${postId}`);
-  };
+  const [skills, setSkills] = useState(INITIAL_USER_SKILLS);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 pb-24">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0a1128] text-slate-900 dark:text-[#F6F7ED] font-sans transition-colors duration-500 selection:bg-[#589470]/30 overflow-x-hidden pb-12">
+      
+      {/* ── 1. Hero Banner ── */}
+      <section className="relative w-full h-[550px] flex items-center justify-center">
+        {/* Background Image with Overlay */}
+        <div className="absolute inset-0 z-0">
+          <img 
+            src={heroBgImg} 
+            alt="Hero background" 
+            className="w-full h-full object-cover object-[50%_40%]" 
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-slate-900/80 via-slate-900/60 to-slate-50 dark:to-[#0a1128] transition-colors duration-500" />
+        </div>
 
-      {/* ── Thanh tiêu đề ── */}
-      <Header 
-        currentLocation={currentLocation}
-        isDark={isDark}
-        setIsDark={setIsDark}
-        searchKeyword={searchKeyword}
-        setSearchKeyword={setSearchKeyword}
-        searchPlaceholder={t('home.searchPlaceholder')}
-      />
-
-
-
-      <div className="px-4 pt-5 space-y-7">
-
-        {/* ── Danh mục môn thể thao ── */}
-        <section>
-          <div className="flex justify-around">
-            {MOCK_SPORTS.map((sport) => (
-              <button
-                key={sport.id}
-                onClick={() => handleFilterSport(sport.id)}
-                className="flex flex-col items-center gap-2"
-              >
-                <div
-                  className={`relative w-14 h-14 rounded-full overflow-hidden transition-all flex items-center justify-center ${
-                    selectedSport === sport.id ? 'scale-105' : 'hover:scale-105'
-                  }`}
-                >
-                  <img src={sport.image} alt={sport.name} className="w-full h-full object-cover" />
-                  {selectedSport === sport.id && (
-                    <div className="absolute inset-0 rounded-full border-[3px] border-blue-500 pointer-events-none"></div>
-                  )}
-                </div>
-                <span className={`text-xs font-medium ${selectedSport === sport.id
-                  ? 'text-blue-600 dark:text-blue-400'
-                  : 'text-gray-600 dark:text-gray-400'
-                }`}>
-                  {t(`sports.${sport.key}`, sport.name)}
-                </span>
-              </button>
-            ))}
+        {/* Hero Content */}
+        <div className="relative z-10 text-center px-4 max-w-4xl mx-auto mt-8">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white/90 text-sm font-medium mb-6">
+            <Sparkles className="w-4 h-4 text-yellow-400" />
+            Nền tảng thể thao & ghép kèo số 1
           </div>
-        </section>
-
-        {/* ── Top Teams ── */}
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-gray-900 dark:text-white font-bold text-lg">{t('home.topTeams')}</h2>
-            <button className="text-blue-600 dark:text-blue-400 text-sm font-medium">{t('home.seeAll')}</button>
+          <h1 className="text-5xl md:text-7xl font-black tracking-tight text-white mb-6 drop-shadow-lg">
+            Sport<span className="text-[#74C365]">Go</span>
+          </h1>
+          <p className="text-xl md:text-2xl font-semibold text-white/90 mb-10 drop-shadow-md">
+            Chơi đúng người - Ghép đúng trình độ
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <button 
+              onClick={() => navigate('/tournaments')}
+              className="px-8 py-3.5 bg-[#74C365] hover:bg-[#60a852] text-white font-bold rounded-xl shadow-lg shadow-[#74C365]/30 transition-all flex items-center justify-center gap-2"
+            >
+              Khám phá diễn đàn <ArrowRight className="w-5 h-5" />
+            </button>
+            <button 
+              onClick={() => navigate('/matches')}
+              className="px-8 py-3.5 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 text-white font-bold rounded-xl shadow-lg transition-all"
+            >
+              Vào phòng game
+            </button>
           </div>
-          {filteredTeams.length > 0 ? (
-            <div className="flex gap-3 overflow-x-auto pb-3 -mx-4 px-4 scrollbar-hide">
-              {filteredTeams.map((team) => (
-                <div
-                  key={team.id}
-                  className={`shrink-0 w-40 h-48 bg-gradient-to-br ${team.bgGradient} rounded-2xl p-4 flex flex-col justify-between relative shadow-md shadow-gray-200 dark:shadow-none`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/30">
-                      <span className="text-white font-bold text-sm select-none">{team.avatarBadge}</span>
-                    </div>
-                    <div className="bg-black/30 backdrop-blur-md rounded-full px-1.5 py-0.5 flex items-center gap-1">
-                      <span className="text-yellow-400 text-[10px] leading-none">⭐</span>
-                      <span className="text-white text-[10px] font-semibold leading-none">{team.rating}</span>
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="text-white font-bold text-sm leading-tight mb-1">{team.name}</h3>
-                    <p className="text-white/80 text-xs flex items-center gap-1">
-                       👥 {team.members} {t('home.members')}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-             <div className="py-6 text-center text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800">
-               {t('home.noTopTeams')}
-             </div>
-          )}
-        </section>
+        </div>
+      </section>
 
-        {/* ── Posts / Bảng tin ── */}
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-gray-900 dark:text-white font-bold text-lg">{t('home.recentPosts')}</h2>
-            <button className="text-blue-600 dark:text-blue-400 text-sm font-medium">{t('home.newPost')}</button>
-          </div>
-          {filteredPosts.length > 0 ? (
-            <div className="flex flex-col gap-4">
-              {filteredPosts.map((post) => (
-                <PostCard key={post.id} post={post} onChat={handleChat} />
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-16 text-center bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
-              <div className="w-16 h-16 rounded-full bg-gray-50 dark:bg-gray-800 flex items-center justify-center mb-4">
-                <span className="text-2xl">📝</span>
+      <div className="max-w-7xl mx-auto px-6 md:px-8 py-10 grid grid-cols-1 lg:grid-cols-12 gap-10">
+        
+        {/* ── 2. User Skill Profile Section (Left Column) ── */}
+        <div className="lg:col-span-4 flex flex-col gap-6 relative z-20">
+          <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl rounded-3xl p-6 border border-slate-200/50 dark:border-slate-700/50 shadow-2xl shadow-slate-200/30 dark:shadow-black/50">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#589470] to-teal-500 flex items-center justify-center text-white shadow-lg">
+                <Activity className="w-6 h-6" />
               </div>
-              <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">{t('home.noPosts')}</p>
-              <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">{t('home.beTheFirst')}</p>
+              <div>
+                <h2 className="text-xl font-bold dark:text-white">Hồ Sơ Kỹ Năng</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Đánh giá trình độ cá nhân</p>
+              </div>
             </div>
-          )}
-        </section>
 
+            <div className="space-y-6">
+              {skills.map((skill, idx) => (
+                <div key={idx} className="group">
+                  <div className="flex justify-between items-end mb-2">
+                    <span className="font-semibold text-slate-700 dark:text-slate-200">{skill.sport}</span>
+                    <span className="text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700/60 px-2.5 py-1 rounded-md">
+                      {skill.level}
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-100 dark:bg-slate-700/50 rounded-full h-2.5 overflow-hidden border border-slate-200 dark:border-slate-600/50">
+                    <div 
+                      className={`h-full ${skill.color} rounded-full transition-all duration-1000 ease-out group-hover:brightness-110 shadow-[inset_0_2px_4px_rgba(0,0,0,0.1)]`} 
+                      style={{ width: `${skill.percentage}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <button 
+              onClick={() => setIsEditModalOpen(true)}
+              className="mt-8 w-full py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700/50 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold rounded-xl transition-all flex items-center justify-center gap-2 border border-slate-200 dark:border-slate-600 shadow-sm active:scale-95"
+            >
+              <Pencil className="w-4 h-4" />
+              Chỉnh sửa trình độ
+            </button>
+          </div>
+        </div>
+
+        {/* ── 3. System Features Section (Right Column) ── */}
+        <div className="lg:col-span-8 flex flex-col pt-8 lg:pt-0">
+          <div className="mb-8">
+            <h2 className="text-3xl font-black mb-2 dark:text-white">Tính Năng Hệ Thống</h2>
+            <p className="text-slate-500 dark:text-slate-400 text-lg">Khám phá các công cụ tuyệt vời để nâng tầm trải nghiệm thể thao của bạn.</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            
+            {/* Feature 1: Diễn Đàn */}
+            <div 
+              onClick={() => navigate('/tournaments')}
+              className="group bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-200 dark:border-slate-700/80 shadow-sm hover:shadow-xl hover:border-blue-500/40 dark:hover:border-blue-400/40 transition-all duration-300 cursor-pointer"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center mb-5 group-hover:-translate-y-1 transition-transform duration-300">
+                <MessageSquare className="w-7 h-7 text-blue-600 dark:text-blue-400" />
+              </div>
+              <h3 className="text-xl font-bold mb-3 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">Diễn Đàn Giao Lưu</h3>
+              <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                Nơi bạn đăng tin tìm kèo, thảo luận về các giải đấu hoặc chia sẻ kinh nghiệm chơi thể thao với cộng đồng đam mê trên toàn quốc.
+              </p>
+            </div>
+
+            {/* Feature 2: Phòng Game */}
+            <div 
+              onClick={() => navigate('/matches')}
+              className="group bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-200 dark:border-slate-700/80 shadow-sm hover:shadow-xl hover:border-teal-500/40 dark:hover:border-teal-400/40 transition-all duration-300 cursor-pointer"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-teal-100 dark:bg-teal-500/20 flex items-center justify-center mb-5 group-hover:-translate-y-1 transition-transform duration-300">
+                <Gamepad2 className="w-7 h-7 text-teal-600 dark:text-teal-400" />
+              </div>
+              <h3 className="text-xl font-bold mb-3 dark:text-white group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">Phòng Chờ (Game Rooms)</h3>
+              <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                Tự tạo phòng để chờ người chơi tham gia theo thời gian thực. Hệ thống hỗ trợ chat riêng tư và chốt danh sách tự động.
+              </p>
+            </div>
+
+            {/* Feature 3: Đặt Sân */}
+            <div 
+              onClick={() => navigate('/bookings')}
+              className="group bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-200 dark:border-slate-700/80 shadow-sm hover:shadow-xl hover:border-orange-500/40 dark:hover:border-orange-400/40 transition-all duration-300 cursor-pointer"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-orange-100 dark:bg-orange-500/20 flex items-center justify-center mb-5 group-hover:-translate-y-1 transition-transform duration-300">
+                <CalendarCheck className="w-7 h-7 text-orange-600 dark:text-orange-400" />
+              </div>
+              <h3 className="text-xl font-bold mb-3 dark:text-white group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">Hệ Thống Đặt Sân</h3>
+              <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                Tìm kiếm sân bãi theo địa điểm, so sánh giá cả và đặt lịch nhanh chóng. Trải nghiệm tính năng đăng ký làm chủ sân linh hoạt.
+              </p>
+            </div>
+
+            {/* Feature 4: Teams */}
+            <div 
+              onClick={() => navigate('/team')}
+              className="group bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-200 dark:border-slate-700/80 shadow-sm hover:shadow-xl hover:border-purple-500/40 dark:hover:border-purple-400/40 transition-all duration-300 cursor-pointer"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-purple-100 dark:bg-purple-500/20 flex items-center justify-center mb-5 group-hover:-translate-y-1 transition-transform duration-300">
+                <ShieldCheck className="w-7 h-7 text-purple-600 dark:text-purple-400" />
+              </div>
+              <h3 className="text-xl font-bold mb-3 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">Câu Lạc Bộ (Teams)</h3>
+              <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                Nâng cấp quyền lợi Premium để đẩy top bài đăng, tích lũy điểm đánh giá 5⭐ và nhận huy hiệu uy tín nhằm thu hút nhiều thành viên hơn.
+              </p>
+            </div>
+
+          </div>
+        </div>
       </div>
-
+      <EditSkillModal 
+        isOpen={isEditModalOpen} 
+        onClose={() => setIsEditModalOpen(false)} 
+        skills={skills} 
+        onSave={(newSkills) => setSkills(newSkills)} 
+      />
     </div>
+
   );
 }
 
 export default Home;
-

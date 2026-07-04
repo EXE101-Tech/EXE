@@ -25,7 +25,7 @@ function CourtCard({ court, onBook }) {
   const { id, name, rating, distance, district, price, sport, image } = court;
 
   return (
-    <div className="flex items-center gap-3 p-3 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
+    <div className="flex items-center gap-3 p-3 glass-panel rounded-3xl border border-black/5 dark:border-white/5 shadow-sm hover:bg-white/5 transition-colors cursor-pointer">
       {/* Ảnh thu nhỏ + huy hiệu đánh giá */}
       <div className="relative shrink-0">
         <div className={`w-20 h-20 rounded-xl overflow-hidden ${!image ? `bg-gradient-to-br ${SPORT_GRADIENTS[sport] ?? 'from-gray-700 to-gray-500'} flex items-center justify-center` : ''}`}>

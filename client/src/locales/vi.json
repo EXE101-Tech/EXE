@@ -162,5 +162,65 @@
     "noTeams": "Bạn chưa tham gia đội nào cho môn thể thao này.",
     "captain": "Đội trưởng",
     "member": "Thành viên"
+  },
+  "landing": {
+    "nav": {
+      "home": "Trang chủ",
+      "features": "Tính năng",
+      "reasons": "Ưu điểm",
+      "testimonials": "Đánh giá",
+      "contact": "Liên hệ",
+      "getStarted": "Bắt đầu ngay",
+      "signIn": "Đăng nhập",
+      "signUp": "Đăng ký"
+    },
+    "hero": {
+      "heroTitle": "Kết nối đam mê, thỏa sức thể thao",
+      "subtitle": "Tìm đối thủ ngang tài, tham gia các giải đấu sôi động và đặt sân nhanh chóng chỉ với vài cú nhấp chuột. Cầu lông, Bóng đá, Pickleball, Tennis và nhiều hơn thế nữa!",
+      "ctaStart": "Tham gia ngay",
+      "ctaDemo": "Khám phá sân bãi"
+    },
+    "features": {
+      "headerTitle": "Hệ sinh thái thể thao toàn diện",
+      "headerSubtitle": "Tất cả những gì bạn cần để cháy hết mình cùng đam mê thể thao, được tích hợp thông minh trong một nền tảng.",
+      "f1Title": "Ghép kèo & Tìm đồng đội",
+      "f1Desc": "Tạo phòng hoặc tìm đối thủ cùng trình độ từ Cơ bản đến Chuyên nghiệp. Không còn nỗi lo thiếu chân hay chênh lệch kỹ năng!",
+      "f2Title": "Đặt sân trực tuyến 24/7",
+      "f2Desc": "Khám phá bản đồ sân bãi trực quan, kiểm tra lịch trống thời gian thực và đặt sân nhanh chóng kèm ưu đãi Flash Deals giờ vàng.",
+      "f3Title": "Quản lý Giải đấu & Đội nhóm",
+      "f3Desc": "Tạo lập câu lạc bộ, theo dõi đội hình, tham gia và tranh tài tại các giải đấu thể thao quanh khu vực của bạn dễ dàng hơn bao giờ hết."
+    },
+    "reasons": {
+      "headerTitle": "Vì sao chọn SportGo?",
+      "headerSubtitle": "Được thiết kế hiện đại, tối ưu cho cả người yêu thể thao cá nhân và các chủ sân vận động.",
+      "r1Title": "Kết nối thần tốc",
+      "r1Desc": "Thuật toán thông minh gợi ý đối thủ và sân bãi phù hợp nhất dựa trên vị trí và trình độ của bạn.",
+      "r2Title": "Giao diện Nebula mượt mà",
+      "r2Desc": "Thiết kế hiện đại, dark mode tinh tế cùng hiệu ứng chuyển động mượt mà trên mọi thiết bị máy tính và điện thoại.",
+      "r3Title": "Cộng đồng sôi động",
+      "r3Desc": "Hàng ngàn người chơi tích cực cùng hàng trăm sân bãi được xác thực khắp cả nước đang chờ bạn kết nối."
+    },
+    "testimonials": {
+      "headerTitle": "Cộng đồng nói gì về SportGo?",
+      "headerSubtitle": "Lắng nghe chia sẻ thực tế từ những tay vợt, cầu thủ và chủ sân đang đồng hành cùng SportGo mỗi ngày.",
+      "t1Quote": "Từ ngày có SportGo, việc tìm người giao lưu cuối tuần dễ dàng hơn hẳn. Chỉ cần mở phòng là 15 phút sau đã có bạn chơi cùng trình độ tham gia!",
+      "t1Name": "Nguyễn Hoàng Long",
+      "t1Role": "Đội trưởng CLB Cầu lông",
+      "t2Quote": "Giao diện cực kỳ đẹp mắt và dễ dùng. Tính năng đặt sân Flash Deals giúp nhóm mình tiết kiệm được rất nhiều chi phí thuê sân giờ vàng.",
+      "t2Name": "Trần Thu Hà",
+      "t2Role": "Người chơi Pickleball",
+      "t3Quote": "Quản lý lịch đặt sân và tiếp cận người chơi mới trở nên vô cùng tiện lợi. Lượng khách đặt sân giờ trống của chúng tôi tăng tới 40%!",
+      "t3Name": "Lê Minh Quân",
+      "t3Role": "Quản lý sân Tennis"
+    },
+    "cta": {
+      "title": "Sẵn sàng ra sân cùng SportGo?",
+      "subtitle": "Tham gia cùng hàng ngàn người đam mê cầu lông, bóng đá, pickleball và tennis trên toàn quốc ngay hôm nay.",
+      "boxTitle": "Nhận tin tức & ưu đãi đặt sân",
+      "boxSubtitle": "Đăng ký email để nhận mã giảm giá Flash Deals và thông tin giải đấu thể thao hấp dẫn hàng tuần.",
+      "emailPlaceholder": "Nhập địa chỉ email của bạn...",
+      "subscribeBtn": "Đăng ký ngay",
+      "copyright": "Copyright 2026 © SportGo. All Rights Reserved."
+    }
   }
 }

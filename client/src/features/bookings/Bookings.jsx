@@ -1,360 +1,267 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
-import { Moon, Sun, LogIn, Sparkles, LogOut, Crown } from 'lucide-react';
-import gpsImg from '../../assets/svgs/gps.svg';
-import arrowDownImg from '../../assets/svgs/arrow_down.svg';
-import notificationImg from '../../assets/svgs/notification.svg';
-import searchImg from '../../assets/svgs/search.svg';
-import badmintonImg from '../../assets/icons/badminton.png';
-import footballImg from '../../assets/icons/football.png';
-import pickleballImg from '../../assets/icons/pickelball.png';
-import tennisImg from '../../assets/icons/tennis.png';
-import protonImg from '../../assets/images/ProtonBadmintonCenter.png';
-import eliteImg from '../../assets/images/EliteFootballArena.png';
-import CourtCard from '../home/components/CourtCard';
-import Header from '../../shared/components/Header';
-import { courtService, bookingService } from '../../shared/services/api';
-import { useAuth } from '../../shared/context/AuthContext';
+import React, { useState, useMemo } from 'react';
+import { Search, MapPin, DollarSign, Building2, PlusCircle, Sparkles, Filter, RefreshCw, Trophy, Calendar, SlidersHorizontal, Award, Users } from 'lucide-react';
+import { useSportFilter } from '../../shared/context/SportFilterContext';
+import { useChat } from '../../shared/context/ChatContext';
+import VenueCard from './components/VenueCard';
+import HostSetupModal from './components/HostSetupModal';
 
-/* ─── Ưu đãi nhanh ─── */
+import badmintonImg from '../../assets/sports/badminton.avif';
+import footballImg from '../../assets/sports/foodball.avif';
+import pickleballImg from '../../assets/sports/pickleball.jpg';
+import tennisImg from '../../assets/sports/tennis.jpg';
+import basketballImg from '../../assets/sports/bong_ro.jpg';
+import volleyballImg from '../../assets/sports/volleyball.jpg';
 
-const MOCK_FLASH_DEALS = [
+const INITIAL_VENUES = [
   {
     id: 1,
-    tag: 'HAPPY HOUR',
-    tagStyle: 'bg-[#CDFF00] text-gray-900',
-    headline: '40% OFF Weekday Mornings',
-    bgClass: 'bg-[#0D1117]',
-    watermark: 'HAPPY HOUR',
+    name: 'Sân Cầu Lông Proton VIP Q10',
+    sport: 'badminton',
+    sportName: 'Cầu lông',
+    sportEmoji: '🏸',
+    address: '286 Thành Thái, Phường 14, Quận 10, TP.HCM',
+    distance: '0.8 km',
+    rating: 4.9,
+    reviewCount: 42,
+    price: '50.000đ',
+    priceNumber: 50000,
+    courtCount: 6,
+    image: badmintonImg,
+    hostName: 'Anh Tuấn Proton',
+    facilities: { wifi: true, parking: true, shower: true, canteen: true, rental: true },
   },
   {
     id: 2,
-    tag: 'LIMITED TIME',
-    tagStyle: 'bg-green-600 text-white',
-    headline: 'Book First Go Free',
-    bgClass: 'bg-[#0A2010]',
-    watermark: 'LIMITED TIME',
+    name: 'Sân Bóng Đá Cỏ Nhân Tạo Elite Q7',
+    sport: 'football',
+    sportName: 'Bóng đá',
+    sportEmoji: '⚽',
+    address: '45 Nguyễn Thị Thập, Tân Phong, Quận 7, TP.HCM',
+    distance: '2.5 km',
+    rating: 4.8,
+    reviewCount: 56,
+    price: '80.000đ',
+    priceNumber: 80000,
+    courtCount: 4,
+    image: footballImg,
+    hostName: 'Chị Mai Elite',
+    facilities: { wifi: true, parking: true, shower: true, canteen: true, rental: true },
+  },
+  {
+    id: 3,
+    name: 'CLB Pickleball Thảo Điền Smash',
+    sport: 'pickleball',
+    sportName: 'Pickleball',
+    sportEmoji: '🏓',
+    address: '12 Quốc Hương, Thảo Điền, TP. Thủ Đức, TP.HCM',
+    distance: '4.1 km',
+    rating: 5.0,
+    reviewCount: 31,
+    price: '60.000đ',
+    priceNumber: 60000,
+    courtCount: 8,
+    image: pickleballImg,
+    hostName: 'Coach Hùng Pickle',
+    facilities: { wifi: true, parking: true, shower: true, canteen: true, rental: true },
+  },
+  {
+    id: 4,
+    name: 'Cụm Sân Tennis Phú Thọ Thể Thao',
+    sport: 'tennis',
+    sportName: 'Tennis',
+    sportEmoji: '🎾',
+    address: '219 Lý Thường Kiệt, Phường 15, Quận 11, TP.HCM',
+    distance: '1.7 km',
+    rating: 4.7,
+    reviewCount: 28,
+    price: '90.000đ',
+    priceNumber: 90000,
+    courtCount: 5,
+    image: tennisImg,
+    hostName: 'Ban Quản Lý Phú Thọ',
+    facilities: { wifi: true, parking: true, shower: true, canteen: false, rental: true },
+  },
+  {
+    id: 5,
+    name: 'Trung Tâm Bóng Rổ SSA Arena Q3',
+    sport: 'basketball',
+    sportName: 'Bóng rổ',
+    sportEmoji: '🏀',
+    address: '141 Võ Văn Tần, Phường 6, Quận 3, TP.HCM',
+    distance: '3.0 km',
+    rating: 4.9,
+    reviewCount: 19,
+    price: '70.000đ',
+    priceNumber: 70000,
+    courtCount: 3,
+    image: basketballImg,
+    hostName: 'Coach Long SSA',
+    facilities: { wifi: true, parking: true, shower: true, canteen: true, rental: true },
+  },
+  {
+    id: 6,
+    name: 'Nhà Thi Đấu Bóng Chuyền Tân Bình',
+    sport: 'volleyball',
+    sportName: 'Bóng chuyền',
+    sportEmoji: '🏐',
+    address: '448 Hoàng Văn Thụ, Phường 4, Tân Bình, TP.HCM',
+    distance: '3.8 km',
+    rating: 4.6,
+    reviewCount: 22,
+    price: '55.000đ',
+    priceNumber: 55000,
+    courtCount: 4,
+    image: volleyballImg,
+    hostName: 'Anh Hoàng Tân Bình',
+    facilities: { wifi: true, parking: true, shower: true, canteen: true, rental: false },
   },
 ];
 
-/* ─── Danh mục môn thể thao ─── */
+export default function Bookings() {
+  const { selectedSport } = useSportFilter();
+  const { openChat } = useChat();
 
-const MOCK_SPORTS = [
-  { id: 1, name: 'Badminton', image: badmintonImg, key: 'badminton' },
-  { id: 2, name: 'Football', image: footballImg, key: 'football' },
-  { id: 3, name: 'Pickleball', image: pickleballImg, key: 'pickleball' },
-  { id: 4, name: 'Tennis', image: tennisImg, key: 'tennis' },
-];
+  const [venues, setVenues] = useState(INITIAL_VENUES);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [locationFilter, setLocationFilter] = useState('all');
+  const [isHostModalOpen, setIsHostModalOpen] = useState(false);
 
-/* ─── Skeleton Loading cho Court Card ─── */
-function CourtCardSkeleton() {
+  const handleHostSave = (newVenue) => {
+    setVenues(prev => [newVenue, ...prev]);
+  };
+
+  const handleOpenChat = (venue) => {
+    openChat(venue.hostName || venue.name);
+  };
+
+  const filteredVenues = useMemo(() => {
+    return venues.filter(venue => {
+      // 1. Sport Filter
+      if (selectedSport && selectedSport !== 'all' && venue.sport !== selectedSport) {
+        return false;
+      }
+      // 2. Search Term
+      if (searchTerm.trim()) {
+        const q = searchTerm.toLowerCase();
+        const matchName = venue.name.toLowerCase().includes(q);
+        const matchAddr = venue.address.toLowerCase().includes(q);
+        if (!matchName && !matchAddr) return false;
+      }
+      // 3. Location Filter
+      if (locationFilter !== 'all') {
+        if (!venue.address.toLowerCase().includes(locationFilter.toLowerCase())) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [venues, selectedSport, searchTerm, locationFilter]);
+
   return (
-    <div className="flex gap-3 bg-gray-50 dark:bg-gray-900 p-3 rounded-2xl border border-gray-100 dark:border-gray-800 animate-pulse">
-      <div className="w-24 h-24 rounded-xl bg-gray-200 dark:bg-gray-700 shrink-0"></div>
-      <div className="flex-1 py-1 space-y-2">
-        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
-        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
-        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mt-2"></div>
+    <div className="min-h-screen bg-transparent text-slate-900 dark:text-white pb-24 font-sans animate-in fade-in duration-300">
+      
+      {/* Hero Banner Section */}
+      <div className="relative bg-transparent pt-10 pb-2 px-4 sm:px-6">
+        <div className="max-w-[1600px] mx-auto">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#589470]/10 dark:bg-[#74C365]/15 text-[#589470] dark:text-[#74C365] text-xs font-black uppercase tracking-wider mb-3 border border-[#589470]/20">
+              <Building2 className="w-3.5 h-3.5" />
+              <span>Đặt Sân • Online Booking</span>
+            </div>
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 dark:text-white tracking-tight">
+              Khám Phá & Đặt Sân Thể Thao
+            </h1>
+            <p className="text-slate-600 dark:text-slate-300 text-sm sm:text-base max-w-2xl mt-2 leading-relaxed">
+              Hệ thống tra cứu và đặt sân thể thao trực tuyến 24/7. Tìm sân gần bạn nhất, so sánh mức giá và đặt lịch nhanh chóng chỉ trong vài giây!
+            </p>
+          </div>
+        </div>
       </div>
-    </div>
-  );
-}
 
-/* ─── Component chính ─── */
+      {/* ── Filter Bar Section ── */}
+      <div className="pb-4 pt-1 px-4 sm:px-6 sticky top-[104px] sm:top-[124px] z-40 transition-all duration-300">
+        <div className="max-w-[1600px] mx-auto bg-white/35 dark:bg-white/[0.08] backdrop-blur-2xl backdrop-saturate-[180%] border border-white/60 dark:border-white/15 rounded-3xl p-3.5 sm:p-4 shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_1px_0_rgba(255,255,255,0.8),inset_0_0_16px_rgba(255,255,255,0.4)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3),inset_0_1px_1px_0_rgba(255,255,255,0.25),inset_0_0_16px_rgba(255,255,255,0.05)] flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 transition-all duration-300">
+          
+          {/* Filter Box: Chỉ lọc theo Địa điểm (Location) */}
+          <div className="w-full sm:max-w-xs flex-1">
+            <div className="relative">
+              <MapPin className="w-4 h-4 text-rose-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+              <select
+                value={locationFilter}
+                onChange={(e) => setLocationFilter(e.target.value)}
+                className="w-full bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-10 pr-3 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all truncate"
+              >
+                <option value="all">Tất cả địa điểm</option>
+                <option value="Quận 10">Quận 10</option>
+                <option value="Quận 7">Quận 7</option>
+                <option value="Thủ Đức">TP. Thủ Đức</option>
+                <option value="Quận 11">Quận 11</option>
+                <option value="Quận 3">Quận 3</option>
+                <option value="Tân Bình">Quận Tân Bình</option>
+              </select>
+            </div>
+          </div>
 
-function Bookings() {
-  const { t } = useTranslation();
-  const navigate = useNavigate();
-  const { user, isAuthenticated } = useAuth();
-  const [searchKeyword, setSearchKeyword] = useState('');
-  const [selectedSport, setSelectedSport] = useState(null);
-  const [currentLocation] = useState('Hồ Chí Minh');
-  const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') !== 'light');
-  const [courts, setCourts] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  
-  const [activeTab, setActiveTab] = useState('nearby');
-  const [myBookings, setMyBookings] = useState([]);
-  const [isBookingsLoading, setIsBookingsLoading] = useState(false);
+          {/* Right actions: Filter status + Create Button */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between lg:justify-end gap-3 sm:gap-4 shrink-0 border-t lg:border-t-0 pt-3 lg:pt-0 border-slate-200/50 dark:border-white/10">
+            <div className="flex items-center gap-2 text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 px-2">
+              <SlidersHorizontal className="w-4 h-4 text-[#589470] dark:text-[#74C365]" />
+              <span>
+                Hiển thị: <strong className="text-slate-900 dark:text-white font-bold">{filteredVenues.length}</strong> sân
+              </span>
+            </div>
 
-  const fetchCourts = async () => {
-    setIsLoading(true);
-    try {
-      const data = await courtService.getAll();
-      const mappedCourts = data.map(c => ({
-        id: c.id,
-        name: c.venue?.name || c.name, // Display venue name mainly
-        rating: 4.8, // Mockup rating
-        distance: 'Quận 9', // Default mock distance/district
-        district: c.venue?.address?.split(',').pop()?.trim() || 'Quận 9', 
-        price: c.price_per_hour ? `${Math.round(c.price_per_hour / 1000)}k/h` : '100k/h',
-        sport: MOCK_SPORTS.find(s => s.id === c.sport_id || s.name === c.sport?.name)?.key || 'badminton',
-        image: null // API doesn't provide images yet
-      }));
-      setCourts(mappedCourts);
-    } catch (err) {
-      console.error("Lỗi khi tải danh sách sân:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+            <button
+              onClick={() => setIsHostModalOpen(true)}
+              className="px-5 py-2.5 rounded-2xl font-bold text-xs sm:text-sm bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-95 text-white shadow-md hover:shadow-lg flex items-center justify-center gap-2 transition-all duration-200 active:scale-95 group shrink-0"
+            >
+              <PlusCircle className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" />
+              <span>Đăng ký làm chủ sân</span>
+            </button>
+          </div>
 
-  useEffect(() => {
-    fetchCourts();
-  }, []);
+        </div>
+      </div>
 
-  const fetchBookings = async () => {
-    if (!isAuthenticated) return;
-    setIsBookingsLoading(true);
-    try {
-      const data = await bookingService.getAll();
-      setMyBookings(data);
-    } catch (err) {
-      console.error("Lỗi khi tải lịch sử đặt sân:", err);
-    } finally {
-      setIsBookingsLoading(false);
-    }
-  };
+      {/* Venues Grid Area */}
+      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 pt-10">
+        {filteredVenues.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredVenues.map((venue) => (
+              <VenueCard key={venue.id} venue={venue} onChat={handleOpenChat} />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-16 px-4 bg-white/50 dark:bg-[#001F3F]/40 backdrop-blur-md rounded-3xl border border-gray-200 dark:border-white/10 my-6">
+            <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center mx-auto mb-4">
+              <Trophy className="w-8 h-8 text-slate-400 dark:text-slate-500" />
+            </div>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">
+              Không tìm thấy khu sân nào phù hợp
+            </h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-6">
+              Thử thay đổi từ khóa tìm kiếm hoặc chọn bộ lọc khu vực, mức giá khác xem sao nhé.
+            </p>
+            <button
+              onClick={() => {
+                setSearchTerm('');
+                setLocationFilter('all');
+              }}
+              className="px-6 py-2.5 rounded-2xl bg-gradient-to-r from-[#74C365] to-[#589470] text-white font-bold text-sm shadow-lg shadow-[#589470]/20 hover:opacity-90 transition-all"
+            >
+              Xem tất cả sân hiện có
+            </button>
+          </div>
+        )}
+      </main>
 
-  const handleCancelBooking = async (bookingId) => {
-    if (!window.confirm(t('bookings.confirmCancel', 'Bạn có chắc chắn muốn hủy đơn đặt sân này không?'))) return;
-    try {
-      await bookingService.cancel(bookingId);
-      // Refresh bookings
-      fetchBookings();
-    } catch (err) {
-      alert(t('bookings.cancelError', 'Không thể hủy đơn: ') + err.message);
-    }
-  };
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchBookings();
-    }
-  }, [isAuthenticated]);
-
-  useEffect(() => {
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-  }, [isDark]);
-
-  const handleFilterSport = (sportId) => {
-    const next = sportId === selectedSport ? null : sportId;
-    setSelectedSport(next);
-  };
-
-  /* Lọc sân theo môn thể thao */
-  const selectedSportKey = selectedSport
-    ? MOCK_SPORTS.find((s) => s.id === selectedSport)?.key
-    : null;
-
-  const filteredCourts = selectedSportKey
-    ? courts.filter((c) => c.sport === selectedSportKey)
-    : courts;
-
-  const handleBookCourt = (courtId) => {
-    navigate(`/courts/${courtId}`);
-  };
-
-  return (
-    <div className="min-h-screen bg-white dark:bg-gray-950 pb-24">
-
-      {/* ── Thanh tiêu đề ── */}
-      <Header 
-        currentLocation={currentLocation}
-        isDark={isDark}
-        setIsDark={setIsDark}
-        searchKeyword={searchKeyword}
-        setSearchKeyword={setSearchKeyword}
-        searchPlaceholder={t('header.searchPlaceholder', 'Tìm kiếm sân, người chơi hoặc môn...')}
+      {/* Host Setup Modal */}
+      <HostSetupModal 
+        isOpen={isHostModalOpen} 
+        onClose={() => setIsHostModalOpen(false)} 
+        onSave={handleHostSave} 
       />
 
-
-
-      <div className="px-4 pt-5 space-y-7">
-
-        {/* ── Ưu đãi nhanh ── */}
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-gray-900 dark:text-white font-bold text-lg">{t('bookings.flashDeals', 'Flash Deals')}</h2>
-            <button className="text-blue-600 dark:text-blue-400 text-sm font-medium">{t('bookings.seeAll', 'See All')}</button>
-          </div>
-          <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
-            {MOCK_FLASH_DEALS.map((deal) => (
-              <div
-                key={deal.id}
-                className={`shrink-0 w-72 h-40 ${deal.bgClass} rounded-2xl p-4 flex flex-col justify-end relative overflow-hidden cursor-pointer`}
-              >
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
-                  <span className="text-white/[0.07] text-6xl font-black tracking-widest whitespace-nowrap">
-                    {deal.watermark}
-                  </span>
-                </div>
-                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full w-fit mb-2 ${deal.tagStyle}`}>
-                  {deal.tag}
-                </span>
-                <p className="text-white font-bold text-sm leading-snug">{deal.headline}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ── Danh mục môn thể thao ── */}
-        <section>
-          <div className="flex justify-around">
-            {MOCK_SPORTS.map((sport) => (
-              <button
-                key={sport.id}
-                onClick={() => handleFilterSport(sport.id)}
-                className="flex flex-col items-center gap-2"
-              >
-                <div
-                  className={`relative w-14 h-14 rounded-full overflow-hidden transition-all flex items-center justify-center ${
-                    selectedSport === sport.id ? 'scale-105' : 'hover:scale-105'
-                  }`}
-                >
-                  <img src={sport.image} alt={sport.name} className="w-full h-full object-cover" />
-                  {selectedSport === sport.id && (
-                    <div className="absolute inset-0 rounded-full border-[3px] border-blue-500 pointer-events-none"></div>
-                  )}
-                </div>
-                <span className={`text-xs font-medium ${selectedSport === sport.id
-                  ? 'text-blue-600 dark:text-blue-400'
-                  : 'text-gray-600 dark:text-gray-400'
-                }`}>
-                  {t(`sports.${sport.key}`, sport.name)}
-                </span>
-              </button>
-            ))}
-          </div>
-        </section>
-
-        {/* ── Nearby Courts & My Bookings ── */}
-        <section>
-          <div className="flex items-center justify-between mb-4 border-b border-gray-200 dark:border-gray-800 pb-2">
-            <div className="flex gap-4">
-              <button 
-                onClick={() => setActiveTab('nearby')} 
-                className={`font-bold text-lg pb-2 transition-all ${activeTab === 'nearby' ? 'text-blue-600 border-b-2 border-blue-600 dark:text-blue-400 dark:border-blue-400' : 'text-gray-400 dark:text-gray-600'}`}
-              >
-                {t('bookings.nearbyCourts', 'Nearby Courts')}
-              </button>
-              {isAuthenticated && (
-                <button 
-                  onClick={() => setActiveTab('my')} 
-                  className={`font-bold text-lg pb-2 transition-all ${activeTab === 'my' ? 'text-blue-600 border-b-2 border-blue-600 dark:text-blue-400 dark:border-blue-400' : 'text-gray-400 dark:text-gray-600'}`}
-                >
-                  {t('bookings.myBookings', 'My Bookings')}
-                </button>
-              )}
-            </div>
-            {activeTab === 'nearby' && (
-              <button className="text-blue-600 dark:text-blue-400 text-sm font-medium">
-                {t('bookings.viewMap', 'View Map')}
-              </button>
-            )}
-          </div>
-          
-          {activeTab === 'nearby' ? (
-            isLoading ? (
-              <div className="flex flex-col gap-3">
-                <CourtCardSkeleton />
-                <CourtCardSkeleton />
-                <CourtCardSkeleton />
-              </div>
-            ) : filteredCourts.length > 0 ? (
-              <div className="flex flex-col gap-3">
-                {filteredCourts.map((court) => (
-                  <CourtCard key={court.id} court={court} onBook={handleBookCourt} />
-                ))}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
-                  <span className="text-2xl">🏟️</span>
-                </div>
-                <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">{t('bookings.noCourts', 'No courts found for this sport')}</p>
-                <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">{t('bookings.tryDifferent', 'Try selecting a different sport')}</p>
-              </div>
-            )
-          ) : (
-            isBookingsLoading ? (
-              <div className="flex flex-col gap-3">
-                <CourtCardSkeleton />
-                <CourtCardSkeleton />
-              </div>
-            ) : myBookings.length > 0 ? (
-              <div className="flex flex-col gap-3">
-                {myBookings.map((booking) => {
-                  const statusColors = {
-                    pending: 'bg-yellow-100 text-yellow-700',
-                    confirmed: 'bg-green-100 text-green-700',
-                    completed: 'bg-blue-100 text-blue-700',
-                    cancelled: 'bg-red-100 text-red-700'
-                  };
-                  const statusText = t(`bookings.status${booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}`, booking.status);
-                  
-                  return (
-                    <div key={booking.id} className="p-4 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl flex flex-col gap-3 shadow-sm">
-                      <div className="flex items-start justify-between gap-2 border-b border-gray-100 dark:border-gray-800 pb-3">
-                        <div>
-                          <h3 className="font-bold text-gray-900 dark:text-white">{booking.court?.name || booking.court?.venue?.name || 'Sân thể thao'}</h3>
-                          <p className="text-xs text-gray-500 mt-1">{t('bookings.bookingId', 'Booking ID')}: #{booking.id}</p>
-                        </div>
-                        <span className={`shrink-0 text-[10px] font-bold px-2 py-1 rounded-full uppercase ${statusColors[booking.status.toLowerCase()] || 'bg-gray-100 text-gray-600'}`}>
-                          {statusText}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="text-sm text-gray-600 dark:text-gray-400">
-                          <p>
-                            {new Date(booking.start_time).toLocaleDateString()}
-                          </p>
-                          <p className="font-medium text-gray-900 dark:text-white mt-0.5">
-                            {new Date(booking.start_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {new Date(booking.end_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-xs text-gray-500">{t('bookings.totalPrice', 'Total Price')}</p>
-                          <p className="font-bold text-blue-600 dark:text-blue-400">{(booking.total_price / 1000).toLocaleString()}k</p>
-                        </div>
-                      </div>
-                      
-                      {/* Action buttons */}
-                      {['pending', 'confirmed'].includes(booking.status.toLowerCase()) && (
-                        <div className="flex justify-end mt-1 pt-3 border-t border-gray-100 dark:border-gray-800">
-                          <button
-                            onClick={() => handleCancelBooking(booking.id)}
-                            className="text-xs font-bold px-4 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40 transition-colors"
-                          >
-                            {t('bookings.cancelBtn', 'Hủy đặt sân')}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
-                  <span className="text-2xl">📅</span>
-                </div>
-                <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">{t('bookings.noBookings', "You don't have any bookings yet.")}</p>
-              </div>
-            )
-          )}
-        </section>
-
-      </div>
     </div>
   );
 }
-
-export default Bookings;

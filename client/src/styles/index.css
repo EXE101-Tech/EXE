@@ -1,12 +1,97 @@
-@import "tailwindcss";
-@custom-variant dark (&:where(.dark, .dark *));
+@import 'tailwindcss';
 
-@layer utilities {
-  .scrollbar-hide {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;
-  }
+@property --theme-brand {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #0EA5E9;
+}
+
+@property --theme-bg {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #060B19;
+}
+
+@theme {
+  --color-brand-primary: var(--theme-brand);
+  --color-bg-primary: var(--theme-bg);
+}
+
+@variant dark (&:where(.dark, .dark *));
+
+:root {
+  --theme-brand: #0EA5E9;
+  --theme-bg: #F8FAFC;
+  --theme-text: #0F172A;
+  --theme-glow: rgba(14, 165, 233, 0.3);
+  --theme-glow-strong: rgba(14, 165, 233, 0.5);
+  --theme-glass-bg: rgba(255, 255, 255, 0.7);
+  --theme-glass-border: rgba(0, 0, 0, 0.1);
+}
+
+.dark {
+  --theme-brand: #38BDF8;
+  --theme-bg: #060B19;
+  --theme-text: #ffffff;
+  --theme-glow: rgba(56, 189, 248, 0.3);
+  --theme-glow-strong: rgba(56, 189, 248, 0.5);
+  --theme-glass-bg: rgba(255, 255, 255, 0.04); /* Brighter than 0.02 for visibility */
+  --theme-glass-border: rgba(255, 255, 255, 0.1); /* Brighter than 0.05 for visibility */
+}
+
+[data-theme='agentix'] {
+  --theme-brand: #3b82f6;
+  --theme-bg: #060b19;
+  --theme-glow: rgba(59, 130, 246, 0.3);
+  --theme-glow-strong: rgba(59, 130, 246, 0.5);
+}
+
+body {
+  background-color: var(--theme-bg);
+  color: var(--theme-text);
+  transition: background-color 0.5s ease-in-out, color 0.5s ease-in-out;
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+* {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.theme-transition {
+  transition: background-color 0.7s ease-in-out, 
+              border-color 0.7s ease-in-out, 
+              color 0.7s ease-in-out, 
+              box-shadow 0.7s ease-in-out,
+              --theme-brand 0.7s ease-in-out,
+              --theme-bg 0.7s ease-in-out;
+}
+
+.glass-panel {
+  background: var(--theme-glass-bg);
+  backdrop-filter: blur(4px);
+  border: 1px solid var(--theme-glass-border);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
+  transition: background-color 0.5s ease-in-out, border-color 0.5s ease-in-out, box-shadow 0.5s ease-in-out;
+}
+
+/* Page Transition Animations */
+.page-fade-out {
+  opacity: 0;
+  transform: scale(0.98);
+  transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+}
+
+.page-fade-in {
+  animation: fadeInScale 0.6s ease-out forwards;
+}
+
+@keyframes fadeInScale {
+  0% { opacity: 0; transform: scale(0.98); }
+  100% { opacity: 1; transform: none; }
 }

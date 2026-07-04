@@ -1,196 +1,313 @@
-import { useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import Header from '../../shared/components/Header';
-import { Users, Plus, Star } from 'lucide-react';
-import badmintonImg from '../../assets/icons/badminton.png';
-import footballImg from '../../assets/icons/football.png';
-import pickleballImg from '../../assets/icons/pickelball.png';
-import tennisImg from '../../assets/icons/tennis.png';
+import React, { useState, useMemo } from 'react';
+import { Users, PlusCircle, Sparkles, SlidersHorizontal, Crown, Shield, UserCheck } from 'lucide-react';
+import { useSportFilter } from '../../shared/context/SportFilterContext';
+import TeamCard from './components/TeamCard';
+import CreateTeamModal from './components/CreateTeamModal';
+import ReviewTeamModal from './components/ReviewTeamModal';
 
-const MOCK_SPORTS = [
-  { id: 1, name: 'Badminton', image: badmintonImg, key: 'badminton' },
-  { id: 2, name: 'Football', image: footballImg, key: 'football' },
-  { id: 3, name: 'Pickleball', image: pickleballImg, key: 'pickleball' },
-  { id: 4, name: 'Tennis', image: tennisImg, key: 'tennis' },
-];
+import badmintonImg from '../../assets/sports/badminton.avif';
+import footballImg from '../../assets/sports/foodball.avif';
+import pickleballImg from '../../assets/sports/pickleball.jpg';
+import tennisImg from '../../assets/sports/tennis.jpg';
+import basketballImg from '../../assets/sports/bong_ro.jpg';
+import volleyballImg from '../../assets/sports/volleyball.jpg';
 
-const MY_TEAMS = [
+// ── Mock Data ──
+// isCaptain = true  → user hiện tại là chủ CLB
+// isMember  = true  → user hiện tại là thành viên CLB
+const INITIAL_TEAMS = [
   {
     id: 1,
-    name: 'FC Rồng Lửa',
-    sport: 'football',
-    role: 'Captain',
-    members: 15,
-    rating: 4.8,
-    avatarBadge: 'RL',
-    color: 'from-red-500 to-orange-500',
+    name: 'CLB Cầu Lông Proton',
+    sportId: 'badminton',
+    sportName: 'Cầu lông',
+    sportEmoji: '🏸',
+    image: badmintonImg,
+    logo: badmintonImg,
+    description: 'Câu lạc bộ cầu lông chuyên nghiệp tại Q.10, tập luyện 3 buổi/tuần với sân riêng và huấn luyện viên đẳng cấp. Ưu tiên tinh thần thể thao fairplay và giao lưu vui vẻ.',
+    location: 'Sân Viettel, Quận 10',
+    members: 42,
+    totalSlots: 50,
+    rating: 4.9,
+    ratingCount: 37,
+    isVip: true,
+    captain: 'Bạn (Me)',
+    createdAt: '3 tháng trước',
+    tags: ['Sân đẹp', 'Bao cầu', 'Nhiệt tình'],
+    isCaptain: true,
+    isMember: false,
   },
   {
     id: 2,
-    name: 'Smash Brothers',
-    sport: 'badminton',
-    role: 'Member',
-    members: 4,
-    rating: 4.9,
-    avatarBadge: 'SB',
-    color: 'from-blue-500 to-indigo-600',
+    name: 'FC Elite Saigon',
+    sportId: 'football',
+    sportName: 'Bóng đá',
+    sportEmoji: '⚽',
+    image: footballImg,
+    logo: footballImg,
+    description: 'Đội bóng đá sân 7 hoạt động tại Quận 7, thường xuyên tham gia giải phong trào và tuyển thành viên mới. Tập luyện thứ 3 & thứ 5 hàng tuần.',
+    location: 'Sân Chấu Giang, Quận 7',
+    members: 28,
+    totalSlots: 30,
+    rating: 4.6,
+    ratingCount: 15,
+    isVip: true,
+    captain: 'Quốc Đạt',
+    createdAt: '6 tháng trước',
+    tags: ['Fairplay', 'Giải phong trào', 'Bao nước'],
+    isCaptain: false,
+    isMember: true,
   },
   {
     id: 3,
-    name: 'Pickle Power',
-    sport: 'pickleball',
-    role: 'Member',
-    members: 6,
-    rating: 4.5,
-    avatarBadge: 'PP',
-    color: 'from-emerald-400 to-teal-500',
+    name: 'Pickleball Fun Club',
+    sportId: 'pickleball',
+    sportName: 'Pickleball',
+    sportEmoji: '🏓',
+    image: pickleballImg,
+    logo: pickleballImg,
+    description: 'CLB pickleball năng động dành cho mọi trình độ, đặc biệt chào đón người mới bắt đầu. Sân chuẩn quốc tế, có vợt cho mượn.',
+    location: 'Sân D-Court, TP. Thủ Đức',
+    members: 16,
+    totalSlots: 20,
+    rating: 5.0,
+    ratingCount: 8,
+    isVip: false,
+    captain: 'Thu Hà',
+    createdAt: '1 tháng trước',
+    tags: ['Vui vẻ', 'Có vợt cho mượn', 'Mọi trình độ'],
+    isCaptain: false,
+    isMember: true,
   },
   {
     id: 4,
-    name: 'Tennis Masters',
-    sport: 'tennis',
-    role: 'Captain',
-    members: 8,
-    rating: 5.0,
-    avatarBadge: 'TM',
-    color: 'from-yellow-400 to-orange-500',
-  }
+    name: 'Saigon Street Ballers',
+    sportId: 'basketball',
+    sportName: 'Bóng rổ',
+    sportEmoji: '🏀',
+    image: basketballImg,
+    logo: basketballImg,
+    description: 'Giao lưu bóng rổ đường phố 3x3 và 5v5, nhịp độ nhanh, vui vẻ không va chạm mạnh. Anh em ai thích ném 3 điểm hay đột phá thì gia nhập ngay!',
+    location: 'Sân Hồ Xuân Hương, Quận 3',
+    members: 18,
+    totalSlots: 25,
+    rating: 4.7,
+    ratingCount: 12,
+    isVip: true,
+    captain: 'Bạn (Me)',
+    createdAt: '4 tháng trước',
+    tags: ['3x3', 'Streetball', 'Giao lưu thoải mái'],
+    isCaptain: true,
+    isMember: false,
+  },
+  {
+    id: 5,
+    name: 'Tennis Stars Phú Thọ',
+    sportId: 'tennis',
+    sportName: 'Tennis',
+    sportEmoji: '🎾',
+    image: tennisImg,
+    logo: tennisImg,
+    description: 'Nhóm tennis cho anh em văn phòng rèn luyện sức khỏe cuối tuần, sân có mái che không lo mưa nắng. Trình 2.5 - 3.5 NTRP.',
+    location: 'Sân Tennis Phú Thọ, Quận 11',
+    members: 22,
+    totalSlots: 24,
+    rating: 4.3,
+    ratingCount: 9,
+    isVip: false,
+    captain: 'Quang Vinh',
+    createdAt: '2 tháng trước',
+    tags: ['Sân mái che', 'Cuối tuần', 'Đánh giải nội bộ'],
+    isCaptain: false,
+    isMember: false,
+  },
+  {
+    id: 6,
+    name: 'Bóng Chuyền Sài Gòn Open',
+    sportId: 'volleyball',
+    sportName: 'Bóng chuyền',
+    sportEmoji: '🏐',
+    image: volleyballImg,
+    logo: volleyballImg,
+    description: 'CLB bóng chuyền giao lưu thân thiện, tổ chức giải nội bộ hàng quý, chào đón mọi trình độ. Sân tại Q. Bình Thạnh.',
+    location: 'Sân Bình Thạnh, TP.HCM',
+    members: 30,
+    totalSlots: 40,
+    rating: 4.5,
+    ratingCount: 20,
+    isVip: false,
+    captain: 'Hồng Nhung',
+    createdAt: '5 tháng trước',
+    tags: ['Mọi trình độ', 'Giải nội bộ', 'Vui vẻ'],
+    isCaptain: false,
+    isMember: false,
+  },
 ];
 
-function Team() {
-  const { t } = useTranslation();
-  const [selectedSport, setSelectedSport] = useState(null);
-  const [searchKeyword, setSearchKeyword] = useState('');
-  const [currentLocation] = useState('Hồ Chí Minh');
-  const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') !== 'light');
+const TABS = [
+  { id: 'captain', label: 'CLB tôi làm chủ', icon: Crown, emoji: '👑' },
+  { id: 'member', label: 'CLB tôi tham gia', icon: UserCheck, emoji: '🤝' },
+  { id: 'discover', label: 'Khám phá CLB', icon: Users, emoji: '🌐' },
+];
 
-  const handleFilterSport = (sportId) => {
-    setSelectedSport(prev => prev === sportId ? null : sportId);
+export default function Team() {
+  const { selectedSport } = useSportFilter();
+  const [teams] = useState(INITIAL_TEAMS);
+  const [activeTab, setActiveTab] = useState('captain');
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [reviewTeam, setReviewTeam] = useState(null);
+  const [alertMessage, setAlertMessage] = useState('');
+
+  // Filter by tab (captain / member / discover) + sport from navbar
+  const filteredTeams = useMemo(() => {
+    return teams.filter(team => {
+      const matchSport = !selectedSport || team.sportId === selectedSport;
+      let matchTab = false;
+      if (activeTab === 'captain') matchTab = team.isCaptain;
+      else if (activeTab === 'member') matchTab = team.isMember;
+      else if (activeTab === 'discover') matchTab = !team.isCaptain && !team.isMember;
+      return matchSport && matchTab;
+    });
+  }, [teams, selectedSport, activeTab]);
+
+  const showToast = (msg) => {
+    setAlertMessage(msg);
+    setTimeout(() => setAlertMessage(''), 4500);
   };
 
-  const filteredTeams = selectedSport 
-    ? MY_TEAMS.filter(team => {
-        const sportObj = MOCK_SPORTS.find(s => s.id === selectedSport);
-        return sportObj && team.sport === sportObj.key;
-      })
-    : MY_TEAMS;
-
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-950 pb-24">
-      {/* Thanh tiêu đề chính */}
-      <Header 
-        currentLocation={currentLocation}
-        isDark={isDark}
-        setIsDark={setIsDark}
-        searchKeyword={searchKeyword}
-        setSearchKeyword={setSearchKeyword}
-        searchPlaceholder={t('header.searchPlaceholder', 'Tìm kiếm sân, người chơi hoặc môn...')}
-      />
+    <div className="min-h-screen bg-transparent dark:bg-transparent text-slate-900 dark:text-[#F6F7ED] relative w-full overflow-x-clip font-sans transition-colors duration-500 selection:bg-[#589470]/30 pb-20">
 
-      {/* Header Team */}
-      <header className="px-4 pt-5 pb-4 bg-white dark:bg-gray-950 z-30">
-        <div className="flex items-center justify-between mb-2">
-          <h1 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">
-            {t('team.myTeams', 'My Teams')}
-          </h1>
-          <button className="flex items-center gap-1.5 bg-[#CDFF00] text-gray-900 px-4 py-2 rounded-xl font-bold text-sm shadow-sm hover:scale-105 transition-transform">
-            <Plus className="w-4 h-4" strokeWidth={3} />
-            {t('team.createTeam', 'Create Team')}
-          </button>
+      {/* Toast Notification Alert */}
+      {alertMessage && (
+        <div className="fixed top-24 right-6 z-50 max-w-md bg-white dark:bg-slate-900 border-2 border-[#589470] text-slate-800 dark:text-white px-5 py-4 rounded-2xl shadow-2xl flex items-start gap-3 animate-in slide-in-from-right duration-300">
+          <Sparkles className="w-5 h-5 text-[#589470] shrink-0 mt-0.5" />
+          <div className="text-sm font-bold leading-snug flex-1">{alertMessage}</div>
+          <button onClick={() => setAlertMessage('')} className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold">✕</button>
         </div>
-      </header>
+      )}
 
-      <div className="px-4 pt-2 space-y-8">
-        {/* Danh mục môn thể thao */}
-        <section>
-          <div className="flex justify-around">
-            {MOCK_SPORTS.map((sport) => (
-              <button
-                key={sport.id}
-                onClick={() => handleFilterSport(sport.id)}
-                className="flex flex-col items-center gap-2"
-              >
-                <div
-                  className={`relative w-14 h-14 rounded-full overflow-hidden transition-all flex items-center justify-center ${
-                    selectedSport === sport.id ? 'scale-105' : 'hover:scale-105'
+      {/* ── Header Section ── */}
+      <div className="relative bg-transparent pt-10 pb-2 px-4 sm:px-6">
+        <div className="max-w-[1600px] mx-auto">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#589470]/10 dark:bg-[#74C365]/15 text-[#589470] dark:text-[#74C365] text-xs font-black uppercase tracking-wider mb-3 border border-[#589470]/20">
+              <Shield className="w-3.5 h-3.5" />
+              <span>Câu Lạc Bộ • Teams</span>
+            </div>
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 dark:text-white tracking-tight">
+              Câu Lạc Bộ & Đội Nhóm
+            </h1>
+            <p className="text-slate-600 dark:text-slate-300 text-sm sm:text-base max-w-2xl mt-2 leading-relaxed">
+              Quản lý các CLB bạn đang sở hữu hoặc tham gia. Đăng ký thành lập CLB VIP để được ưu tiên hiển thị & nhận đánh giá uy tín từ cộng đồng!
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Filter Bar Section ── */}
+      <div className="pb-4 pt-1 px-4 sm:px-6 sticky top-[104px] sm:top-[124px] z-40 transition-all duration-300">
+        <div className="max-w-[1600px] mx-auto bg-white/35 dark:bg-white/[0.08] backdrop-blur-2xl backdrop-saturate-[180%] border border-white/60 dark:border-white/15 rounded-3xl p-3.5 sm:p-4 shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_1px_0_rgba(255,255,255,0.8),inset_0_0_16px_rgba(255,255,255,0.4)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3),inset_0_1px_1px_0_rgba(255,255,255,0.25),inset_0_0_16px_rgba(255,255,255,0.05)] flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 transition-all duration-300">
+          
+          {/* Tab Buttons */}
+          <div className="flex items-center gap-3">
+            {TABS.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all duration-200 border ${
+                    isActive
+                      ? 'bg-[#589470]/15 dark:bg-[#74C365]/20 text-[#589470] dark:text-[#74C365] border-[#589470] dark:border-[#74C365] shadow-sm'
+                      : 'bg-white dark:bg-[#001F3F]/80 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-white/15 hover:bg-slate-50 dark:hover:bg-white/5 hover:border-slate-300'
                   }`}
                 >
-                  <img src={sport.image} alt={sport.name} className="w-full h-full object-cover" />
-                  {selectedSport === sport.id && (
-                    <div className="absolute inset-0 rounded-full border-[3px] border-blue-500 pointer-events-none"></div>
-                  )}
-                </div>
-                <span className={`text-xs font-medium ${selectedSport === sport.id
-                  ? 'text-blue-600 dark:text-blue-400'
-                  : 'text-gray-600 dark:text-gray-400'
-                }`}>
-                  {t(`sports.${sport.key}`, sport.name)}
-                </span>
+                  <Icon className="w-4 h-4" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Right actions: Filter status + Create Button */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between lg:justify-end gap-3 sm:gap-4 shrink-0 border-t lg:border-t-0 pt-3 lg:pt-0 border-slate-200/50 dark:border-white/10">
+            <div className="flex items-center gap-2 text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 px-2">
+              <SlidersHorizontal className="w-4 h-4 text-[#589470] dark:text-[#74C365]" />
+              <span>
+                Hiển thị: <strong className="text-slate-900 dark:text-white font-bold">{filteredTeams.length}</strong> câu lạc bộ
+              </span>
+            </div>
+
+            <button
+              onClick={() => setIsCreateModalOpen(true)}
+              className="px-5 py-2.5 rounded-2xl font-bold text-xs sm:text-sm bg-gradient-to-r from-amber-400 to-yellow-500 hover:opacity-95 text-white shadow-md hover:shadow-lg flex items-center justify-center gap-2 transition-all duration-200 active:scale-95 group shrink-0"
+            >
+              <PlusCircle className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" />
+              <span>Thành lập CLB mới</span>
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+      {/* ── Main Teams Feed ── */}
+      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 pt-10">
+        
+        {filteredTeams.length === 0 ? (
+          <div className="bg-slate-50 dark:bg-white/5 border border-dashed border-slate-200 dark:border-white/10 rounded-3xl p-12 text-center my-6">
+            <div className="w-16 h-16 bg-slate-200 dark:bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+              {activeTab === 'captain' ? '👑' : activeTab === 'member' ? '🤝' : '🔍'}
+            </div>
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-1">
+              {activeTab === 'captain' && 'Bạn chưa sở hữu CLB nào'}
+              {activeTab === 'member' && 'Bạn chưa tham gia CLB nào'}
+              {activeTab === 'discover' && 'Không tìm thấy CLB nào'}
+            </h3>
+            <p className="text-slate-500 dark:text-slate-400 text-sm max-w-md mx-auto mb-6">
+              {activeTab === 'captain' && 'Hãy thành lập CLB mới để bắt đầu xây dựng cộng đồng thể thao của riêng bạn!'}
+              {activeTab === 'member' && 'Hãy khám phá và tham gia các CLB trong tab "Khám phá CLB" để kết nối cộng đồng!'}
+              {activeTab === 'discover' && 'Hiện chưa có CLB nào phù hợp với môn thể thao bạn đang chọn. Thử xóa bộ lọc hoặc thành lập CLB mới!'}
+            </p>
+            {(activeTab === 'captain' || activeTab === 'discover') && (
+              <button
+                onClick={() => setIsCreateModalOpen(true)}
+                className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-amber-400 to-yellow-500 text-white font-bold text-xs shadow-lg active:scale-95 transition-all"
+              >
+                + Thành lập CLB mới
               </button>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {filteredTeams.map((team) => (
+              <TeamCard
+                key={team.id}
+                team={team}
+                activeTab={activeTab}
+                onReview={() => setReviewTeam(team)}
+              />
             ))}
           </div>
-        </section>
+        )}
 
-        {/* Danh sách Teams */}
-        <section>
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
-            {selectedSport ? t('team.filteredTeams', 'Filtered Teams') : t('team.allMyTeams', 'All My Teams')}
-          </h2>
-          
-          {filteredTeams.length > 0 ? (
-            <div className="grid gap-4">
-              {filteredTeams.map(team => (
-                <div key={team.id} className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl p-4 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
-                  {/* Team Avatar */}
-                  <div className={`w-14 h-14 shrink-0 rounded-2xl bg-gradient-to-br ${team.color} flex items-center justify-center text-white font-black text-xl shadow-inner`}>
-                    {team.avatarBadge}
-                  </div>
-                  
-                  {/* Team Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <h3 className="text-gray-900 dark:text-white font-bold text-base truncate pr-2">{team.name}</h3>
-                      <div className="flex items-center gap-1 bg-yellow-50 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 px-2 py-0.5 rounded-full shrink-0">
-                        <Star className="w-3 h-3 fill-current" />
-                        <span className="text-[11px] font-bold">{team.rating}</span>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
-                      <span className="flex items-center gap-1">
-                        <Users className="w-3.5 h-3.5" />
-                        {team.members} {t('team.members', 'members')}
-                      </span>
-                      <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-700"></span>
-                      <span className="capitalize">{t(`sports.${team.sport}`, team.sport)}</span>
-                    </div>
-                  </div>
-                  
-                  {/* Role Badge */}
-                  <div className="shrink-0">
-                    <span className={`text-[10px] font-bold px-2 py-1 rounded-lg ${
-                      team.role === 'Captain' 
-                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800'
-                        : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border border-gray-200 dark:border-gray-700'
-                    }`}>
-                      {team.role === 'Captain' ? t('team.captain', 'Captain') : t('team.member', 'Member')}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="py-12 text-center bg-gray-50 dark:bg-gray-900/50 rounded-2xl border border-dashed border-gray-200 dark:border-gray-800">
-              <Users className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                {t('team.noTeams', "You haven't joined any teams for this sport yet.")}
-              </p>
-            </div>
-          )}
-        </section>
-      </div>
+      </main>
+
+      {/* ── Modals ── */}
+      <CreateTeamModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+      />
+
+      {reviewTeam && (
+        <ReviewTeamModal
+          teamId={reviewTeam.id}
+          isOpen={!!reviewTeam}
+          onClose={() => setReviewTeam(null)}
+        />
+      )}
+
     </div>
   );
 }
-
-export default Team;

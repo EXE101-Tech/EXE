@@ -110,7 +110,7 @@ function Header({
             <div className="relative">
               <button 
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
-                className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center shrink-0 hover:ring-2 hover:ring-blue-500 transition-all"
+                className="w-8 h-8 rounded-full bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center shrink-0 hover:ring-2 hover:ring-blue-500 transition-all"
               >
                 <span className="text-white text-xs font-bold select-none">
                   {getAvatarLetter()}
@@ -123,7 +123,7 @@ function Header({
                   <div className="fixed inset-0 z-40" onClick={() => setIsProfileOpen(false)}></div>
                   <div className="absolute top-full right-0 mt-3 w-64 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl shadow-xl z-50 p-4 animate-in fade-in zoom-in duration-200">
                     <div className="flex items-center gap-3 mb-4">
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center shrink-0 text-white text-lg font-bold">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center shrink-0 text-white text-lg font-bold">
                         {getAvatarLetter()}
                       </div>
                       <div>

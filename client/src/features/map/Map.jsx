@@ -6,7 +6,6 @@ import { Search, MapPin, Navigation, Map as MapIcon, X, LocateFixed, Loader2, Pl
 import { useTranslation } from 'react-i18next';
 import { useChat } from '../../shared/context/ChatContext';
 import { courtService } from '../../shared/services/api';
-import Header from '../../shared/components/Header';
 
 // Sửa lỗi icon leaflet mặc định
 import iconUrl from 'leaflet/dist/images/marker-icon.png';
@@ -206,22 +205,13 @@ export default function MapPage() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-950 overflow-hidden relative">
+    <div className="flex h-screen bg-transparent overflow-hidden relative">
       
-      {/* HEADER TÍCH HỢP CHO BẢN ĐỒ */}
-      <div className={`absolute top-0 right-0 z-[1002] transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-full md:w-[calc(100%-400px)] hidden md:block' : 'w-full'}`}>
-        <Header 
-          isDark={isDark} 
-          setIsDark={setIsDark} 
-          className="!bg-white/80 dark:!bg-gray-900/80 backdrop-blur-md border-b-0 shadow-none !py-[10px] transition-all duration-300"
-          isSidebarOpen={isSidebarOpen}
-          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-        />
-      </div>
+      {/* Removed Redundant Header */}
 
       {/* SIDEBAR BÊN TRÁI (Giống Google Maps) */}
       <div 
-        className={`w-full md:w-[400px] h-full bg-white dark:bg-gray-900 shadow-2xl flex flex-col z-[1000] absolute top-0 left-0 transition-transform duration-300 ease-in-out ${
+        className={`w-full md:w-[400px] h-full glass-panel border-r border-black/5 dark:border-white/5 shadow-2xl flex flex-col z-[1000] absolute top-0 left-0 transition-transform duration-300 ease-in-out ${
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -309,13 +299,13 @@ export default function MapPage() {
             <div>
               <div className="h-40 w-full bg-gray-200 dark:bg-gray-800 relative">
                 {/* Nơi chứa ảnh tĩnh của bản đồ OSM làm hình minh họa nếu thích, hoặc banner màu gradient */}
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-purple-600/20 backdrop-blur-sm"></div>
+                <div className="absolute inset-0 bg-gradient-to-br from-sky-500/20 to-blue-600/20 backdrop-blur-sm"></div>
                 <div className="absolute inset-0 flex items-center justify-center">
                   <MapPin className="w-12 h-12 text-blue-600 dark:text-blue-400 opacity-20" />
                 </div>
               </div>
               
-              <div className="p-5 -mt-6 relative bg-white dark:bg-gray-900 rounded-t-3xl">
+              <div className="p-5 -mt-6 relative glass-panel rounded-t-3xl border-t border-black/5 dark:border-white/5 shadow-2xl">
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2 leading-tight">
                   {selectedLocation.name}
                 </h2>
