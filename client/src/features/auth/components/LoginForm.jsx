@@ -56,12 +56,15 @@ function LoginForm({ onShowRegister }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // Tạm thời comment validate email & password theo yêu cầu:
+    /*
     const errs = {};
     const emailErr = validateEmail(form.email);
     if (emailErr) errs.email = emailErr;
     if (!form.password)
       errs.password = t('auth.passwordRequired');
     if (Object.keys(errs).length) { setErrors(errs); return; }
+    */
     
     setErrors({});
     setIsLoading(true);
