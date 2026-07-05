@@ -96,7 +96,7 @@ export default function Navbar() {
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    if (savedTheme === 'dark') {
       document.documentElement.classList.add('dark');
       setIsDark(true);
     } else {
