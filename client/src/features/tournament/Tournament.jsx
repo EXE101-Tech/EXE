@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Search, PlusCircle, Users, Sparkles, Filter, MessageSquare, CheckCircle2, SlidersHorizontal, MapPin, Calendar, DollarSign, Award } from 'lucide-react';
+import { Search, PlusCircle, Users, Sparkles, Filter, MessageSquare, CheckCircle2, SlidersHorizontal, MapPin, Calendar, DollarSign, Award, Trophy } from 'lucide-react';
 import { useSportFilter } from '../../shared/context/SportFilterContext';
 import { useChat } from '../../shared/context/ChatContext';
 import PostCard from './components/PostCard';
@@ -122,7 +122,7 @@ const INITIAL_POSTS = [
 ];
 
 export default function Tournament() {
-  const { selectedSport } = useSportFilter();
+  const { selectedSport, setSelectedSport } = useSportFilter();
   const { openChat } = useChat();
   const [posts, setPosts] = useState(INITIAL_POSTS);
   const [filterLocation, setFilterLocation] = useState('all');
@@ -220,15 +220,33 @@ export default function Tournament() {
         <div className="max-w-[1600px] mx-auto bg-white/35 dark:bg-white/[0.08] backdrop-blur-2xl backdrop-saturate-[180%] border border-white/60 dark:border-white/15 rounded-3xl p-3.5 sm:p-4 shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_1px_0_rgba(255,255,255,0.8),inset_0_0_16px_rgba(255,255,255,0.4)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3),inset_0_1px_1px_0_rgba(255,255,255,0.25),inset_0_0_16px_rgba(255,255,255,0.05)] flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 transition-all duration-300">
           
           {/* Filter Boxes Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 flex-1 max-w-4xl">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 flex-1">
             
+            {/* 0. Môn thể thao (Sport) */}
+            <div className="relative shrink-0 w-full sm:w-auto">
+              <Trophy className="w-4 h-4 text-amber-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+              <select
+                value={selectedSport || 'all'}
+                onChange={(e) => setSelectedSport(e.target.value === 'all' ? null : e.target.value)}
+                className="w-full sm:w-auto bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-9 pr-6 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all"
+              >
+                <option value="all">Tất cả môn thể thao</option>
+                <option value="football">⚽ Bóng đá</option>
+                <option value="badminton">🏸 Cầu lông</option>
+                <option value="pickleball">🏓 Pickleball</option>
+                <option value="tennis">🎾 Tennis</option>
+                <option value="basketball">🏀 Bóng rổ</option>
+                <option value="volleyball">🏐 Bóng chuyền</option>
+              </select>
+            </div>
+
             {/* 1. Địa điểm (Location) */}
-            <div className="relative">
+            <div className="relative shrink-0 w-full sm:w-auto">
               <MapPin className="w-4 h-4 text-rose-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
               <select
                 value={filterLocation}
                 onChange={(e) => setFilterLocation(e.target.value)}
-                className="w-full bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-10 pr-3 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all truncate"
+                className="w-full sm:w-auto bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-9 pr-6 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all"
               >
                 <option value="all">Tất cả địa điểm</option>
                 <option value="Quận 10">Quận 10</option>
@@ -240,12 +258,12 @@ export default function Tournament() {
             </div>
 
             {/* 2. Thời gian (Time) */}
-            <div className="relative">
+            <div className="relative shrink-0 w-full sm:w-auto">
               <Calendar className="w-4 h-4 text-blue-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
               <select
                 value={filterTime}
                 onChange={(e) => setFilterTime(e.target.value)}
-                className="w-full bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-10 pr-3 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all truncate"
+                className="w-full sm:w-auto bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-9 pr-6 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all"
               >
                 <option value="all">Tất cả thời gian</option>
                 <option value="Tối nay">Tối nay</option>
@@ -257,12 +275,12 @@ export default function Tournament() {
             </div>
 
             {/* 3. Giá (Price) */}
-            <div className="relative">
+            <div className="relative shrink-0 w-full sm:w-auto">
               <DollarSign className="w-4 h-4 text-amber-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
               <select
                 value={filterPrice}
                 onChange={(e) => setFilterPrice(e.target.value)}
-                className="w-full bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-10 pr-3 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all truncate"
+                className="w-full sm:w-auto bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-9 pr-6 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all"
               >
                 <option value="all">Tất cả mức giá</option>
                 <option value="Dưới 60k">Dưới 60.000đ</option>
@@ -272,12 +290,12 @@ export default function Tournament() {
             </div>
 
             {/* 4. Trình độ (Skill) */}
-            <div className="relative">
+            <div className="relative shrink-0 w-full sm:w-auto">
               <Award className="w-4 h-4 text-[#589470] dark:text-[#74C365] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
               <select
                 value={filterSkill}
                 onChange={(e) => setFilterSkill(e.target.value)}
-                className="w-full bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-10 pr-3 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all truncate"
+                className="w-full sm:w-auto bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-9 pr-6 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all"
               >
                 <option value="all">Tất cả trình độ</option>
                 <option value="Mới chơi">Mới chơi / Vui vẻ</option>

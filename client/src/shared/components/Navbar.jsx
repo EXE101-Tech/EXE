@@ -1,20 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Search, Sun, Moon, Check, Bell, ChevronDown, Menu, LogOut, User, Crown, MessageSquare } from 'lucide-react';
-import { useSportFilter } from '../context/SportFilterContext';
 import { useAuth } from '../context/AuthContext';
 import { useChat } from '../context/ChatContext';
 import EditProfileModal from '../../features/profile/EditProfileModal';
 import CreateTeamModal from '../../features/team/components/CreateTeamModal';
-
-const SPORTS = [
-  { id: 'football', name: 'Bóng đá', emoji: '⚽' },
-  { id: 'badminton', name: 'Cầu lông', emoji: '🏸' },
-  { id: 'pickleball', name: 'Pickleball', emoji: '🏓' },
-  { id: 'tennis', name: 'Tennis', emoji: '🎾' },
-  { id: 'basketball', name: 'Bóng rổ', emoji: '🏀' },
-  { id: 'volleyball', name: 'Bóng chuyền', emoji: '🏐' },
-];
 
 export default function Navbar() {
   const [isDark, setIsDark] = useState(() => {
@@ -22,14 +12,11 @@ export default function Navbar() {
   });
   const navigate = useNavigate();
   const location = useLocation();
-  const { selectedSport, setSelectedSport } = useSportFilter();
   const { user, logout, updateProfile } = useAuth();
   const { isChatOpen, toggleChat } = useChat();
-  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isPremiumOpen, setIsPremiumOpen] = useState(false);
-  const filterRef = useRef(null);
   const profileRef = useRef(null);
 
   const getAvatarLetter = () => {
@@ -39,9 +26,6 @@ export default function Navbar() {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (filterRef.current && !filterRef.current.contains(event.target)) {
-        setShowFilterDropdown(false);
-      }
       if (profileRef.current && !profileRef.current.contains(event.target)) {
         setShowProfileDropdown(false);
       }
@@ -133,61 +117,7 @@ export default function Navbar() {
           </div>
         </div>
 
-        <div className="flex-1 max-w-3xl mx-3 sm:mx-6 flex items-center gap-2 sm:gap-3">
-          <div className="relative shrink-0" ref={filterRef}>
-            <button
-              onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-              className={`flex items-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-full text-sm sm:text-base font-bold transition-all border ${
-                selectedSport
-                  ? 'bg-[#589470]/15 dark:bg-[#74C365]/25 text-[#589470] dark:text-[#74C365] border-[#589470] dark:border-[#74C365] shadow-sm'
-                  : 'bg-transparent hover:bg-black/5 dark:hover:bg-white/10 text-gray-700 dark:text-gray-200 border border-gray-300/80 dark:border-white/20'
-              }`}
-            >
-              <Menu className="w-4 h-4 sm:w-5 sm:h-5 text-[#589470] dark:text-[#74C365]" />
-              <span className="whitespace-nowrap">{selectedSport ? SPORTS.find(s => s.id === selectedSport)?.name || 'Bộ lọc' : 'Bộ lọc'}</span>
-            </button>
-
-            {showFilterDropdown && (
-              <div className="absolute left-0 mt-2 w-56 bg-white dark:bg-[#001F3F] border border-gray-200 dark:border-white/10 rounded-2xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                <div className="px-3 py-1.5 border-b border-gray-100 dark:border-white/10 flex items-center justify-between text-xs font-bold text-gray-400 uppercase tracking-wider">
-                  <span>Chọn môn thể thao</span>
-                  {selectedSport && (
-                    <button
-                      onClick={() => { setSelectedSport(null); setShowFilterDropdown(false); }}
-                      className="text-[#589470] dark:text-[#74C365] hover:underline normal-case font-semibold"
-                    >
-                      Tất cả
-                    </button>
-                  )}
-                </div>
-                <div className="py-1">
-                  {SPORTS.map((sport) => {
-                    const isSelected = selectedSport === sport.id;
-                    return (
-                      <button
-                        key={sport.id}
-                        onClick={() => {
-                          setSelectedSport(isSelected ? null : sport.id);
-                          setShowFilterDropdown(false);
-                        }}
-                        className={`w-full px-3.5 py-2.5 text-left text-sm font-medium flex items-center justify-between transition-colors ${
-                          isSelected
-                            ? 'bg-[#589470]/10 dark:bg-[#74C365]/15 text-[#589470] dark:text-[#74C365] font-bold'
-                            : 'text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-white/5'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <span className="text-lg">{sport.emoji}</span>
-                          <span>{sport.name}</span>
-                        </div>
-                        {isSelected && <Check className="w-4 h-4 text-[#589470] dark:text-[#74C365]" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
+        <div className="flex-1 max-w-3xl mx-3 sm:mx-6 flex items-center">
 
           <div className="relative flex items-center flex-1 bg-gray-100 dark:bg-white/10 border-2 border-transparent focus-within:border-[#589470] dark:focus-within:border-[#74C365] focus-within:bg-white dark:focus-within:bg-[#001F3F] rounded-full transition-all duration-200 shadow-inner group">
             <input
