@@ -43,7 +43,7 @@ export default function CreatePostModal({ isOpen, onClose, onCreate }) {
       sportName: selectedSportObj.name,
       sportEmoji: selectedSportObj.emoji,
       image: attachedImage || selectedSportObj.defaultImg,
-      authorName: 'Bạn (Me)',
+      authorName: 'Bạn',
       teamName: 'Nhóm cá nhân',
       timeAgo: 'Vừa xong',
       title: title.trim(),

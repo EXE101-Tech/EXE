@@ -50,8 +50,8 @@ function ChatPanel() {
 
   return (
     <div
-      className={`fixed top-[104px] sm:top-[124px] bottom-4 right-4 w-[350px] sm:w-[368px] bg-white/95 dark:bg-[#0a192f]/95 backdrop-blur-2xl rounded-3xl border border-gray-200/80 dark:border-white/10 z-50 flex flex-col shadow-2xl overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-        isChatOpen ? 'translate-x-0 opacity-100' : 'translate-x-[120%] opacity-0 pointer-events-none'
+      className={`fixed top-[108px] sm:top-[128px] bottom-6 sm:bottom-6 left-4 right-4 sm:left-auto sm:right-6 w-auto sm:w-[368px] max-w-[380px] sm:max-w-none mx-auto sm:mx-0 bg-white/95 dark:bg-[#0a192f]/95 backdrop-blur-2xl rounded-3xl border border-gray-200/80 dark:border-white/10 z-[1000] flex flex-col shadow-2xl overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+        isChatOpen ? 'translate-y-0 translate-x-0 opacity-100 scale-100' : 'translate-y-8 sm:translate-y-0 translate-x-0 sm:translate-x-[120%] opacity-0 scale-95 sm:scale-100 pointer-events-none'
       }`}
     >
       {/* Header */}

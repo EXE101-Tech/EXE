@@ -32,7 +32,7 @@ const INITIAL_TEAMS = [
     rating: 4.9,
     ratingCount: 37,
     isVip: true,
-    captain: 'Bạn (Me)',
+    captain: 'Bạn',
     createdAt: '3 tháng trước',
     tags: ['Sân đẹp', 'Bao cầu', 'Nhiệt tình'],
     isCaptain: true,
@@ -95,7 +95,7 @@ const INITIAL_TEAMS = [
     rating: 4.7,
     ratingCount: 12,
     isVip: true,
-    captain: 'Bạn (Me)',
+    captain: 'Bạn',
     createdAt: '4 tháng trước',
     tags: ['3x3', 'Streetball', 'Giao lưu thoải mái'],
     isCaptain: true,
@@ -212,6 +212,22 @@ export default function Team() {
           
           {/* Tab Buttons & Sport Filter */}
           <div className="flex items-center gap-2 sm:gap-3 flex-1 overflow-x-auto no-scrollbar p-1 -m-1 sm:p-0 sm:m-0 sm:flex-wrap sm:overflow-visible">
+            {/* Sport Filter */}
+            <FilterSelect
+              icon={Trophy}
+              iconColor="text-amber-500"
+              value={selectedSport || 'all'}
+              onChange={(e) => setSelectedSport(e.target.value === 'all' ? null : e.target.value)}
+            >
+              <option value="all">Tất cả môn</option>
+              <option value="football">⚽ Bóng đá</option>
+              <option value="badminton">🏸 Cầu lông</option>
+              <option value="pickleball">🏓 Pickleball</option>
+              <option value="tennis">🎾 Tennis</option>
+              <option value="basketball">🏀 Bóng rổ</option>
+              <option value="volleyball">🏐 Bóng chuyền</option>
+            </FilterSelect>
+
             <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
               {TABS.map((tab) => {
                 const Icon = tab.icon;
@@ -232,22 +248,6 @@ export default function Team() {
                 );
               })}
             </div>
-
-            {/* Sport Filter */}
-            <FilterSelect
-              icon={Trophy}
-              iconColor="text-amber-500"
-              value={selectedSport || 'all'}
-              onChange={(e) => setSelectedSport(e.target.value === 'all' ? null : e.target.value)}
-            >
-              <option value="all">Tất cả môn</option>
-              <option value="football">⚽ Bóng đá</option>
-              <option value="badminton">🏸 Cầu lông</option>
-              <option value="pickleball">🏓 Pickleball</option>
-              <option value="tennis">🎾 Tennis</option>
-              <option value="basketball">🏀 Bóng rổ</option>
-              <option value="volleyball">🏐 Bóng chuyền</option>
-            </FilterSelect>
           </div>
 
           {/* Right action: Create Button */}
