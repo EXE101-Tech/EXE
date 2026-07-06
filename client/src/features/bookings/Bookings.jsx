@@ -4,6 +4,7 @@ import { useSportFilter } from '../../shared/context/SportFilterContext';
 import { useChat } from '../../shared/context/ChatContext';
 import VenueCard from './components/VenueCard';
 import HostSetupModal from './components/HostSetupModal';
+import FilterSelect from '../../shared/components/FilterSelect';
 
 import badmintonImg from '../../assets/sports/badminton.avif';
 import footballImg from '../../assets/sports/foodball.avif';
@@ -180,70 +181,67 @@ export default function Bookings() {
 
       {/* ── Filter Bar Section ── */}
       <div className="pb-4 pt-1 px-4 sm:px-6 sticky top-[104px] sm:top-[124px] z-40 transition-all duration-300">
-        <div className="max-w-[1600px] mx-auto bg-white/35 dark:bg-white/[0.08] backdrop-blur-2xl backdrop-saturate-[180%] border border-white/60 dark:border-white/15 rounded-3xl p-3.5 sm:p-4 shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_1px_0_rgba(255,255,255,0.8),inset_0_0_16px_rgba(255,255,255,0.4)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3),inset_0_1px_1px_0_rgba(255,255,255,0.25),inset_0_0_16px_rgba(255,255,255,0.05)] flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 transition-all duration-300">
+        <div className="max-w-[1600px] mx-auto bg-white/35 dark:bg-white/[0.08] backdrop-blur-2xl backdrop-saturate-[180%] border border-white/60 dark:border-white/15 rounded-2xl sm:rounded-3xl p-2.5 sm:p-4 shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_1px_0_rgba(255,255,255,0.8),inset_0_0_16px_rgba(255,255,255,0.4)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3),inset_0_1px_1px_0_rgba(255,255,255,0.25),inset_0_0_16px_rgba(255,255,255,0.05)] flex items-center justify-between gap-2 sm:gap-4 transition-all duration-300">
           
           {/* Filter Boxes Grid: Lọc theo Môn thể thao và Địa điểm */}
-          <div className="flex items-center gap-2 sm:gap-2.5 flex-1 overflow-x-auto no-scrollbar pb-1.5 sm:pb-0 sm:flex-wrap sm:overflow-visible">
+          <div className="flex items-center gap-2 sm:gap-2.5 flex-1 overflow-x-auto no-scrollbar p-1.5 -m-1.5 sm:p-0 sm:m-0 sm:flex-wrap sm:overflow-visible">
             {/* 0. Môn thể thao (Sport) */}
-            <div className="relative shrink-0 w-max sm:w-auto">
-              <Trophy className="w-4 h-4 text-amber-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-              <select
-                value={selectedSport || 'all'}
-                onChange={(e) => setSelectedSport(e.target.value === 'all' ? null : e.target.value)}
-                className="w-max sm:w-auto bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-9 pr-6 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all"
-              >
-                <option value="all">Tất cả môn thể thao</option>
-                <option value="football">⚽ Bóng đá</option>
-                <option value="badminton">🏸 Cầu lông</option>
-                <option value="pickleball">🏓 Pickleball</option>
-                <option value="tennis">🎾 Tennis</option>
-                <option value="basketball">🏀 Bóng rổ</option>
-                <option value="volleyball">🏐 Bóng chuyền</option>
-              </select>
-            </div>
-
-            {/* 1. Địa điểm (Location) */}
-            <div className="relative shrink-0 w-max sm:w-auto">
-              <MapPin className="w-4 h-4 text-rose-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-              <select
-                value={locationFilter}
-                onChange={(e) => setLocationFilter(e.target.value)}
-                className="w-max sm:w-auto bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-9 pr-6 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all"
-              >
-                <option value="all">Tất cả địa điểm</option>
-                <option value="Quận 10">Quận 10</option>
-                <option value="Quận 7">Quận 7</option>
-                <option value="Thủ Đức">TP. Thủ Đức</option>
-                <option value="Quận 11">Quận 11</option>
-                <option value="Quận 3">Quận 3</option>
-                <option value="Tân Bình">Quận Tân Bình</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Right actions: Filter status + Create Button */}
-          <div className="flex items-center justify-between gap-2 sm:gap-4 shrink-0 border-t lg:border-t-0 pt-2.5 sm:pt-3 lg:pt-0 border-slate-200/50 dark:border-white/10">
-            <div className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 px-1 truncate">
-              <SlidersHorizontal className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#589470] dark:text-[#74C365] shrink-0" />
-              <span className="truncate">
-                Hiển thị: <strong className="text-slate-900 dark:text-white font-bold">{filteredVenues.length}</strong> sân
-              </span>
-            </div>
-
-            <button
-              onClick={() => setIsHostModalOpen(true)}
-              className="px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-95 text-white shadow-md hover:shadow-lg flex items-center justify-center gap-1.5 sm:gap-2 transition-all duration-200 active:scale-95 group shrink-0 whitespace-nowrap"
+            <FilterSelect
+              icon={Trophy}
+              iconColor="text-amber-500"
+              value={selectedSport || 'all'}
+              onChange={(e) => setSelectedSport(e.target.value === 'all' ? null : e.target.value)}
             >
-              <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 group-hover:rotate-90 transition-transform duration-300 shrink-0" />
-              <span>Đăng ký làm chủ sân</span>
-            </button>
+              <option value="all">Tất cả môn</option>
+              <option value="football">⚽ Bóng đá</option>
+              <option value="badminton">🏸 Cầu lông</option>
+              <option value="pickleball">🏓 Pickleball</option>
+              <option value="tennis">🎾 Tennis</option>
+              <option value="basketball">🏀 Bóng rổ</option>
+              <option value="volleyball">🏐 Bóng chuyền</option>
+            </FilterSelect>
+
+            {/* 1. Địa điểm (Location / District) */}
+            <FilterSelect
+              icon={MapPin}
+              iconColor="text-rose-500"
+              value={locationFilter}
+              onChange={(e) => setLocationFilter(e.target.value)}
+            >
+              <option value="all">Tất cả khu vực</option>
+              <option value="Quận 10">Quận 10</option>
+              <option value="Quận 7">Quận 7</option>
+              <option value="Thủ Đức">TP. Thủ Đức</option>
+              <option value="Quận 11">Quận 11</option>
+              <option value="Quận 3">Quận 3</option>
+              <option value="Tân Bình">Quận Tân Bình</option>
+            </FilterSelect>
           </div>
+
+          {/* Right action: Create Button */}
+          <button
+            onClick={() => setIsHostModalOpen(true)}
+            className="px-3 py-2 sm:px-5 sm:py-2.5 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-95 text-white shadow-md hover:shadow-lg flex items-center justify-center gap-1.5 sm:gap-2 transition-all duration-200 active:scale-95 group shrink-0 whitespace-nowrap"
+          >
+            <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 group-hover:rotate-90 transition-transform duration-300 shrink-0" />
+            <span className="sm:hidden">Đăng ký sân</span>
+            <span className="hidden sm:inline">Đăng ký làm chủ sân</span>
+          </button>
 
         </div>
       </div>
 
       {/* Venues Grid Area */}
-      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 pt-10">
+      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 pt-4 sm:pt-6">
+        {/* Filter status header - lướt theo trang */}
+        <div className="flex items-center justify-between mb-4 px-1">
+          <div className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300">
+            <SlidersHorizontal className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#589470] dark:text-[#74C365] shrink-0" />
+            <span>
+              Hiển thị: <strong className="text-slate-900 dark:text-white font-bold">{filteredVenues.length}</strong> sân
+            </span>
+          </div>
+        </div>
         {filteredVenues.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredVenues.map((venue) => (

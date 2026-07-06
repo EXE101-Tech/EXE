@@ -7,6 +7,7 @@ import RoomCard from './components/RoomCard';
 import CreateRoomModal from './components/CreateRoomModal';
 import JoinRoomModal from './components/JoinRoomModal';
 import ManageRoomModal from './components/ManageRoomModal';
+import FilterSelect from '../../shared/components/FilterSelect';
 
 const SPORTS_TABS = [
   { id: 'all', name: 'Tất cả môn', emoji: '🌟' },
@@ -315,119 +316,111 @@ function GameRoom() {
 
       {/* ── Filter Bar Section ── */}
       <div className="pb-4 pt-1 px-4 sm:px-6 sticky top-[104px] sm:top-[124px] z-40 transition-all duration-300">
-        <div className="max-w-[1600px] mx-auto bg-white/35 dark:bg-white/[0.08] backdrop-blur-2xl backdrop-saturate-[180%] border border-white/60 dark:border-white/15 rounded-3xl p-3.5 sm:p-4 shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_1px_0_rgba(255,255,255,0.8),inset_0_0_16px_rgba(255,255,255,0.4)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3),inset_0_1px_1px_0_rgba(255,255,255,0.25),inset_0_0_16px_rgba(255,255,255,0.05)] flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 transition-all duration-300">
+        <div className="max-w-[1600px] mx-auto bg-white/35 dark:bg-white/[0.08] backdrop-blur-2xl backdrop-saturate-[180%] border border-white/60 dark:border-white/15 rounded-2xl sm:rounded-3xl p-2.5 sm:p-4 shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_1px_0_rgba(255,255,255,0.8),inset_0_0_16px_rgba(255,255,255,0.4)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3),inset_0_1px_1px_0_rgba(255,255,255,0.25),inset_0_0_16px_rgba(255,255,255,0.05)] flex items-center justify-between gap-2 sm:gap-4 transition-all duration-300">
           
           {/* Filter Boxes Grid */}
-          <div className="flex items-center gap-2 sm:gap-2.5 flex-1 overflow-x-auto no-scrollbar pb-1.5 sm:pb-0 sm:flex-wrap sm:overflow-visible">
+          <div className="flex items-center gap-2 sm:gap-2.5 flex-1 overflow-x-auto no-scrollbar p-1.5 -m-1.5 sm:p-0 sm:m-0 sm:flex-wrap sm:overflow-visible">
             
             {/* 0. Môn thể thao (Sport) */}
-            <div className="relative shrink-0 w-max sm:w-auto">
-              <Trophy className="w-4 h-4 text-amber-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-              <select
-                value={selectedSport || 'all'}
-                onChange={(e) => setSelectedSport(e.target.value === 'all' ? null : e.target.value)}
-                className="w-max sm:w-auto bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-9 pr-6 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all"
-              >
-                <option value="all">Tất cả môn thể thao</option>
-                <option value="football">⚽ Bóng đá</option>
-                <option value="badminton">🏸 Cầu lông</option>
-                <option value="pickleball">🏓 Pickleball</option>
-                <option value="tennis">🎾 Tennis</option>
-                <option value="basketball">🏀 Bóng rổ</option>
-                <option value="volleyball">🏐 Bóng chuyền</option>
-              </select>
-            </div>
+            <FilterSelect
+              icon={Trophy}
+              iconColor="text-amber-500"
+              value={selectedSport || 'all'}
+              onChange={(e) => setSelectedSport(e.target.value === 'all' ? null : e.target.value)}
+            >
+              <option value="all">Tất cả môn</option>
+              <option value="football">⚽ Bóng đá</option>
+              <option value="badminton">🏸 Cầu lông</option>
+              <option value="pickleball">🏓 Pickleball</option>
+              <option value="tennis">🎾 Tennis</option>
+              <option value="basketball">🏀 Bóng rổ</option>
+              <option value="volleyball">🏐 Bóng chuyền</option>
+            </FilterSelect>
 
             {/* 1. Địa điểm (Location) */}
-            <div className="relative shrink-0 w-max sm:w-auto">
-              <MapPin className="w-4 h-4 text-rose-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-              <select
-                value={selectedLocation}
-                onChange={(e) => setSelectedLocation(e.target.value)}
-                className="w-max sm:w-auto bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-9 pr-6 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all"
-              >
-                <option value="all">Tất cả địa điểm</option>
-                <option value="quận 10">Quận 10</option>
-                <option value="quận 7">Quận 7</option>
-                <option value="quận 2">Quận 2</option>
-                <option value="quận 1">Quận 1</option>
-                <option value="bình thạnh">Q. Bình Thạnh</option>
-              </select>
-            </div>
+            <FilterSelect
+              icon={MapPin}
+              iconColor="text-rose-500"
+              value={selectedLocation}
+              onChange={(e) => setSelectedLocation(e.target.value)}
+            >
+              <option value="all">Tất cả khu vực</option>
+              <option value="Quận 10">Quận 10</option>
+              <option value="Quận 7">Quận 7</option>
+              <option value="Thủ Đức">TP. Thủ Đức</option>
+              <option value="Quận 11">Quận 11</option>
+              <option value="Quận 3">Quận 3</option>
+            </FilterSelect>
 
             {/* 2. Thời gian (Time) */}
-            <div className="relative shrink-0 w-max sm:w-auto">
-              <Calendar className="w-4 h-4 text-blue-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-              <select
-                value={selectedTime}
-                onChange={(e) => setSelectedTime(e.target.value)}
-                className="w-max sm:w-auto bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-9 pr-6 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all"
-              >
-                <option value="all">Tất cả thời gian</option>
-                <option value="tối">Tối nay</option>
-                <option value="mai">Tối mai</option>
-                <option value="chiều">Chiều nay</option>
-                <option value="sáng">Sáng</option>
-                <option value="cuối tuần">Cuối tuần</option>
-              </select>
-            </div>
+            <FilterSelect
+              icon={Calendar}
+              iconColor="text-blue-500"
+              value={selectedTime}
+              onChange={(e) => setSelectedTime(e.target.value)}
+            >
+              <option value="all">Tất cả giờ</option>
+              <option value="Tối nay">Tối nay</option>
+              <option value="Tối mai">Tối mai</option>
+              <option value="Chiều">Chiều nay</option>
+              <option value="Sáng">Sáng Chủ Nhật</option>
+              <option value="Thứ 6">Tối Thứ 6</option>
+            </FilterSelect>
 
-            {/* 3. Giá (Price) */}
-            <div className="relative shrink-0 w-max sm:w-auto">
-              <DollarSign className="w-4 h-4 text-amber-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-              <select
-                value={selectedPrice}
-                onChange={(e) => setSelectedPrice(e.target.value)}
-                className="w-max sm:w-auto bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-9 pr-6 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all"
-              >
-                <option value="all">Tất cả mức giá</option>
-                <option value="duoi50">Dưới 50k / người</option>
-                <option value="50-80">50k - 80k / người</option>
-                <option value="tren80">Trên 80k / người</option>
-              </select>
-            </div>
+            {/* 3. Phí giao lưu (Price) */}
+            <FilterSelect
+              icon={DollarSign}
+              iconColor="text-amber-500"
+              value={selectedPrice}
+              onChange={(e) => setSelectedPrice(e.target.value)}
+            >
+              <option value="all">Tất cả phí</option>
+              <option value="Free / Miễn phí">Miễn phí / Chia tiền sân</option>
+              <option value="Dưới 50k">Dưới 50.000đ</option>
+              <option value="50k - 100k">50.000đ - 100.000đ</option>
+              <option value="Trên 100k">Trên 100.000đ</option>
+            </FilterSelect>
 
             {/* 4. Trình độ (Skill) */}
-            <div className="relative shrink-0 w-max sm:w-auto">
-              <Award className="w-4 h-4 text-[#589470] dark:text-[#74C365] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-              <select
-                value={selectedLevel}
-                onChange={(e) => setSelectedLevel(e.target.value)}
-                className="w-max sm:w-auto bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-9 pr-6 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all"
-              >
-                <option value="all">Tất cả trình độ</option>
-                <option value="Beginner">Beginner (Mới tập)</option>
-                <option value="Intermediate">Intermediate (Trung bình)</option>
-                <option value="Advanced">Advanced (Khá giỏi)</option>
-                <option value="Expert">Expert (Chuyên nghiệp)</option>
-              </select>
-            </div>
-
-          </div>
-
-          {/* Right actions: Filter status + Create Button */}
-          <div className="flex items-center justify-between gap-2 sm:gap-4 shrink-0 border-t lg:border-t-0 pt-2.5 sm:pt-3 lg:pt-0 border-slate-200/50 dark:border-white/10">
-            <div className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 px-1 truncate">
-              <SlidersHorizontal className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#589470] dark:text-[#74C365] shrink-0" />
-              <span className="truncate">
-                Hiển thị: <strong className="text-slate-900 dark:text-white font-bold">{filteredRooms.length}</strong> phòng
-              </span>
-            </div>
-
-            <button
-              onClick={() => setIsCreateOpen(true)}
-              className="px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-95 text-white shadow-md hover:shadow-lg flex items-center justify-center gap-1.5 sm:gap-2 transition-all duration-200 active:scale-95 group shrink-0 whitespace-nowrap"
+            <FilterSelect
+              icon={Award}
+              iconColor="text-[#589470] dark:text-[#74C365]"
+              value={selectedLevel}
+              onChange={(e) => setSelectedLevel(e.target.value)}
             >
-              <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 group-hover:rotate-90 transition-transform duration-300 shrink-0" />
-              <span>Mở phòng chờ</span>
-            </button>
+              <option value="all">Tất cả trình độ</option>
+              <option value="Beginner">Beginner (Mới chơi)</option>
+              <option value="Intermediate">Intermediate (Trung bình)</option>
+              <option value="Advanced">Advanced (Khá giỏi)</option>
+              <option value="Expert">Expert (Chuyên nghiệp)</option>
+            </FilterSelect>
+
           </div>
+
+          {/* Right action: Create Button */}
+          <button
+            onClick={() => setIsCreateOpen(true)}
+            className="px-3 py-2 sm:px-5 sm:py-2.5 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-95 text-white shadow-md hover:shadow-lg flex items-center justify-center gap-1.5 sm:gap-2 transition-all duration-200 active:scale-95 group shrink-0 whitespace-nowrap"
+          >
+            <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 group-hover:rotate-90 transition-transform duration-300 shrink-0" />
+            <span className="sm:hidden">Mở phòng</span>
+            <span className="hidden sm:inline">Mở phòng chờ</span>
+          </button>
 
         </div>
       </div>
 
       {/* Main Content Area */}
-      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 md:px-12 pt-8">
+      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 md:px-12 pt-4 sm:pt-6">
+        {/* Filter status header - lướt theo trang */}
+        <div className="flex items-center justify-between mb-4 px-1">
+          <div className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300">
+            <SlidersHorizontal className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#589470] dark:text-[#74C365] shrink-0" />
+            <span>
+              Hiển thị: <strong className="text-slate-900 dark:text-white font-bold">{filteredRooms.length}</strong> phòng
+            </span>
+          </div>
+        </div>
 
         {/* Room Cards Grid */}
         {isLoading ? (
