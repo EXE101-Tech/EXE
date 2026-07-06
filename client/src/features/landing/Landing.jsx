@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Trophy, ArrowRight, Gamepad2, Calendar, Users, Zap, Sparkles, MapPin, Shield, ArrowUpRight } from 'lucide-react';
+import { Trophy, ArrowRight, Gamepad2, Calendar, Users, Zap, Sparkles, MapPin, Shield, ArrowUpRight, Menu, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 function LandingPage() {
@@ -9,6 +9,7 @@ function LandingPage() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
@@ -25,6 +26,7 @@ function LandingPage() {
 
   useEffect(() => {
     const handleScroll = () => {
+      setIsScrolled(window.scrollY > 50);
       const heroCta = document.getElementById('hero-cta');
       if (heroCta) {
         const rect = heroCta.getBoundingClientRect();
@@ -43,8 +45,78 @@ function LandingPage() {
 
   return (
     <>
-      {/* Fixed Pill Taskbar (Always in center, Get started slides out on scroll) */}
-      <header className={`fixed top-6 left-1/2 -translate-x-1/2 z-[100] transition-all duration-700 ease-out ${!isMounted || isExiting ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
+      {/* ── NEBULA MOBILE HEADER (Only visible on Mobile < 768px) ── */}
+      <header className={`fixed top-3 left-3 right-3 z-[100] md:hidden transition-all duration-500 ${!isMounted || isExiting ? 'opacity-0 -translate-y-4' : 'opacity-100 translate-y-0'}`}>
+        <div className="flex items-center justify-between rounded-full bg-white/35 dark:bg-white/[0.08] backdrop-blur-2xl backdrop-saturate-[180%] border border-white/60 dark:border-white/15 p-1.5 px-3 shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_1px_0_rgba(255,255,255,0.8),inset_0_0_16px_rgba(255,255,255,0.4)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3),inset_0_1px_1px_0_rgba(255,255,255,0.25),inset_0_0_16px_rgba(255,255,255,0.05)]">
+          {/* Logo */}
+          <a href="#hero" className="flex items-center gap-1.5 shrink-0">
+            <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-brand-primary to-sky-500 flex items-center justify-center shadow-md">
+              <span className="text-white font-black text-xs">S</span>
+            </div>
+            <span className="font-bold text-base tracking-tight text-slate-900 dark:text-white">SportGo</span>
+          </a>
+
+          {/* Right Actions: Sign In + Get Started + Hamburger Menu */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <a 
+              href="/login" 
+              onClick={handleNavigate('/login')} 
+              className="text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-brand-primary px-2 py-1 transition-colors"
+            >
+              {t('landing.nav.signIn')}
+            </a>
+            
+            <a 
+              href="/register" 
+              onClick={handleNavigate('/register')} 
+              className="bg-gradient-to-r from-brand-primary to-blue-600 hover:from-brand-primary/90 hover:to-blue-600/90 text-white font-semibold rounded-full text-xs px-3 py-1.5 shadow-[0_4px_15px_rgba(0,0,0,0.15)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.25)] whitespace-nowrap transition-all"
+            >
+              {t('landing.nav.getStarted')}
+            </a>
+
+            <button 
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-1.5 text-slate-700 dark:text-slate-200 hover:bg-white/20 dark:hover:bg-white/10 rounded-full transition-colors ml-0.5"
+              aria-label="Toggle menu"
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile Dropdown Menu (Nebula Style) */}
+        <div className={`transition-all duration-300 ease-in-out overflow-hidden mt-2 rounded-2xl bg-white/45 dark:bg-white/[0.1] backdrop-blur-2xl backdrop-saturate-[180%] border border-white/60 dark:border-white/15 shadow-[0_8px_32px_rgba(0,0,0,0.12),inset_0_1px_1px_0_rgba(255,255,255,0.8),inset_0_0_16px_rgba(255,255,255,0.4)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3),inset_0_1px_1px_0_rgba(255,255,255,0.25),inset_0_0_16px_rgba(255,255,255,0.05)] ${mobileMenuOpen ? 'max-h-60 opacity-100 p-3' : 'max-h-0 opacity-0 p-0 border-0 pointer-events-none'}`}>
+          <nav className="flex flex-col gap-1">
+            <a 
+              href="#hero" 
+              onClick={() => setMobileMenuOpen(false)}
+              className="text-sm font-semibold text-slate-800 dark:text-gray-200 hover:text-brand-primary py-2.5 px-3 rounded-xl hover:bg-white/40 dark:hover:bg-white/10 transition-all flex items-center justify-between"
+            >
+              <span>{t('landing.nav.home')}</span>
+              <ArrowRight className="w-4 h-4 text-slate-400" />
+            </a>
+            <a 
+              href="#features" 
+              onClick={() => setMobileMenuOpen(false)}
+              className="text-sm font-semibold text-slate-800 dark:text-gray-200 hover:text-brand-primary py-2.5 px-3 rounded-xl hover:bg-white/40 dark:hover:bg-white/10 transition-all flex items-center justify-between"
+            >
+              <span>{t('landing.nav.features')}</span>
+              <ArrowRight className="w-4 h-4 text-slate-400" />
+            </a>
+            <a 
+              href="#reasons" 
+              onClick={() => setMobileMenuOpen(false)}
+              className="text-sm font-semibold text-slate-800 dark:text-gray-200 hover:text-brand-primary py-2.5 px-3 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 transition-all flex items-center justify-between"
+            >
+              <span>{t('landing.nav.reasons')}</span>
+              <ArrowRight className="w-4 h-4 text-slate-400" />
+            </a>
+          </nav>
+        </div>
+      </header>
+
+      {/* ── DESKTOP FIXED PILL TASKBAR (Only visible on Laptop/PC >= 768px) ── */}
+      <header className={`hidden md:block fixed top-6 left-1/2 -translate-x-1/2 z-[100] transition-all duration-700 ease-out ${!isMounted || isExiting ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
         <div className="flex items-center rounded-full bg-white/35 dark:bg-white/[0.08] backdrop-blur-2xl backdrop-saturate-[180%] border border-white/60 dark:border-white/15 p-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_1px_0_rgba(255,255,255,0.8),inset_0_0_16px_rgba(255,255,255,0.4)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3),inset_0_1px_1px_0_rgba(255,255,255,0.25),inset_0_0_16px_rgba(255,255,255,0.05)] transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] overflow-hidden">
           
           <nav className="flex items-center px-6 gap-8 shrink-0">
@@ -59,7 +131,7 @@ function LandingPage() {
             <a 
               href="/login" 
               onClick={handleNavigate('/login')} 
-              className={`bg-[#74C365] hover:bg-[#5FA352] dark:bg-[#1E488F] dark:hover:bg-[#183972] text-white font-semibold rounded-full transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] flex items-center justify-center text-xs sm:text-sm px-4 py-1.5 w-max whitespace-nowrap shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_4px_15px_rgba(116,195,101,0.3)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_4px_15px_rgba(30,72,143,0.3)] ${showNavCta ? 'translate-x-0' : 'translate-x-full'}`}
+              className={`bg-gradient-to-r from-brand-primary to-blue-600 hover:from-brand-primary/90 hover:to-blue-600/90 text-white font-semibold rounded-full transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] flex items-center justify-center text-xs sm:text-sm px-4 py-1.5 w-max whitespace-nowrap shadow-[0_4px_15px_rgba(0,0,0,0.15)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.25)] ${showNavCta ? 'translate-x-0' : 'translate-x-full'}`}
             >
               {t('landing.nav.getStarted')}
             </a>
@@ -68,8 +140,8 @@ function LandingPage() {
       </header>
 
       <div className={`w-full h-full relative page-fade-in ${isExiting ? 'page-fade-out' : ''}`}>
-        {/* Outer Static Header (Scrolls away naturally) */}
-        <div className="absolute top-0 left-0 w-full flex items-center justify-between px-6 md:px-12 py-6 z-40">
+        {/* ── DESKTOP STATIC HEADER (Only visible on Laptop/PC >= 768px) ── */}
+        <div className="hidden md:flex absolute top-0 left-0 w-full items-center justify-between px-6 md:px-12 py-6 z-40">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-primary to-sky-500 flex items-center justify-center shrink-0 shadow-lg">
               <span className="text-white font-black text-sm">S</span>

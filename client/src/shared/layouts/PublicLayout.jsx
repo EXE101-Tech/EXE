@@ -37,7 +37,7 @@ export default function PublicLayout() {
       {/* Floating Theme Toggle for Public Pages */}
       <button 
         onClick={toggleTheme}
-        className="fixed bottom-6 right-6 z-50 w-12 h-12 rounded-full glass-panel flex items-center justify-center text-slate-700 dark:text-white hover:scale-110 transition-transform group shadow-[0_0_15px_var(--theme-glow)]"
+        className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 w-10 h-10 sm:w-12 sm:h-12 rounded-full glass-panel flex items-center justify-center text-slate-700 dark:text-white hover:scale-110 transition-transform group shadow-[0_0_15px_var(--theme-glow)]"
         title="Toggle Theme"
       >
         {isDark ? (

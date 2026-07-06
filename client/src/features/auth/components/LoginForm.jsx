@@ -64,7 +64,7 @@ function LoginForm({ onShowRegister }) {
   };
 
   const inputCls = (field) =>
-    `w-full bg-white dark:bg-white/10 border rounded-2xl px-4 py-3.5 text-slate-900 dark:text-white text-sm placeholder-slate-400 dark:placeholder-blue-200/60 outline-none transition-colors backdrop-blur-sm ${
+    `w-full bg-white dark:bg-white/10 border rounded-2xl px-3.5 py-2.5 sm:px-4 sm:py-3.5 text-slate-900 dark:text-white text-xs sm:text-sm placeholder-slate-400 dark:placeholder-blue-200/60 outline-none transition-colors backdrop-blur-sm ${
       errors[field] ? 'border-red-400' : 'border-slate-200 dark:border-white/20 focus:border-brand-primary dark:focus:border-white focus:bg-slate-50 dark:focus:bg-white/20'
     }`;
 
@@ -82,18 +82,18 @@ function LoginForm({ onShowRegister }) {
 
   return (
     <div className="flex flex-col w-full min-h-full flex-1 animate-in fade-in zoom-in-95 duration-500">
-      <div className="flex flex-col items-center flex-1 w-full p-6 sm:p-8">
-      <div className="w-16 h-16 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl flex items-center justify-center mb-5 shadow-[0_0_20px_var(--theme-glow)] theme-transition">
-        <Zap className="w-8 h-8 text-brand-primary fill-brand-primary theme-transition" />
+      <div className="flex flex-col items-center flex-1 w-full p-5 sm:p-8">
+      <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl flex items-center justify-center mb-3 sm:mb-5 shadow-[0_0_20px_var(--theme-glow)] theme-transition">
+        <Zap className="w-6 h-6 sm:w-8 sm:h-8 text-brand-primary fill-brand-primary theme-transition" />
       </div>
-      <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{t('auth.login')}</h2>
-      <p className="text-slate-500 dark:text-gray-400 text-sm mt-1 mb-8 text-center">
+      <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">{t('auth.login')}</h2>
+      <p className="text-slate-500 dark:text-gray-400 text-xs sm:text-sm mt-0.5 sm:mt-1 mb-4 sm:mb-8 text-center">
         {t('auth.welcomeBack')}
       </p>
 
-      <form onSubmit={handleSubmit} className="flex flex-col w-full space-y-4">
+      <form onSubmit={handleSubmit} className="flex flex-col w-full space-y-3 sm:space-y-4">
         <div>
-          <label className="block text-sm font-semibold text-slate-700 dark:text-gray-300 mb-1.5">{t('auth.email')}</label>
+          <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-gray-300 mb-1 sm:mb-1.5">{t('auth.email')}</label>
           <input
             type="email"
             value={form.email}
@@ -101,13 +101,13 @@ function LoginForm({ onShowRegister }) {
             placeholder={t('auth.emailPlaceholder')}
             className={inputCls('email')}
           />
-          {errors.email && <p className="text-red-300 text-xs mt-1.5 pl-1 font-medium">{errors.email}</p>}
+          {errors.email && <p className="text-red-300 text-[11px] sm:text-xs mt-1 sm:mt-1.5 pl-1 font-medium">{errors.email}</p>}
         </div>
 
         <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <label className="block text-sm font-semibold text-slate-700 dark:text-gray-300">{t('auth.password')}</label>
-            <button type="button" className="text-xs font-medium text-slate-500 hover:text-slate-900 dark:text-white/70 dark:hover:text-white transition-colors">{t('auth.forgotPassword')}</button>
+          <div className="flex items-center justify-between mb-1 sm:mb-1.5">
+            <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-gray-300">{t('auth.password')}</label>
+            <button type="button" className="text-[11px] sm:text-xs font-medium text-slate-500 hover:text-slate-900 dark:text-white/70 dark:hover:text-white transition-colors">{t('auth.forgotPassword')}</button>
           </div>
           <div className="relative">
             <input
@@ -120,31 +120,31 @@ function LoginForm({ onShowRegister }) {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:text-white/50 dark:hover:text-white transition-colors"
+              className="absolute right-3.5 sm:right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:text-white/50 dark:hover:text-white transition-colors"
             >
-              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              {showPassword ? <EyeOff className="w-4 h-4 sm:w-5 sm:h-5" /> : <Eye className="w-4 h-4 sm:w-5 sm:h-5" />}
             </button>
           </div>
-          {errors.password && <p className="text-red-300 text-xs mt-1.5 pl-1 font-medium">{errors.password}</p>}
+          {errors.password && <p className="text-red-300 text-[11px] sm:text-xs mt-1 sm:mt-1.5 pl-1 font-medium">{errors.password}</p>}
         </div>
 
         {errors.general && (
-          <p className="text-red-300 text-sm text-center font-medium mt-2">{errors.general}</p>
+          <p className="text-red-300 text-xs sm:text-sm text-center font-medium mt-1.5 sm:mt-2">{errors.general}</p>
         )}
 
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full bg-brand-primary hover:opacity-80 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-2xl transition-all shadow-[0_0_20px_var(--theme-glow)] text-base mt-4 theme-transition"
+          className="w-full bg-brand-primary hover:opacity-80 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-2.5 sm:py-3.5 rounded-2xl transition-all shadow-[0_0_20px_var(--theme-glow)] text-sm sm:text-base mt-2 sm:mt-4 theme-transition"
         >
           {isLoading ? t('auth.processing') : t('auth.login')}
         </button>
       </form>
 
-      <div className="mt-8 w-full">
-        <div className="flex items-center gap-3 mb-5 opacity-70">
+      <div className="mt-4 sm:mt-8 w-full">
+        <div className="flex items-center gap-3 mb-3 sm:mb-5 opacity-70">
           <div className="flex-1 h-px bg-slate-300 dark:bg-white/30" />
-          <span className="text-slate-500 dark:text-white text-[10px] font-bold tracking-widest uppercase">
+          <span className="text-slate-500 dark:text-white text-[9px] sm:text-[10px] font-bold tracking-widest uppercase">
             {t('auth.loginWith')}
           </span>
           <div className="flex-1 h-px bg-slate-300 dark:bg-white/30" />
@@ -155,7 +155,7 @@ function LoginForm({ onShowRegister }) {
               key={key}
               type="button"
               aria-label={`Đăng nhập bằng ${label}`}
-              className="w-full py-3.5 bg-white dark:bg-white/10 border border-slate-200 dark:border-white/20 rounded-2xl flex items-center justify-center gap-3 hover:bg-slate-50 dark:hover:bg-white/20 hover:scale-[1.01] transition-all backdrop-blur-sm text-slate-800 dark:text-white font-bold text-sm shadow-sm"
+              className="w-full py-2.5 sm:py-3.5 bg-white dark:bg-white/10 border border-slate-200 dark:border-white/20 rounded-2xl flex items-center justify-center gap-2 sm:gap-3 hover:bg-slate-50 dark:hover:bg-white/20 hover:scale-[1.01] transition-all backdrop-blur-sm text-slate-800 dark:text-white font-bold text-xs sm:text-sm shadow-sm"
             >
               {icon}
               <span>{label}</span>
@@ -165,8 +165,8 @@ function LoginForm({ onShowRegister }) {
       </div>
       </div>
 
-      <div className="w-full mt-auto text-center bg-transparent dark:bg-black/30 py-5 rounded-b-[2.5rem] border-t border-slate-200 dark:border-white/5">
-        <p className="text-slate-600 dark:text-gray-400 text-sm font-medium">
+      <div className="w-full mt-auto text-center bg-transparent dark:bg-black/30 py-3 sm:py-5 rounded-b-[2.5rem] border-t border-slate-200 dark:border-white/5">
+        <p className="text-slate-600 dark:text-gray-400 text-xs sm:text-sm font-medium">
           {t('auth.dontHaveAccount')}{' '}
           <button 
             type="button" 
