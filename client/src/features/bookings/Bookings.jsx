@@ -118,7 +118,7 @@ const INITIAL_VENUES = [
 ];
 
 export default function Bookings() {
-  const { selectedSport } = useSportFilter();
+  const { selectedSport, setSelectedSport } = useSportFilter();
   const { openChat } = useChat();
 
   const [venues, setVenues] = useState(INITIAL_VENUES);
@@ -182,14 +182,33 @@ export default function Bookings() {
       <div className="pb-4 pt-1 px-4 sm:px-6 sticky top-[104px] sm:top-[124px] z-40 transition-all duration-300">
         <div className="max-w-[1600px] mx-auto bg-white/35 dark:bg-white/[0.08] backdrop-blur-2xl backdrop-saturate-[180%] border border-white/60 dark:border-white/15 rounded-3xl p-3.5 sm:p-4 shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_1px_0_rgba(255,255,255,0.8),inset_0_0_16px_rgba(255,255,255,0.4)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3),inset_0_1px_1px_0_rgba(255,255,255,0.25),inset_0_0_16px_rgba(255,255,255,0.05)] flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 transition-all duration-300">
           
-          {/* Filter Box: Chỉ lọc theo Địa điểm (Location) */}
-          <div className="w-full sm:max-w-xs flex-1">
-            <div className="relative">
+          {/* Filter Boxes Grid: Lọc theo Môn thể thao và Địa điểm */}
+          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 flex-1">
+            {/* 0. Môn thể thao (Sport) */}
+            <div className="relative shrink-0 w-full sm:w-auto">
+              <Trophy className="w-4 h-4 text-amber-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+              <select
+                value={selectedSport || 'all'}
+                onChange={(e) => setSelectedSport(e.target.value === 'all' ? null : e.target.value)}
+                className="w-full sm:w-auto bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-9 pr-6 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all"
+              >
+                <option value="all">Tất cả môn thể thao</option>
+                <option value="football">⚽ Bóng đá</option>
+                <option value="badminton">🏸 Cầu lông</option>
+                <option value="pickleball">🏓 Pickleball</option>
+                <option value="tennis">🎾 Tennis</option>
+                <option value="basketball">🏀 Bóng rổ</option>
+                <option value="volleyball">🏐 Bóng chuyền</option>
+              </select>
+            </div>
+
+            {/* 1. Địa điểm (Location) */}
+            <div className="relative shrink-0 w-full sm:w-auto">
               <MapPin className="w-4 h-4 text-rose-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
               <select
                 value={locationFilter}
                 onChange={(e) => setLocationFilter(e.target.value)}
-                className="w-full bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-10 pr-3 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all truncate"
+                className="w-full sm:w-auto bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-9 pr-6 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all"
               >
                 <option value="all">Tất cả địa điểm</option>
                 <option value="Quận 10">Quận 10</option>

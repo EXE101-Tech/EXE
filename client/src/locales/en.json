@@ -78,7 +78,7 @@
     "forgotPassword": "Forgot Password?",
     "dontHaveAccount": "Don't have an account?",
     "registerNow": "Register now",
-    "welcomeBack": "Welcome back to Proton Sports",
+    "welcomeBack": "Welcome back to SportGo",
     "emailPlaceholder": "your@email.com",
     "passwordPlaceholder": "Enter your password",
     "passwordRequired": "Please enter your password",
@@ -175,7 +175,7 @@
       "signUp": "Sign up"
     },
     "hero": {
-      "heroTitle": "Connect passion, unleash your sports",
+      "heroTitle": "Play the right people - Match the right skill level",
       "subtitle": "Find matching opponents, join thrilling tournaments, and book courts instantly with just a few clicks. Badminton, Football, Pickleball, Tennis, and more!",
       "ctaStart": "Get started",
       "ctaDemo": "Explore Courts"

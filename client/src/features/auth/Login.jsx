@@ -33,7 +33,7 @@ function AuthPage({ defaultIsRegister = false }) {
         className="absolute top-6 left-6 z-50 flex items-center gap-2 px-4 py-2 rounded-full glass-panel text-slate-700 dark:text-white hover:text-brand-primary dark:hover:text-brand-primary hover:scale-105 transition-all group"
       >
         <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-        <span className="text-sm font-bold">Back to Home</span>
+        <span className="text-sm font-bold">Quay lại Trang chủ</span>
       </a>
 
       <div 
