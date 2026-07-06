@@ -136,7 +136,17 @@ export default function Navbar() {
           </div>
         </div>
 
-        <div className="flex items-center gap-0.5 sm:gap-2 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          <button
+            onClick={() => setIsPremiumOpen(true)}
+            className="inline-flex items-center gap-1 sm:gap-1.5 bg-gradient-to-r from-yellow-400 via-yellow-500 to-orange-500 text-white font-bold px-2.5 py-1 sm:px-4 sm:py-2 rounded-xl sm:rounded-2xl text-[11px] sm:text-sm shadow-[0_0_15px_rgba(234,179,8,0.35)] hover:scale-[1.02] active:scale-95 transition-transform overflow-hidden group relative shrink-0"
+            title="Premium"
+          >
+            <Crown className="w-3.5 h-3.5 sm:w-5 sm:h-5 shrink-0" />
+            <span>Premium</span>
+            <div className="absolute inset-0 w-[200%] -translate-x-full bg-gradient-to-r from-transparent via-white/40 to-transparent animate-pulse pointer-events-none" />
+          </button>
+
           <button className="p-1.5 sm:p-2.5 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full transition-colors text-gray-700 dark:text-gray-200 relative group" title="Thông báo">
             <Bell className="w-4 h-4 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
             <span className="absolute top-1 right-1 sm:top-2 sm:right-2 w-2 h-2 bg-[#589470] dark:bg-[#74C365] rounded-full ring-2 ring-white dark:ring-[#001F3F]" />
@@ -212,57 +222,49 @@ export default function Navbar() {
         </div>
       </div>
 
-      <nav ref={navContainerRef} className="w-full max-w-7xl mx-auto px-2 sm:px-6 flex items-center justify-start md:justify-center gap-1 sm:gap-10 overflow-x-auto no-scrollbar relative border-t border-gray-100 dark:border-white/5 py-1 sm:py-0">
-        <div
-          className={`absolute bottom-0 h-0.5 sm:h-1 bg-gradient-to-r from-[#74C365] to-[#589470] rounded-t-full ${
-            isInitialRender ? 'transition-none' : 'transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]'
-          } z-10`}
-          style={{ left: indicator.left, width: indicator.width }}
-        />
+      <div className="w-full max-w-7xl mx-auto px-2 sm:px-6 border-t border-gray-100 dark:border-white/5 py-1 sm:py-0 flex items-center justify-between relative">
+        <nav ref={navContainerRef} className="flex items-center justify-start md:justify-center gap-1 sm:gap-10 overflow-x-auto no-scrollbar relative flex-1 pr-2 md:pr-0">
+          <div
+            className={`absolute bottom-0 h-0.5 sm:h-1 bg-gradient-to-r from-[#74C365] to-[#589470] rounded-t-full ${
+              isInitialRender ? 'transition-none' : 'transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]'
+            } z-10`}
+            style={{ left: indicator.left, width: indicator.width }}
+          />
 
-        {navItems.map((item, i) => {
-          const isActive = activeIndex === i || (activeIndex < 0 && i === 0);
-          return (
-            <Link
-              key={item.path}
-              to={item.path}
-              ref={el => (navRefs.current[i] = el)}
-              className={`relative z-10 py-2 sm:py-3 px-2.5 sm:px-4 text-xs sm:text-sm font-semibold whitespace-nowrap transition-colors duration-200 flex items-center gap-1 sm:gap-1.5 shrink-0 ${
-                isActive
-                  ? 'text-[#589470] dark:text-[#74C365]'
-                  : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
-              }`}
-            >
-              {item.label}
-            </Link>
-          );
-        })}
+          {navItems.map((item, i) => {
+            const isActive = activeIndex === i || (activeIndex < 0 && i === 0);
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                ref={el => (navRefs.current[i] = el)}
+                className={`relative z-10 py-2 sm:py-3 px-2.5 sm:px-4 text-xs sm:text-sm font-semibold whitespace-nowrap transition-colors duration-200 flex items-center gap-1 sm:gap-1.5 shrink-0 ${
+                  isActive
+                    ? 'text-[#589470] dark:text-[#74C365]'
+                    : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
 
-        <div className="flex md:absolute right-4 sm:right-6 md:top-1/2 md:-translate-y-1/2 z-20 items-center gap-1.5 sm:gap-2 shrink-0 pl-1.5 md:pl-0 border-l border-gray-200 dark:border-white/10 md:border-l-0">
-          <button
-            onClick={() => setIsPremiumOpen(true)}
-            className="inline-flex items-center gap-1 bg-gradient-to-r from-yellow-400 via-yellow-500 to-orange-500 text-white font-bold px-2.5 py-1 sm:px-3.5 sm:py-2 rounded-2xl text-[11px] sm:text-sm shadow-[0_0_15px_rgba(234,179,8,0.35)] hover:scale-[1.02] active:scale-95 transition-transform overflow-hidden group relative shrink-0"
-            title="Premium"
-          >
-            <Crown className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span>Premium</span>
-            <div className="absolute inset-0 w-[200%] -translate-x-full bg-gradient-to-r from-transparent via-white/40 to-transparent animate-pulse pointer-events-none" />
-          </button>
-          
+        <div className="flex md:absolute right-4 sm:right-6 md:top-1/2 md:-translate-y-1/2 z-20 items-center gap-1.5 sm:gap-2 shrink-0 pl-1.5 md:pl-0 border-l border-gray-200 dark:border-white/10 md:border-l-0 ml-1">
           <button
             onClick={toggleChat}
-            className={`inline-flex items-center gap-1 px-2.5 py-1 sm:px-3.5 sm:py-2 rounded-2xl text-[11px] sm:text-sm font-bold shadow-md transition-all shrink-0 ${
+            className={`inline-flex items-center justify-center gap-1.5 p-2 sm:px-3.5 sm:py-2 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-bold shadow-md transition-all shrink-0 ${
               isChatOpen 
                 ? 'bg-[#74C365] text-white shadow-[0_0_15px_rgba(116,195,101,0.5)] scale-105' 
                 : 'bg-white/50 dark:bg-white/10 hover:bg-[#74C365]/10 dark:hover:bg-[#74C365]/20 text-slate-700 dark:text-gray-200 hover:text-[#74C365] dark:hover:text-[#74C365] border border-gray-200/80 dark:border-white/10'
             }`}
             title="Chat"
           >
-            <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span>Chat</span>
+            <MessageSquare className="w-4 h-4 sm:w-4 sm:h-4 shrink-0" />
+            <span className="hidden sm:inline">Chat</span>
           </button>
         </div>
-      </nav>
+      </div>
 
       <CreateTeamModal
         isOpen={isPremiumOpen}
