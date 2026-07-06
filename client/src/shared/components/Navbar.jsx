@@ -54,14 +54,16 @@ export default function Navbar() {
       const el = navRefs.current[idx];
       const container = navContainerRef.current;
       if (el && container) {
-        const containerRect = container.getBoundingClientRect();
-        const elRect = el.getBoundingClientRect();
         setIndicator({
-          left: elRect.left - containerRect.left,
-          width: elRect.width,
+          left: el.offsetLeft,
+          width: el.offsetWidth,
         });
-        if (elRect.width > 0) {
+        if (el.offsetWidth > 0) {
           setTimeout(() => setIsInitialRender(false), 50);
+        }
+        if (window.innerWidth < 768 && container.scrollWidth > container.clientWidth) {
+          const scrollTarget = el.offsetLeft - (container.clientWidth / 2) + (el.offsetWidth / 2);
+          container.scrollTo({ left: scrollTarget, behavior: 'smooth' });
         }
       }
     });
@@ -105,60 +107,60 @@ export default function Navbar() {
 
   return (
     <header className="w-full bg-white dark:bg-[#001F3F] border-b border-gray-200 dark:border-white/10 fixed top-0 left-0 right-0 z-[999] shadow-sm transition-colors duration-500">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between gap-2 sm:gap-6">
+      <div className="max-w-7xl mx-auto px-2.5 sm:px-6 h-14 sm:h-20 flex items-center justify-between gap-1 sm:gap-6">
         <div className="flex items-center shrink-0">
           <div
             onClick={() => navigate('/home')}
             className="cursor-pointer group select-none flex items-center gap-1.5"
           >
-            <span className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white transition-transform group-hover:scale-105">
+            <span className="text-xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white transition-transform group-hover:scale-105">
               Sport<span className="text-[#74C365]">Go</span>
             </span>
           </div>
         </div>
 
-        <div className="flex-1 max-w-3xl mx-3 sm:mx-6 flex items-center">
+        <div className="flex-1 max-w-3xl mx-1.5 sm:mx-6 flex items-center">
 
           <div className="relative flex items-center flex-1 bg-gray-100 dark:bg-white/10 border-2 border-transparent focus-within:border-[#589470] dark:focus-within:border-[#74C365] focus-within:bg-white dark:focus-within:bg-[#001F3F] rounded-full transition-all duration-200 shadow-inner group">
             <input
               type="text"
               placeholder="Tìm kiếm phòng chơi, sân bãi, giải đấu, đội nhóm..."
-              className="w-full bg-transparent pl-5 pr-14 py-2.5 text-sm sm:text-base text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none"
+              className="w-full bg-transparent pl-3.5 sm:pl-5 pr-11 sm:pr-14 py-1.5 sm:py-2.5 text-xs sm:text-base text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none truncate"
             />
             <button
-              className="absolute right-1 bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-90 text-white p-2 rounded-full transition-transform active:scale-95 shadow-md flex items-center justify-center m-0.5"
+              className="absolute right-1 bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-90 text-white p-1.5 sm:p-2 rounded-full transition-transform active:scale-95 shadow-md flex items-center justify-center m-0.5 shrink-0"
               title="Tìm kiếm"
             >
-              <Search className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
+              <Search className="w-3.5 h-3.5 sm:w-5 sm:h-5 stroke-[2.5]" />
             </button>
           </div>
         </div>
 
-        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-          <button className="p-2.5 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full transition-colors text-gray-700 dark:text-gray-200 relative group" title="Thông báo">
-            <Bell className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
-            <span className="absolute top-2 right-2 w-2 h-2 bg-[#589470] dark:bg-[#74C365] rounded-full ring-2 ring-white dark:ring-[#001F3F]" />
+        <div className="flex items-center gap-0.5 sm:gap-2 shrink-0">
+          <button className="p-1.5 sm:p-2.5 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full transition-colors text-gray-700 dark:text-gray-200 relative group" title="Thông báo">
+            <Bell className="w-4 h-4 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
+            <span className="absolute top-1 right-1 sm:top-2 sm:right-2 w-2 h-2 bg-[#589470] dark:bg-[#74C365] rounded-full ring-2 ring-white dark:ring-[#001F3F]" />
           </button>
 
           <button
             onClick={toggleTheme}
-            className="p-2.5 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full transition-colors relative group"
+            className="p-1.5 sm:p-2.5 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full transition-colors relative group"
             title="Chuyển chế độ Sáng / Tối"
           >
             {isDark ? (
-              <Sun className="w-5 h-5 sm:w-6 sm:h-6 text-[#DBE64C] group-hover:rotate-45 transition-transform duration-300" />
+              <Sun className="w-4 h-4 sm:w-6 sm:h-6 text-[#DBE64C] group-hover:rotate-45 transition-transform duration-300" />
             ) : (
-              <Moon className="w-5 h-5 sm:w-6 sm:h-6 text-gray-700 group-hover:-rotate-12 transition-transform duration-300" />
+              <Moon className="w-4 h-4 sm:w-6 sm:h-6 text-gray-700 group-hover:-rotate-12 transition-transform duration-300" />
             )}
           </button>
 
           <div className="relative" ref={profileRef}>
             <button
               onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-              className="flex items-center gap-1 p-1 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full transition-colors pl-1.5 pr-2 group ml-1"
+              className="flex items-center gap-1 p-1 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full transition-colors pl-1 sm:pl-1.5 pr-1 sm:pr-2 group ml-0.5 sm:ml-1"
               title="Tài khoản cá nhân"
             >
-              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#589470] to-[#74C365] flex items-center justify-center text-white font-bold text-sm shadow-sm ring-2 ring-transparent group-hover:ring-[#589470]/30 transition-all">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-tr from-[#589470] to-[#74C365] flex items-center justify-center text-white font-bold text-xs sm:text-sm shadow-sm ring-2 ring-transparent group-hover:ring-[#589470]/30 transition-all">
                 {getAvatarLetter()}
               </div>
               <ChevronDown className={`w-3.5 h-3.5 text-gray-500 group-hover:text-gray-800 dark:group-hover:text-gray-200 transition-transform hidden sm:block ${showProfileDropdown ? 'rotate-180' : ''}`} />
@@ -210,7 +212,7 @@ export default function Navbar() {
         </div>
       </div>
 
-      <nav ref={navContainerRef} className="w-full max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-center gap-2 sm:gap-10 overflow-x-auto no-scrollbar relative border-t border-gray-100 dark:border-white/5 py-1 sm:py-0">
+      <nav ref={navContainerRef} className="w-full max-w-7xl mx-auto px-2 sm:px-6 flex items-center justify-start md:justify-center gap-1 sm:gap-10 overflow-x-auto no-scrollbar relative border-t border-gray-100 dark:border-white/5 py-1 sm:py-0">
         <div
           className={`absolute bottom-0 h-0.5 sm:h-1 bg-gradient-to-r from-[#74C365] to-[#589470] rounded-t-full ${
             isInitialRender ? 'transition-none' : 'transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]'
@@ -225,7 +227,7 @@ export default function Navbar() {
               key={item.path}
               to={item.path}
               ref={el => (navRefs.current[i] = el)}
-              className={`relative z-10 py-2.5 sm:py-3 px-3 sm:px-4 text-xs sm:text-sm font-semibold whitespace-nowrap transition-colors duration-200 flex items-center gap-1.5 ${
+              className={`relative z-10 py-2 sm:py-3 px-2.5 sm:px-4 text-xs sm:text-sm font-semibold whitespace-nowrap transition-colors duration-200 flex items-center gap-1 sm:gap-1.5 shrink-0 ${
                 isActive
                   ? 'text-[#589470] dark:text-[#74C365]'
                   : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
@@ -236,27 +238,27 @@ export default function Navbar() {
           );
         })}
 
-        <div className="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 z-20 flex items-center gap-2">
+        <div className="flex md:absolute right-4 sm:right-6 md:top-1/2 md:-translate-y-1/2 z-20 items-center gap-1.5 sm:gap-2 shrink-0 pl-1.5 md:pl-0 border-l border-gray-200 dark:border-white/10 md:border-l-0">
           <button
             onClick={() => setIsPremiumOpen(true)}
-            className="inline-flex items-center gap-1.5 bg-gradient-to-r from-yellow-400 via-yellow-500 to-orange-500 text-white font-bold px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-2xl text-xs sm:text-sm shadow-[0_0_15px_rgba(234,179,8,0.35)] hover:scale-[1.02] active:scale-95 transition-transform overflow-hidden group relative"
+            className="inline-flex items-center gap-1 bg-gradient-to-r from-yellow-400 via-yellow-500 to-orange-500 text-white font-bold px-2.5 py-1 sm:px-3.5 sm:py-2 rounded-2xl text-[11px] sm:text-sm shadow-[0_0_15px_rgba(234,179,8,0.35)] hover:scale-[1.02] active:scale-95 transition-transform overflow-hidden group relative shrink-0"
             title="Premium"
           >
-            <Crown className="w-4 h-4" />
+            <Crown className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span>Premium</span>
             <div className="absolute inset-0 w-[200%] -translate-x-full bg-gradient-to-r from-transparent via-white/40 to-transparent animate-pulse pointer-events-none" />
           </button>
           
           <button
             onClick={toggleChat}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-2xl text-xs sm:text-sm font-bold shadow-md transition-all ${
+            className={`inline-flex items-center gap-1 px-2.5 py-1 sm:px-3.5 sm:py-2 rounded-2xl text-[11px] sm:text-sm font-bold shadow-md transition-all shrink-0 ${
               isChatOpen 
                 ? 'bg-[#74C365] text-white shadow-[0_0_15px_rgba(116,195,101,0.5)] scale-105' 
                 : 'bg-white/50 dark:bg-white/10 hover:bg-[#74C365]/10 dark:hover:bg-[#74C365]/20 text-slate-700 dark:text-gray-200 hover:text-[#74C365] dark:hover:text-[#74C365] border border-gray-200/80 dark:border-white/10'
             }`}
             title="Chat"
           >
-            <MessageSquare className="w-4 h-4" />
+            <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span>Chat</span>
           </button>
         </div>
