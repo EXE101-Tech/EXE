@@ -20,10 +20,10 @@ const SPORTS_TABS = [
 
 const LEVEL_TABS = [
   { id: 'all', label: 'Tất cả trình độ' },
-  { id: 'Beginner', label: 'Beginner (Mới tập)' },
-  { id: 'Intermediate', label: 'Intermediate (Trung bình)' },
-  { id: 'Advanced', label: 'Advanced (Khá giỏi)' },
-  { id: 'Expert', label: 'Expert (Chuyên nghiệp)' },
+  { id: 'Beginner', label: 'Mới chơi' },
+  { id: 'Intermediate', label: 'Trung bình' },
+  { id: 'Advanced', label: 'Khá / Giỏi' },
+  { id: 'Expert', label: 'Chuyên nghiệp' },
 ];
 
 // Rich Mock Fallback Data
@@ -389,10 +389,10 @@ function GameRoom() {
               onChange={(e) => setSelectedLevel(e.target.value)}
             >
               <option value="all">Tất cả trình độ</option>
-              <option value="Beginner">Beginner (Mới chơi)</option>
-              <option value="Intermediate">Intermediate (Trung bình)</option>
-              <option value="Advanced">Advanced (Khá giỏi)</option>
-              <option value="Expert">Expert (Chuyên nghiệp)</option>
+              <option value="Beginner">Mới chơi</option>
+              <option value="Intermediate">Trung bình</option>
+              <option value="Advanced">Khá / Giỏi</option>
+              <option value="Expert">Chuyên nghiệp</option>
             </FilterSelect>
 
           </div>
@@ -414,10 +414,10 @@ function GameRoom() {
       <main className="max-w-[1600px] mx-auto px-4 sm:px-6 md:px-12 pt-4 sm:pt-6">
         {/* Filter status header - lướt theo trang */}
         <div className="flex items-center justify-between mb-4 px-1">
-          <div className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300">
+          <div className="flex items-center gap-1.5 text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100">
             <SlidersHorizontal className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#589470] dark:text-[#74C365] shrink-0" />
             <span>
-              Hiển thị: <strong className="text-slate-900 dark:text-white font-bold">{filteredRooms.length}</strong> phòng
+              Hiển thị: <strong className="text-[#589470] dark:text-[#74C365] font-black text-sm sm:text-base">{filteredRooms.length}</strong> phòng
             </span>
           </div>
         </div>

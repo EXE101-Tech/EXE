@@ -314,10 +314,10 @@ export default function Tournament() {
       <main className="max-w-[1600px] mx-auto px-4 sm:px-6 pt-4 sm:pt-6">
         {/* Filter status header - lướt theo trang */}
         <div className="flex items-center justify-between mb-4 px-1">
-          <div className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300">
+          <div className="flex items-center gap-1.5 text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100">
             <SlidersHorizontal className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#589470] dark:text-[#74C365] shrink-0" />
             <span>
-              Hiển thị: <strong className="text-slate-900 dark:text-white font-bold">{filteredPosts.length}</strong> bài
+              Hiển thị: <strong className="text-[#589470] dark:text-[#74C365] font-black text-sm sm:text-base">{filteredPosts.length}</strong> bài
               {selectedSport && (
                 <span className="ml-1 text-[#589470] dark:text-[#74C365]">
                   ({INITIAL_POSTS.find(p => p.sportId === selectedSport)?.sportName || selectedSport})

@@ -33,6 +33,14 @@ function JoinRoomModal({ isOpen, onClose, onConfirm, room, isLoading = false }) 
     }
   };
 
+  const LEVEL_VI = {
+    'Beginner': 'Mới chơi',
+    'Intermediate': 'Trung bình',
+    'Advanced': 'Khá / Giỏi',
+    'Expert': 'Chuyên nghiệp',
+  };
+  const displayLevel = LEVEL_VI[required_level] || required_level;
+
   const timeStr = formatDateTime(start_time, end_time);
 
   const handleSubmit = (e) => {
@@ -75,28 +83,28 @@ function JoinRoomModal({ isOpen, onClose, onConfirm, room, isLoading = false }) 
                 {sportName}
               </span>
               <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 flex items-center gap-1">
-                <Trophy className="w-3 h-3" /> {required_level}
+                <Trophy className="w-3 h-3" /> {displayLevel}
               </span>
             </div>
 
-            <h3 className="text-base font-bold text-slate-900 dark:text-white line-clamp-1">{title}</h3>
+            <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white break-words leading-snug">{title}</h3>
 
-            <div className="space-y-1.5 text-xs text-slate-600 dark:text-slate-300">
+            <div className="space-y-2 text-xs sm:text-sm text-slate-800 dark:text-slate-100">
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-sky-500 shrink-0" />
-                <span>Chủ phòng: <strong className="text-slate-900 dark:text-white">{host.name}</strong> ({participants.length + 1}/{max_players} thành viên)</span>
+                <span><span className="font-bold text-slate-700 dark:text-slate-300">Chủ phòng:</span> <strong className="text-slate-900 dark:text-white font-black">{host.name}</strong> ({participants.length + 1}/{max_players} thành viên)</span>
               </div>
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-[#589470] dark:text-[#DBE64C] shrink-0" />
-                <span className="font-semibold">{timeStr}</span>
+                <span className="font-bold text-slate-900 dark:text-white">{timeStr}</span>
               </div>
-              <div className="flex items-center gap-2 truncate">
-                <MapPin className="w-4 h-4 text-rose-500 shrink-0" />
-                <span className="truncate">{location}</span>
+              <div className="flex items-start gap-2">
+                <MapPin className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                <span className="font-semibold break-words flex-1 text-slate-800 dark:text-slate-100">{location}</span>
               </div>
               <div className="flex items-center gap-2">
-                <DollarSign className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span className="text-emerald-600 dark:text-emerald-400 font-bold">{price_info}</span>
+                <span className="font-bold text-slate-700 dark:text-slate-300 shrink-0">Chi phí:</span>
+                <strong className="text-[#589470] dark:text-[#74C365] font-black">{price_info}</strong>
               </div>
             </div>
           </div>
@@ -106,7 +114,7 @@ function JoinRoomModal({ isOpen, onClose, onConfirm, room, isLoading = false }) 
             <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
             <div>
               <strong className="block font-bold mb-0.5">Lưu ý về trình độ & thái độ:</strong>
-              Vui lòng tự đánh giá đúng trình độ <strong className="underline">{required_level}</strong> để đảm bảo trải nghiệm thi đấu vui vẻ, cân kèo cho toàn bộ các thành viên trong phòng.
+              Vui lòng tự đánh giá đúng trình độ <strong className="underline font-black">{displayLevel}</strong> để đảm bảo trải nghiệm thi đấu vui vẻ, cân kèo cho toàn bộ các thành viên trong phòng.
             </div>
           </div>
 

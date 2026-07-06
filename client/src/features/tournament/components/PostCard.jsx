@@ -73,7 +73,7 @@ export default function PostCard({ post, onJoin, onChat }) {
                   </div>
                 </div>
                 <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
-                  <h4 className="font-bold text-slate-900 dark:text-white text-sm sm:text-base leading-tight truncate">
+                  <h4 className="font-bold text-slate-900 dark:text-white text-sm sm:text-base leading-tight break-words">
                     {post.authorName}
                   </h4>
                   {post.isVerified && (

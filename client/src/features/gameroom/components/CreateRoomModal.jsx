@@ -11,10 +11,10 @@ const SPORTS_LIST = [
 ];
 
 const LEVELS = [
-  { value: 'Beginner', label: 'Beginner (Mới tập / Vui là chính)' },
-  { value: 'Intermediate', label: 'Intermediate (Trung bình / Đều tay)' },
-  { value: 'Advanced', label: 'Advanced (Khá giỏi / Đánh bao sân)' },
-  { value: 'Expert', label: 'Expert (Chuyên nghiệp / Thi đấu giải)' },
+  { value: 'Beginner', label: 'Mới tập / Vui là chính' },
+  { value: 'Intermediate', label: 'Trung bình / Đều tay' },
+  { value: 'Advanced', label: 'Khá / Giỏi (Đánh bao sân)' },
+  { value: 'Expert', label: 'Chuyên nghiệp (Thi đấu giải)' },
 ];
 
 function CreateRoomModal({ isOpen, onClose, onSubmit, isLoading = false }) {

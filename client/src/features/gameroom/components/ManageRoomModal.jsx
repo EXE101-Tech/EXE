@@ -28,7 +28,7 @@ function ManageRoomModal({ isOpen, onClose, room, onUpdateStatus, isLoading = fa
             </div>
             <div>
               <h3 className="text-xl font-black">Quản Lý Thành Viên Phòng Chờ</h3>
-              <p className="text-xs opacity-90 truncate max-w-sm">{title}</p>
+              <p className="text-xs opacity-90 break-words max-w-md">{title}</p>
             </div>
           </div>
           <button

@@ -26,7 +26,7 @@ export default function JoinModal({ isOpen, onClose, post, onConfirm }) {
               <span className="text-xs font-bold uppercase tracking-wider bg-white/20 px-2.5 py-0.5 rounded-full">
                 Xác nhận tham gia kèo đấu
               </span>
-              <h3 className="text-xl font-black mt-1 line-clamp-1">{post.title}</h3>
+              <h3 className="text-xl font-black mt-1 break-words leading-snug">{post.title}</h3>
             </div>
           </div>
         </div>
@@ -41,7 +41,7 @@ export default function JoinModal({ isOpen, onClose, post, onConfirm }) {
             </div>
             <div className="overflow-hidden">
               <p className="text-xs font-semibold text-slate-400">Người đăng / Trưởng nhóm:</p>
-              <h4 className="font-bold text-slate-800 dark:text-white text-base truncate">{post.authorName} ({post.teamName || 'Cá nhân'})</h4>
+              <h4 className="font-black text-slate-900 dark:text-white text-base truncate">{post.authorName} ({post.teamName || 'Cá nhân'})</h4>
             </div>
           </div>
 
@@ -50,24 +50,23 @@ export default function JoinModal({ isOpen, onClose, post, onConfirm }) {
             <h5 className="text-xs font-bold uppercase tracking-wider text-slate-400">Chi tiết lịch chơi</h5>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-              <div className="flex items-center gap-2.5 p-2.5 bg-slate-50/80 dark:bg-white/5 rounded-xl">
-                <MapPin className="w-4 h-4 text-rose-500 shrink-0" />
-                <span className="text-slate-700 dark:text-slate-200 font-medium truncate">{post.location}</span>
+              <div className="flex items-start gap-2.5 p-2.5 bg-slate-50/80 dark:bg-white/5 rounded-xl">
+                <MapPin className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                <span className="text-slate-800 dark:text-slate-100 font-bold break-words flex-1">{post.location}</span>
               </div>
 
-              <div className="flex items-center gap-2.5 p-2.5 bg-slate-50/80 dark:bg-white/5 rounded-xl">
-                <Calendar className="w-4 h-4 text-blue-500 shrink-0" />
-                <span className="text-slate-700 dark:text-slate-200 font-medium truncate">{post.timeSlot}</span>
+              <div className="flex items-start gap-2.5 p-2.5 bg-slate-50/80 dark:bg-white/5 rounded-xl">
+                <Calendar className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                <span className="text-slate-800 dark:text-slate-100 font-bold break-words flex-1">{post.timeSlot}</span>
               </div>
 
               <div className="flex items-center gap-2.5 p-2.5 bg-slate-50/80 dark:bg-white/5 rounded-xl">
                 <Users className="w-4 h-4 text-[#589470] dark:text-[#74C365] shrink-0" />
-                <span className="text-slate-700 dark:text-slate-200 font-medium">Còn trống: <strong className="text-[#589470] dark:text-[#74C365] font-bold">{post.totalMembers - post.currentMembers} slot</strong></span>
+                <span className="text-slate-700 dark:text-slate-200 font-bold">Còn trống: <strong className="text-[#589470] dark:text-[#74C365] font-black">{post.totalMembers - post.currentMembers} slot</strong></span>
               </div>
 
               <div className="flex items-center gap-2.5 p-2.5 bg-slate-50/80 dark:bg-white/5 rounded-xl">
-                <DollarSign className="w-4 h-4 text-amber-500 shrink-0" />
-                <span className="text-slate-700 dark:text-slate-200 font-medium">Chi phí: <strong>{post.price}</strong></span>
+                <span className="text-slate-700 dark:text-slate-200 font-bold">Chi phí: <strong className="text-[#589470] dark:text-[#74C365] font-black">{post.price}</strong></span>
               </div>
             </div>
           </div>
