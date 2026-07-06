@@ -115,7 +115,7 @@ const INITIAL_ROOMS = [
 ];
 
 function GameRoom() {
-  const { selectedSport } = useSportFilter();
+  const { selectedSport, setSelectedSport } = useSportFilter();
   const { openChat } = useChat();
   const [rooms, setRooms] = useState(INITIAL_ROOMS);
   const [selectedLevel, setSelectedLevel] = useState('all');
@@ -289,7 +289,7 @@ function GameRoom() {
       
       {/* Toast Alert */}
       {toastMessage && (
-        <div className="fixed top-24 right-6 z-50 bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-5 py-3.5 rounded-2xl shadow-2xl border border-white/10 flex items-center gap-3 animate-bounce">
+        <div className="fixed top-36 right-6 z-[9999] bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-5 py-3.5 rounded-2xl shadow-2xl border border-white/10 flex items-center gap-3 animate-bounce">
           <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
           <span className="text-xs font-bold">{toastMessage}</span>
         </div>
@@ -318,15 +318,33 @@ function GameRoom() {
         <div className="max-w-[1600px] mx-auto bg-white/35 dark:bg-white/[0.08] backdrop-blur-2xl backdrop-saturate-[180%] border border-white/60 dark:border-white/15 rounded-3xl p-3.5 sm:p-4 shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_1px_0_rgba(255,255,255,0.8),inset_0_0_16px_rgba(255,255,255,0.4)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3),inset_0_1px_1px_0_rgba(255,255,255,0.25),inset_0_0_16px_rgba(255,255,255,0.05)] flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 transition-all duration-300">
           
           {/* Filter Boxes Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 flex-1 max-w-4xl">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 flex-1">
             
+            {/* 0. Môn thể thao (Sport) */}
+            <div className="relative shrink-0 w-full sm:w-auto">
+              <Trophy className="w-4 h-4 text-amber-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+              <select
+                value={selectedSport || 'all'}
+                onChange={(e) => setSelectedSport(e.target.value === 'all' ? null : e.target.value)}
+                className="w-full sm:w-auto bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-9 pr-6 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all"
+              >
+                <option value="all">Tất cả môn thể thao</option>
+                <option value="football">⚽ Bóng đá</option>
+                <option value="badminton">🏸 Cầu lông</option>
+                <option value="pickleball">🏓 Pickleball</option>
+                <option value="tennis">🎾 Tennis</option>
+                <option value="basketball">🏀 Bóng rổ</option>
+                <option value="volleyball">🏐 Bóng chuyền</option>
+              </select>
+            </div>
+
             {/* 1. Địa điểm (Location) */}
-            <div className="relative">
+            <div className="relative shrink-0 w-full sm:w-auto">
               <MapPin className="w-4 h-4 text-rose-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
               <select
                 value={selectedLocation}
                 onChange={(e) => setSelectedLocation(e.target.value)}
-                className="w-full bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-10 pr-3 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all truncate"
+                className="w-full sm:w-auto bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-9 pr-6 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all"
               >
                 <option value="all">Tất cả địa điểm</option>
                 <option value="quận 10">Quận 10</option>
@@ -338,12 +356,12 @@ function GameRoom() {
             </div>
 
             {/* 2. Thời gian (Time) */}
-            <div className="relative">
+            <div className="relative shrink-0 w-full sm:w-auto">
               <Calendar className="w-4 h-4 text-blue-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
               <select
                 value={selectedTime}
                 onChange={(e) => setSelectedTime(e.target.value)}
-                className="w-full bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-10 pr-3 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all truncate"
+                className="w-full sm:w-auto bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-9 pr-6 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all"
               >
                 <option value="all">Tất cả thời gian</option>
                 <option value="tối">Tối nay</option>
@@ -355,12 +373,12 @@ function GameRoom() {
             </div>
 
             {/* 3. Giá (Price) */}
-            <div className="relative">
+            <div className="relative shrink-0 w-full sm:w-auto">
               <DollarSign className="w-4 h-4 text-amber-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
               <select
                 value={selectedPrice}
                 onChange={(e) => setSelectedPrice(e.target.value)}
-                className="w-full bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-10 pr-3 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all truncate"
+                className="w-full sm:w-auto bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-9 pr-6 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all"
               >
                 <option value="all">Tất cả mức giá</option>
                 <option value="duoi50">Dưới 50k / người</option>
@@ -370,12 +388,12 @@ function GameRoom() {
             </div>
 
             {/* 4. Trình độ (Skill) */}
-            <div className="relative">
+            <div className="relative shrink-0 w-full sm:w-auto">
               <Award className="w-4 h-4 text-[#589470] dark:text-[#74C365] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
               <select
                 value={selectedLevel}
                 onChange={(e) => setSelectedLevel(e.target.value)}
-                className="w-full bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-10 pr-3 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all truncate"
+                className="w-full sm:w-auto bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-9 pr-6 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all"
               >
                 <option value="all">Tất cả trình độ</option>
                 <option value="Beginner">Beginner (Mới tập)</option>

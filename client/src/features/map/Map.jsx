@@ -53,7 +53,7 @@ export default function MapPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [dbVenues, setDbVenues] = useState([]);
   const { isChatOpen } = useChat();
-  const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') !== 'light');
+  const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') === 'dark');
 
   useEffect(() => {
     if (isDark) {

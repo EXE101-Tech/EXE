@@ -57,8 +57,8 @@ function LandingPage() {
             className={`transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] flex items-center justify-end overflow-hidden ${showNavCta ? 'max-w-[160px] opacity-100 pl-2 pr-0.5' : 'max-w-0 opacity-0 pl-0 pr-0 pointer-events-none'}`}
           >
             <a 
-              href="/register" 
-              onClick={handleNavigate('/register')} 
+              href="/login" 
+              onClick={handleNavigate('/login')} 
               className={`bg-[#74C365] hover:bg-[#5FA352] dark:bg-[#1E488F] dark:hover:bg-[#183972] text-white font-semibold rounded-full transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] flex items-center justify-center text-xs sm:text-sm px-4 py-1.5 w-max whitespace-nowrap shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_4px_15px_rgba(116,195,101,0.3)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_4px_15px_rgba(30,72,143,0.3)] ${showNavCta ? 'translate-x-0' : 'translate-x-full'}`}
             >
               {t('landing.nav.getStarted')}
@@ -103,7 +103,7 @@ function LandingPage() {
         </p>
 
         <div className="flex flex-col sm:flex-row items-center gap-4 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300" id="hero-cta">
-          <a href="/register" onClick={handleNavigate('/register')} className="bg-gradient-to-r from-brand-primary to-blue-600 text-white hover:opacity-95 font-bold px-8 py-3.5 rounded-full transition-all flex items-center gap-2 w-full sm:w-auto justify-center shadow-lg shadow-brand-primary/25">
+          <a href="/login" onClick={handleNavigate('/login')} className="bg-gradient-to-r from-brand-primary to-blue-600 text-white hover:opacity-95 font-bold px-8 py-3.5 rounded-full transition-all flex items-center gap-2 w-full sm:w-auto justify-center shadow-lg shadow-brand-primary/25">
             {t('landing.hero.ctaStart')} <ArrowRight className="w-5 h-5" />
           </a>
           <a href="#features" className="px-8 py-3.5 rounded-full font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors w-full sm:w-auto flex items-center justify-center gap-2">

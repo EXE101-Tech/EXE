@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Users, PlusCircle, Sparkles, SlidersHorizontal, Crown, Shield, UserCheck } from 'lucide-react';
+import { Users, PlusCircle, Sparkles, SlidersHorizontal, Crown, Shield, UserCheck, Trophy } from 'lucide-react';
 import { useSportFilter } from '../../shared/context/SportFilterContext';
 import TeamCard from './components/TeamCard';
 import CreateTeamModal from './components/CreateTeamModal';
@@ -151,7 +151,7 @@ const TABS = [
 ];
 
 export default function Team() {
-  const { selectedSport } = useSportFilter();
+  const { selectedSport, setSelectedSport } = useSportFilter();
   const [teams] = useState(INITIAL_TEAMS);
   const [activeTab, setActiveTab] = useState('captain');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -180,7 +180,7 @@ export default function Team() {
 
       {/* Toast Notification Alert */}
       {alertMessage && (
-        <div className="fixed top-24 right-6 z-50 max-w-md bg-white dark:bg-slate-900 border-2 border-[#589470] text-slate-800 dark:text-white px-5 py-4 rounded-2xl shadow-2xl flex items-start gap-3 animate-in slide-in-from-right duration-300">
+        <div className="fixed top-36 right-6 z-[9999] max-w-md bg-white dark:bg-slate-900 border-2 border-[#589470] text-slate-800 dark:text-white px-5 py-4 rounded-2xl shadow-2xl flex items-start gap-3 animate-in slide-in-from-right duration-300">
           <Sparkles className="w-5 h-5 text-[#589470] shrink-0 mt-0.5" />
           <div className="text-sm font-bold leading-snug flex-1">{alertMessage}</div>
           <button onClick={() => setAlertMessage('')} className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold">✕</button>
@@ -209,26 +209,46 @@ export default function Team() {
       <div className="pb-4 pt-1 px-4 sm:px-6 sticky top-[104px] sm:top-[124px] z-40 transition-all duration-300">
         <div className="max-w-[1600px] mx-auto bg-white/35 dark:bg-white/[0.08] backdrop-blur-2xl backdrop-saturate-[180%] border border-white/60 dark:border-white/15 rounded-3xl p-3.5 sm:p-4 shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_1px_0_rgba(255,255,255,0.8),inset_0_0_16px_rgba(255,255,255,0.4)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3),inset_0_1px_1px_0_rgba(255,255,255,0.25),inset_0_0_16px_rgba(255,255,255,0.05)] flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 transition-all duration-300">
           
-          {/* Tab Buttons */}
-          <div className="flex items-center gap-3">
-            {TABS.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all duration-200 border ${
-                    isActive
-                      ? 'bg-[#589470]/15 dark:bg-[#74C365]/20 text-[#589470] dark:text-[#74C365] border-[#589470] dark:border-[#74C365] shadow-sm'
-                      : 'bg-white dark:bg-[#001F3F]/80 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-white/15 hover:bg-slate-50 dark:hover:bg-white/5 hover:border-slate-300'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span>{tab.label}</span>
-                </button>
-              );
-            })}
+          {/* Tab Buttons & Sport Filter */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+              {TABS.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all duration-200 border ${
+                      isActive
+                        ? 'bg-[#589470]/15 dark:bg-[#74C365]/20 text-[#589470] dark:text-[#74C365] border-[#589470] dark:border-[#74C365] shadow-sm'
+                        : 'bg-white dark:bg-[#001F3F]/80 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-white/15 hover:bg-slate-50 dark:hover:bg-white/5 hover:border-slate-300'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Sport Filter */}
+            <div className="relative shrink-0 w-full sm:w-auto">
+              <Trophy className="w-4 h-4 text-amber-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+              <select
+                value={selectedSport || 'all'}
+                onChange={(e) => setSelectedSport(e.target.value === 'all' ? null : e.target.value)}
+                className="w-full sm:w-auto bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-9 pr-6 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all"
+              >
+                <option value="all">Tất cả môn thể thao</option>
+                <option value="football">⚽ Bóng đá</option>
+                <option value="badminton">🏸 Cầu lông</option>
+                <option value="pickleball">🏓 Pickleball</option>
+                <option value="tennis">🎾 Tennis</option>
+                <option value="basketball">🏀 Bóng rổ</option>
+                <option value="volleyball">🏐 Bóng chuyền</option>
+              </select>
+            </div>
           </div>
 
           {/* Right actions: Filter status + Create Button */}

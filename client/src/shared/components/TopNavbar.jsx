@@ -15,19 +15,18 @@ const CATEGORIES = [
 
 export default function TopNavbar() {
   const location = useLocation();
-  const [isDark, setIsDark] = useState(true);
+  const [isDark, setIsDark] = useState(false);
   const { toggleChat } = useChat();
   const { selectedSport, setSelectedSport } = useSportFilter();
   
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
-    // Default to dark mode if no preference
-    if (savedTheme === 'light') {
-      document.documentElement.classList.remove('dark');
-      setIsDark(false);
-    } else {
+    if (savedTheme === 'dark') {
       document.documentElement.classList.add('dark');
       setIsDark(true);
+    } else {
+      document.documentElement.classList.remove('dark');
+      setIsDark(false);
     }
   }, []);
 

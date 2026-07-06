@@ -11,8 +11,8 @@ const SPORTS_LIST = [
 ];
 
 const VIP_PLANS = [
-  { id: 'monthly', label: 'Gói Tháng', price: '199.000đ / tháng', desc: 'Trải nghiệm ngay, hủy bất cứ lúc nào', popular: false },
-  { id: 'quarterly', label: 'Gói Quý', price: '499.000đ / 3 tháng', desc: 'Tiết kiệm 17% so với gói tháng', popular: true },
+  { id: 'monthly', label: 'Gói Tháng', price: '99.000đ / tháng', desc: 'Trải nghiệm ngay, hủy bất cứ lúc nào', popular: false },
+  { id: 'quarterly', label: 'Gói Quý', price: '249.000đ / 3 tháng', desc: 'Tiết kiệm 16% so với gói tháng', popular: true },
 ];
 
 export default function CreateTeamModal({ isOpen, onClose, initialView = 'form' }) {
