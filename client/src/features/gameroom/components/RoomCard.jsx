@@ -308,7 +308,7 @@ function RoomCard({ room, currentUserId = 1, onJoin, onChat, onManage }) {
               className="px-5 py-2.5 rounded-xl bg-[#589470] hover:bg-[#4a7c5d] dark:bg-[#DBE64C] dark:hover:bg-[#c8d438] text-white dark:text-[#001F3F] font-black text-xs shadow-lg shadow-[#589470]/20 dark:shadow-[#DBE64C]/20 active:scale-95 transition-all flex items-center gap-1.5"
             >
               <Sparkles className="w-4 h-4" />
-              <span>Join Ngay</span>
+              <span>Tham gia</span>
             </button>
           )}
         </div>

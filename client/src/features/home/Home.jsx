@@ -35,14 +35,14 @@ function Home() {
 
         {/* Hero Content */}
         <div className="relative z-10 text-center px-4 max-w-4xl mx-auto mt-8">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white/90 text-sm font-medium mb-6">
-            <Sparkles className="w-4 h-4 text-yellow-400" />
-            Nền tảng thể thao & ghép kèo số 1
+          <div className="inline-flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white/90 text-xs sm:text-sm font-medium mb-4 sm:mb-6">
+            <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-yellow-400 shrink-0" />
+            <span>Nền tảng thể thao & ghép kèo số 1</span>
           </div>
-          <h1 className="text-5xl md:text-7xl font-black tracking-tight text-white mb-6 drop-shadow-lg">
+          <h1 className="text-4xl sm:text-5xl md:text-7xl font-black tracking-tight text-white mb-4 sm:mb-6 drop-shadow-lg">
             Sport<span className="text-[#74C365]">Go</span>
           </h1>
-          <p className="text-xl md:text-2xl font-semibold text-white/90 mb-10 drop-shadow-md">
+          <p className="text-base sm:text-xl md:text-2xl font-semibold text-white/90 mb-6 sm:mb-10 drop-shadow-md">
             Chơi đúng người - Ghép đúng trình độ
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">

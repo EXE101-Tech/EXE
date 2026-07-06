@@ -300,14 +300,14 @@ function GameRoom() {
       <div className="relative bg-transparent pt-10 pb-2 px-4 sm:px-6">
         <div className="max-w-[1600px] mx-auto">
           <div>
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#589470]/10 dark:bg-[#74C365]/15 text-[#589470] dark:text-[#74C365] text-xs font-black uppercase tracking-wider mb-3 border border-[#589470]/20">
-              <Gamepad2 className="w-3.5 h-3.5" />
+            <div className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 py-1 sm:px-3.5 sm:py-1.5 rounded-full bg-[#589470]/10 dark:bg-[#74C365]/15 text-[#589470] dark:text-[#74C365] text-[10px] sm:text-xs font-black uppercase tracking-wider mb-2 sm:mb-3 border border-[#589470]/20">
+              <Gamepad2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
               <span>Sảnh Game • Game Rooms</span>
             </div>
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 dark:text-white tracking-tight">
+            <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black text-slate-900 dark:text-white tracking-tight">
               Game Rooms & Ghép Đấu
             </h1>
-            <p className="text-slate-600 dark:text-slate-300 text-sm sm:text-base max-w-2xl mt-2 leading-relaxed">
+            <p className="text-slate-800 dark:text-slate-100 font-medium text-xs sm:text-base max-w-2xl mt-1.5 sm:mt-2 leading-relaxed">
               Bạn là người chơi lẻ chưa có nhóm? Hãy tự mở phòng chờ hoặc tham gia các sảnh đấu đang tìm bạn chơi phù hợp theo thời gian, trình độ và địa điểm ngay hôm nay!
             </p>
           </div>
