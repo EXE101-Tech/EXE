@@ -180,7 +180,7 @@ export default function Team() {
 
       {/* Toast Notification Alert */}
       {alertMessage && (
-        <div className="fixed top-24 right-6 z-50 max-w-md bg-white dark:bg-slate-900 border-2 border-[#589470] text-slate-800 dark:text-white px-5 py-4 rounded-2xl shadow-2xl flex items-start gap-3 animate-in slide-in-from-right duration-300">
+        <div className="fixed top-36 right-6 z-[9999] max-w-md bg-white dark:bg-slate-900 border-2 border-[#589470] text-slate-800 dark:text-white px-5 py-4 rounded-2xl shadow-2xl flex items-start gap-3 animate-in slide-in-from-right duration-300">
           <Sparkles className="w-5 h-5 text-[#589470] shrink-0 mt-0.5" />
           <div className="text-sm font-bold leading-snug flex-1">{alertMessage}</div>
           <button onClick={() => setAlertMessage('')} className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold">✕</button>
