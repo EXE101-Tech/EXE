@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import { Sun, Moon } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import Particles from '../../features/landing/components/Particles.jsx';
 
 export default function PublicLayout() {
   const [isDark, setIsDark] = useState(false);
@@ -32,7 +33,12 @@ export default function PublicLayout() {
 
   return (
     <>
-      <Outlet />
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <Particles />
+      </div>
+      <div className="relative z-10 h-full w-full">
+        <Outlet />
+      </div>
       
       {/* Floating Theme Toggle for Public Pages */}
       <button 

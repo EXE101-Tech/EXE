@@ -23,10 +23,6 @@ function GlobalWrapper({ children }) {
     const { toggleTheme } = useTheme();
     return (
         <div className="min-h-screen text-slate-900 dark:text-white overflow-x-clip selection:bg-brand-primary/30 font-sans relative theme-transition">
-            <div className="fixed inset-0 z-0 pointer-events-none">
-                <Particles />
-            </div>
-            
             <div className="relative z-10 h-full w-full">
                 {children}
             </div>
@@ -37,7 +33,7 @@ function GlobalWrapper({ children }) {
 function MainLayout({ children }) {
     const { isChatOpen } = useChat();
     return (
-        <div className="flex h-screen overflow-hidden bg-transparent page-fade-in">
+        <div className="flex h-screen overflow-hidden bg-white dark:bg-black page-fade-in">
             {/* Sidebar (Desktop) */}
             <Sidebar />
 
