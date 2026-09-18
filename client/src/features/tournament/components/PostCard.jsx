@@ -1,10 +1,21 @@
 import React from 'react';
-import { MessageSquare, UserPlus, MapPin, Calendar, Users, DollarSign, CheckCircle2, Clock, Award } from 'lucide-react';
+import { MessageSquare, UserPlus, MapPin, Calendar, Users, DollarSign, CheckCircle2, Clock, Award, X, Maximize2 } from 'lucide-react';
 
 export default function PostCard({ post, onJoin, onChat }) {
   const [isExpanded, setIsExpanded] = React.useState(false);
+  const [isImageOpen, setIsImageOpen] = React.useState(false);
   const isFull = post.currentMembers >= post.totalMembers;
   const needed = post.totalMembers - post.currentMembers;
+
+  React.useEffect(() => {
+    if (!isImageOpen) return undefined;
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') setIsImageOpen(false);
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [isImageOpen]);
 
   const getSportBadgeColors = (sportId) => {
     switch (sportId) {
@@ -26,19 +37,28 @@ export default function PostCard({ post, onJoin, onChat }) {
   };
 
   return (
+    <>
     <div className="group relative bg-white dark:bg-[#001F3F]/80 border border-gray-100 dark:border-white/10 rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 shadow-[0_10px_35px_rgba(0,0,0,0.03)] dark:shadow-[0_10px_35px_rgba(0,0,0,0.3)] hover:shadow-[0_15px_45px_rgba(88,148,112,0.12)] dark:hover:shadow-[0_15px_45px_rgba(116,195,101,0.15)] transition-all duration-300 hover:-translate-y-1 flex flex-col md:flex-row gap-4 sm:gap-6 overflow-hidden">
       
       {/* Decorative subtle background aura like landing page */}
       <div className="absolute -right-20 -bottom-20 w-60 h-60 bg-gradient-to-br from-[#74C365]/10 to-transparent rounded-full blur-2xl pointer-events-none group-hover:scale-125 transition-transform duration-500" />
       
       {/* ── Left Column: Thumbnail Image ── */}
-      <div className="w-full md:w-72 lg:w-80 h-44 sm:h-56 md:h-auto md:min-h-[220px] rounded-xl sm:rounded-2xl overflow-hidden relative shrink-0 shadow-sm border border-gray-100 dark:border-white/5">
+      <button
+        type="button"
+        onClick={() => setIsImageOpen(true)}
+        className="group/image w-full md:w-72 lg:w-80 aspect-[16/9] md:aspect-auto md:h-[260px] lg:h-[280px] rounded-xl sm:rounded-2xl overflow-hidden relative shrink-0 shadow-sm border border-gray-100 dark:border-white/5 cursor-zoom-in focus:outline-none focus:ring-2 focus:ring-[#589470]"
+        aria-label={`Xem ảnh đầy đủ: ${post.title}`}
+      >
         <img 
           src={post.image} 
           alt={post.title} 
           className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
+        <div className="absolute top-2.5 right-2.5 z-10 rounded-full bg-black/45 p-1.5 text-white opacity-0 group-hover/image:opacity-100 transition-opacity">
+          <Maximize2 className="w-3.5 h-3.5" />
+        </div>
 
         {/* Sport Tag on top left of image */}
         <div className="absolute top-2.5 sm:top-3 left-2.5 sm:left-3 z-10">
@@ -55,7 +75,7 @@ export default function PostCard({ post, onJoin, onChat }) {
             <span>Trình độ: {post.skillLevel}</span>
           </span>
         </div>
-      </div>
+      </button>
 
       {/* ── Right Column: Post Details & Actions ── */}
       <div className="flex-1 flex flex-col justify-between relative z-10">
@@ -112,7 +132,7 @@ export default function PostCard({ post, onJoin, onChat }) {
             {post.title}
           </h3>
           <div className="mb-4 sm:mb-5">
-            <p className={`text-slate-800 dark:text-slate-100 font-medium text-xs sm:text-sm leading-relaxed ${isExpanded ? '' : 'line-clamp-2 sm:line-clamp-none'}`}>
+            <p className={`text-slate-800 dark:text-slate-100 font-medium text-xs sm:text-sm leading-relaxed ${isExpanded ? '' : 'line-clamp-2'}`}>
               {post.description}
             </p>
             {post.description && post.description.length > 60 && (
@@ -129,28 +149,28 @@ export default function PostCard({ post, onJoin, onChat }) {
 
         {/* Info Grid (Clean layout without background boxes - fully visible on mobile) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-2 sm:gap-y-2.5 gap-x-4 mb-5 sm:mb-6">
-          <div className="flex items-start sm:items-center gap-2 text-xs sm:text-sm">
+          <div className="flex items-start sm:items-center gap-2 text-xs sm:text-sm rounded-xl bg-slate-50/70 dark:bg-white/5 px-2.5 py-2">
             <MapPin className="w-4 h-4 text-rose-500 shrink-0 mt-0.5 sm:mt-0" />
             <span className="text-slate-800 dark:text-slate-100 font-semibold break-words">
               {post.location}
             </span>
           </div>
 
-          <div className="flex items-start sm:items-center gap-2 text-xs sm:text-sm">
+          <div className="flex items-start sm:items-center gap-2 text-xs sm:text-sm rounded-xl bg-slate-50/70 dark:bg-white/5 px-2.5 py-2">
             <Calendar className="w-4 h-4 text-blue-500 shrink-0 mt-0.5 sm:mt-0" />
             <span className="text-slate-800 dark:text-slate-100 font-semibold break-words">
               {post.timeSlot} ({post.date})
             </span>
           </div>
 
-          <div className="flex items-start sm:items-center gap-2 text-xs sm:text-sm">
+          <div className="flex items-start sm:items-center gap-2 text-xs sm:text-sm rounded-xl bg-slate-50/70 dark:bg-white/5 px-2.5 py-2">
             <Users className="w-4 h-4 text-[#589470] dark:text-[#74C365] shrink-0 mt-0.5 sm:mt-0" />
             <span className="text-slate-800 dark:text-slate-100 font-semibold break-words">
               Thành viên: <strong className="text-[#589470] dark:text-[#74C365] font-black">{post.currentMembers}/{post.totalMembers}</strong>
             </span>
           </div>
 
-          <div className="flex items-start sm:items-center gap-2 text-xs sm:text-sm">
+          <div className="flex items-start sm:items-center gap-2 text-xs sm:text-sm rounded-xl bg-slate-50/70 dark:bg-white/5 px-2.5 py-2">
             <DollarSign className="w-4 h-4 text-amber-500 shrink-0 mt-0.5 sm:mt-0" />
             <span className="text-slate-800 dark:text-slate-100 font-semibold break-words">
               Chi phí: <strong className="font-black">{post.price}</strong>
@@ -188,5 +208,30 @@ export default function PostCard({ post, onJoin, onChat }) {
       </div>
 
     </div>
+
+      {isImageOpen && (
+        <div
+          className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/80 p-4 sm:p-8 backdrop-blur-sm"
+          onClick={() => setIsImageOpen(false)}
+          role="presentation"
+        >
+          <button
+            type="button"
+            onClick={() => setIsImageOpen(false)}
+            className="absolute right-4 top-4 rounded-full bg-white/10 p-2.5 text-white hover:bg-white/20 transition-colors"
+            aria-label="Đóng ảnh"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <img
+            src={post.image}
+            alt={post.title}
+            className="max-h-[90vh] max-w-full rounded-xl object-contain shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          />
+        </div>
+      )}
+
+    </>
   );
 }

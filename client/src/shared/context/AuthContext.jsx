@@ -39,6 +39,7 @@ export const AuthProvider = ({ children }) => {
           email: 'user@sportgo.vn',
           role: 'user',
           avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+          ownerStatus: 'none',
         });
       }
       setLoading(false);
@@ -98,6 +99,22 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  const applyOwnerRegistration = () => {
+    setUser((currentUser) => {
+      const nextUser = { ...currentUser, ownerStatus: 'registered', isCourtOwner: true };
+      localStorage.setItem('mock_user', JSON.stringify(nextUser));
+      return nextUser;
+    });
+  };
+
+  const cancelOwnerRegistration = () => {
+    setUser((currentUser) => {
+      const nextUser = { ...currentUser, ownerStatus: 'none', isCourtOwner: false };
+      localStorage.setItem('mock_user', JSON.stringify(nextUser));
+      return nextUser;
+    });
+  };
+
   const updateProfile = async (data) => {
     try {
       const updatedUser = await authService.updateProfile(data);
@@ -116,6 +133,8 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     updateProfile,
+    applyOwnerRegistration,
+    cancelOwnerRegistration,
     loading,
     isAuthenticated: !!user,
   };

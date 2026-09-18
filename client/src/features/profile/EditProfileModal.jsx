@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Camera, X, Save, CheckCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-const ALL_SPORTS = ['Badminton', 'Tennis', 'Football', 'Pickleball'];
+const ALL_SPORTS = ['Badminton', 'Tennis', 'Football', 'Pickleball', 'Basketball', 'Volleyball'];
 function EditProfileModal({ isOpen, onClose, user, onSave }) {
   const { t } = useTranslation();
   const SKILL_LEVELS = [
