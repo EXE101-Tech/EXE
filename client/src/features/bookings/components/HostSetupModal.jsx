@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, ShieldCheck, DollarSign, Layers, MapPin, Wifi, Car, Droplets, Coffee, Package, Sparkles, Building2 } from 'lucide-react';
 import badmintonImg from '../../../assets/sports/badminton.avif';
 import footballImg from '../../../assets/sports/foodball.avif';
@@ -24,7 +24,7 @@ const FACILITY_OPTIONS = [
   { key: 'rental', label: 'Thuê vợt, giày & bóng', icon: Package },
 ];
 
-export default function HostSetupModal({ isOpen, onClose, onSave }) {
+export default function HostSetupModal({ isOpen, onClose, onSave, initialVenue = null }) {
   const [sportId, setSportId] = useState('badminton');
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
@@ -38,6 +38,16 @@ export default function HostSetupModal({ isOpen, onClose, onSave }) {
     rental: true,
   });
 
+  useEffect(() => {
+    if (!isOpen || !initialVenue) return;
+    setSportId(initialVenue.sport || 'badminton');
+    setName(initialVenue.name || '');
+    setAddress(initialVenue.address || '');
+    setPrice(initialVenue.price || '50.000đ');
+    setCourtCount(initialVenue.courtCount || 1);
+    setFacilities(initialVenue.facilities || {});
+  }, [isOpen, initialVenue]);
+
   if (!isOpen) return null;
 
   const handleToggleFacility = (key) => {
@@ -50,8 +60,9 @@ export default function HostSetupModal({ isOpen, onClose, onSave }) {
 
     const selectedSportObj = SPORTS.find(s => s.id === sportId) || SPORTS[0];
 
+    const normalizedCourtCount = Math.min(50, Math.max(1, Number(courtCount) || 1));
     const newVenue = {
-      id: Date.now(),
+      id: initialVenue?.id || Date.now(),
       name: name.trim(),
       sport: selectedSportObj.id,
       sportName: selectedSportObj.name,
@@ -61,9 +72,10 @@ export default function HostSetupModal({ isOpen, onClose, onSave }) {
       rating: 5.0,
       reviewCount: 1,
       price: price.trim() || '50.000đ',
-      courtCount: Number(courtCount) || 4,
+      courtCount: normalizedCourtCount,
       image: selectedSportObj.defaultImg,
       hostName: 'Bạn (Chủ sân / Host)',
+      isOwnedByUser: true,
       facilities,
       description: `Khu sân ${selectedSportObj.name} tiêu chuẩn thi đấu, trang thiết bị hiện đại do ${name.trim()} quản lý.`,
     };
@@ -88,8 +100,8 @@ export default function HostSetupModal({ isOpen, onClose, onSave }) {
               <Building2 className="w-6 h-6 stroke-[2.5]" />
             </div>
             <div>
-              <h3 className="text-xl font-black">⚙️ Setup Sân & Khung Giờ (Dành Cho Chủ Sân)</h3>
-              <p className="text-xs opacity-90">Cấu hình giá bán 30 phút, số lượng sân con và dịch vụ đi kèm</p>
+              <h3 className="text-xl font-black">⚙️ {initialVenue ? 'Chỉnh sửa sân' : 'Setup Sân & Khung Giờ'}</h3>
+              <p className="text-xs opacity-90">Cấu hình giá bán, số lượng sân con và dịch vụ đi kèm</p>
             </div>
           </div>
           <button 
@@ -185,17 +197,15 @@ export default function HostSetupModal({ isOpen, onClose, onSave }) {
                   <Layers className="w-4 h-4" />
                   <span>5. Số lượng sân con sở hữu *</span>
                 </label>
-                <select
+                <input
+                  type="number"
+                  min="1"
+                  max="50"
+                  step="1"
                   value={courtCount}
-                  onChange={(e) => setCourtCount(Number(e.target.value))}
+                  onChange={(e) => setCourtCount(e.target.value)}
                   className="w-full bg-white dark:bg-black/20 border border-slate-200 dark:border-white/15 rounded-xl px-3.5 py-2 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:border-[#589470] transition-colors"
-                >
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15].map((num) => (
-                    <option key={num} value={num} className="bg-white dark:bg-[#001F3F] text-slate-900 dark:text-white">
-                      Sở hữu {num} sân (Sân 1 đến Sân {num})
-                    </option>
-                  ))}
-                </select>
+                />
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
                   💡 Hệ thống sẽ tự động tạo {courtCount} hàng sân trong bảng đặt lịch.
                 </p>
@@ -250,7 +260,7 @@ export default function HostSetupModal({ isOpen, onClose, onSave }) {
               className="px-6 py-2.5 rounded-2xl font-bold text-sm bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-95 text-white shadow-lg shadow-[#589470]/30 flex items-center gap-2 transition-transform active:scale-95"
             >
               <Sparkles className="w-4 h-4" />
-              <span>💾 Lưu & Kích hoạt sân ngay</span>
+              <span>{initialVenue ? '💾 Lưu thay đổi' : '💾 Lưu & Kích hoạt sân ngay'}</span>
             </button>
           </div>
         </form>

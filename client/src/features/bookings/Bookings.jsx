@@ -1,10 +1,12 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Search, MapPin, DollarSign, Building2, PlusCircle, Sparkles, Filter, RefreshCw, Trophy, Calendar, SlidersHorizontal, Award, Users, ChevronDown } from 'lucide-react';
 import { useSportFilter } from '../../shared/context/SportFilterContext';
 import { useChat } from '../../shared/context/ChatContext';
 import VenueCard from './components/VenueCard';
 import HostSetupModal from './components/HostSetupModal';
+import OwnerRegistrationModal from './components/OwnerRegistrationModal';
 import FilterSelect from '../../shared/components/FilterSelect';
+import { useAuth } from '../../shared/context/AuthContext';
 
 import badmintonImg from '../../assets/sports/badminton.avif';
 import footballImg from '../../assets/sports/foodball.avif';
@@ -121,24 +123,61 @@ const INITIAL_VENUES = [
 export default function Bookings() {
   const { selectedSport, setSelectedSport } = useSportFilter();
   const { openChat } = useChat();
+  const { user, applyOwnerRegistration } = useAuth();
 
   const [venues, setVenues] = useState(INITIAL_VENUES);
   const [searchTerm, setSearchTerm] = useState('');
   const [locationFilter, setLocationFilter] = useState('all');
+  const [venueScope, setVenueScope] = useState('all');
   const [isHostModalOpen, setIsHostModalOpen] = useState(false);
+  const [editingVenue, setEditingVenue] = useState(null);
+
+  useEffect(() => {
+    const savedOwnedVenues = JSON.parse(localStorage.getItem('sportgo_owned_venues') || '[]');
+    if (savedOwnedVenues.length) setVenues((current) => [...savedOwnedVenues, ...current.filter((venue) => !venue.isOwnedByUser)]);
+  }, []);
+  const [isOwnerTermsOpen, setIsOwnerTermsOpen] = useState(false);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
 
   const handleHostSave = (newVenue) => {
-    setVenues(prev => [newVenue, ...prev]);
+    setVenues(prev => editingVenue
+      ? prev.map((venue) => venue.id === newVenue.id ? newVenue : venue)
+      : [newVenue, ...prev]);
+    const currentOwnedVenues = editingVenue
+      ? venues.map((venue) => venue.id === newVenue.id ? newVenue : venue).filter((venue) => venue.isOwnedByUser)
+      : [newVenue, ...venues].filter((venue) => venue.isOwnedByUser);
+    localStorage.setItem('sportgo_owned_venues', JSON.stringify(currentOwnedVenues));
+    setEditingVenue(null);
+  };
+
+  const handleEditVenue = (venue) => {
+    setEditingVenue(venue);
+    setIsHostModalOpen(true);
+  };
+
+  const handleDeleteVenue = (venue) => {
+    if (!window.confirm(`Bạn có chắc muốn xóa ${venue.name} không?`)) return;
+    setVenues((current) => current.filter((item) => item.id !== venue.id));
+    const ownedVenues = JSON.parse(localStorage.getItem('sportgo_owned_venues') || '[]');
+    localStorage.setItem('sportgo_owned_venues', JSON.stringify(ownedVenues.filter((item) => item.id !== venue.id)));
   };
 
   const handleOpenChat = (venue) => {
     openChat(venue.hostName || venue.name);
   };
 
+  const openOwnerFlow = () => {
+    if (user?.ownerStatus === 'registered') {
+      setIsHostModalOpen(true);
+    } else {
+      setIsOwnerTermsOpen(true);
+    }
+  };
+
   const filteredVenues = useMemo(() => {
     return venues.filter(venue => {
       // 1. Sport Filter
+      if (venueScope === 'mine' && !venue.isOwnedByUser) return false;
       if (selectedSport && selectedSport !== 'all' && venue.sport !== selectedSport) {
         return false;
       }
@@ -157,7 +196,7 @@ export default function Bookings() {
       }
       return true;
     });
-  }, [venues, selectedSport, searchTerm, locationFilter]);
+  }, [venues, selectedSport, searchTerm, locationFilter, venueScope]);
 
   return (
     <div className="min-h-screen bg-transparent text-slate-900 dark:text-white pb-24 font-sans animate-in fade-in duration-300">
@@ -180,16 +219,30 @@ export default function Bookings() {
               <ChevronDown className={`w-4 h-4 transition-transform ${isMobileFilterOpen ? 'rotate-180' : ''}`} />
             </button>
             <button
-              onClick={() => setIsHostModalOpen(true)}
+              onClick={openOwnerFlow}
               className="px-3.5 py-1.5 rounded-lg font-bold text-sm bg-gradient-to-r from-[#74C365] to-[#589470] text-white shadow-md flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap"
             >
               <PlusCircle className="w-4 h-4 shrink-0" />
-              <span>Đăng ký sân</span>
+              <span>{user?.ownerStatus === 'registered' ? 'Thêm sân' : 'Đăng ký sân'}</span>
             </button>
           </div>
 
           {/* Filter Boxes Grid: Lọc theo Môn thể thao và Địa điểm */}
           <div className={`${isMobileFilterOpen ? 'flex' : 'hidden'} xl:flex flex-col xl:flex-row items-stretch xl:items-center gap-2 xl:gap-2.5 flex-1 overflow-x-auto no-scrollbar p-1.5 -m-1.5 xl:p-0 xl:m-0 xl:flex-wrap xl:overflow-visible`}>
+            {user?.ownerStatus === 'registered' && (
+              <div className="flex w-full items-center gap-1 rounded-xl bg-slate-100/80 p-1 dark:bg-white/10 xl:w-auto">
+                {[['all', 'Toàn bộ sân'], ['mine', 'Sân của tôi']].map(([scope, label]) => (
+                  <button
+                    key={scope}
+                    type="button"
+                    onClick={() => setVenueScope(scope)}
+                    className={`flex-1 rounded-lg px-3 py-2 text-center text-xs font-bold transition-all sm:px-4 xl:flex-none ${venueScope === scope ? 'bg-white text-[#589470] shadow-sm dark:bg-[#0b2538] dark:text-[#74C365]' : 'text-slate-500 hover:text-slate-800 dark:text-slate-300 dark:hover:text-white'}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
             {/* 0. Môn thể thao (Sport) */}
             <FilterSelect
               icon={Trophy}
@@ -225,12 +278,12 @@ export default function Bookings() {
 
           {/* Right action: Create Button */}
           <button
-            onClick={() => setIsHostModalOpen(true)}
+            onClick={openOwnerFlow}
             className="hidden xl:flex px-3.5 py-2 xl:px-5 xl:py-2.5 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-95 text-white shadow-md hover:shadow-lg items-center justify-center gap-1.5 sm:gap-2 transition-all duration-200 active:scale-95 group shrink-0 whitespace-nowrap"
           >
             <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 group-hover:rotate-90 transition-transform duration-300 shrink-0" />
             <span className="sm:hidden">Đăng ký sân</span>
-            <span className="hidden sm:inline">Đăng ký làm chủ sân</span>
+            <span className="hidden sm:inline">{user?.ownerStatus === 'registered' ? 'Thêm sân' : 'Đăng ký làm chủ sân'}</span>
           </button>
 
         </div>
@@ -242,7 +295,7 @@ export default function Bookings() {
         {filteredVenues.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredVenues.map((venue) => (
-              <VenueCard key={venue.id} venue={venue} onChat={handleOpenChat} />
+              <VenueCard key={venue.id} venue={venue} onChat={handleOpenChat} onEdit={handleEditVenue} onDelete={handleDeleteVenue} />
             ))}
           </div>
         ) : (
@@ -272,9 +325,11 @@ export default function Bookings() {
       {/* Host Setup Modal */}
       <HostSetupModal 
         isOpen={isHostModalOpen} 
-        onClose={() => setIsHostModalOpen(false)} 
+        initialVenue={editingVenue}
+        onClose={() => { setIsHostModalOpen(false); setEditingVenue(null); }} 
         onSave={handleHostSave} 
       />
+      <OwnerRegistrationModal isOpen={isOwnerTermsOpen} onClose={() => setIsOwnerTermsOpen(false)} onAgree={() => { applyOwnerRegistration(); setIsOwnerTermsOpen(false); setIsHostModalOpen(true); }} />
 
     </div>
   );

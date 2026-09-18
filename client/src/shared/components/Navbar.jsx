@@ -140,7 +140,7 @@ export default function Navbar() {
             className="cursor-pointer group select-none flex items-center gap-1.5"
           >
             <span className="text-xl sm:text-3xl font-black tracking-tight text-white transition-transform group-hover:scale-105">
-              SportGo
+              Sport<span className={user?.isCourtOwner ? 'owner-water-go' : ''}>Go</span>
             </span>
           </div>
         </div>
@@ -239,8 +239,8 @@ export default function Navbar() {
                 title={item.label}
               >
                 {item.isAvatar ? (
-                  <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center font-black text-[11px] sm:text-xs transition-colors shadow-sm ${isActive ? 'bg-white text-[#589470]' : 'bg-white/80 text-[#589470] group-hover:bg-white'}`}>
-                    {getAvatarLetter()}
+                  <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center font-black text-[11px] sm:text-xs transition-colors shadow-sm ${user?.isCourtOwner ? 'owner-avatar-ring-active p-[2px]' : isActive ? 'bg-white text-[#589470]' : 'bg-white/80 text-[#589470] group-hover:bg-white'}`}>
+                    {user?.isCourtOwner ? <span className="flex h-full w-full items-center justify-center rounded-full bg-white text-[#589470]">{getAvatarLetter()}</span> : getAvatarLetter()}
                   </div>
                 ) : (
                   <>

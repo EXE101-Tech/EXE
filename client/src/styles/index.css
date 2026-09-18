@@ -119,6 +119,37 @@ body.navbar-tabs-hidden .navbar-filter-bar {
   animation: fadeInScale 0.6s ease-out forwards;
 }
 
+@keyframes owner-water-flow {
+  0%, 100% { background-position: 0% 50%; filter: saturate(1); }
+  50% { background-position: 100% 50%; filter: saturate(1.35); }
+}
+
+.owner-avatar-ring-active {
+  background: linear-gradient(135deg, #075985, #06b6d4, #67e8f9, #0891b2, #075985);
+  background-size: 300% 300%;
+  animation: owner-water-flow 4s ease-in-out infinite;
+}
+
+.owner-water-text {
+  background: linear-gradient(90deg, #087f8c, #06b6d4, #22d3ee, #087f8c);
+  background-size: 250% auto;
+  animation: owner-water-flow 3s ease-in-out infinite;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.owner-water-go {
+  display: inline-block;
+  background: linear-gradient(100deg, #d8fbff, #22d3ee, #0891b2, #b9f8ff, #22d3ee);
+  background-size: 300% auto;
+  animation: owner-water-flow 3s ease-in-out infinite;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 14px rgba(103, 232, 249, 0.35);
+}
+
 @keyframes fadeInScale {
   0% { opacity: 0; transform: scale(0.98); }
   100% { opacity: 1; transform: none; }

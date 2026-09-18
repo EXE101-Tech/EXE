@@ -4,6 +4,9 @@ import { Activity, CalendarDays, Eye, ImagePlus, LogOut, Pencil, Star, Trophy, U
 import heroBgImg from '../../assets/sports/badminton.avif';
 import EditProfileModal from '../profile/EditProfileModal';
 import { useAuth } from '../../shared/context/AuthContext';
+import OwnerRegistrationModal from '../bookings/components/OwnerRegistrationModal';
+import OwnerCancellationModal from '../bookings/components/OwnerCancellationModal';
+import HostSetupModal from '../bookings/components/HostSetupModal';
 
 const INITIAL_USER_SKILLS = [
   { sport: 'Cầu lông', key: 'Badminton', emoji: '🏸', level: 'Khá', percentage: 75, games: 28, rating: '4.8', color: 'from-blue-500 to-indigo-500' },
@@ -31,11 +34,15 @@ const STATS = [
 
 function Home() {
   const navigate = useNavigate();
-  const { user, logout, updateProfile } = useAuth();
+  const { user, logout, updateProfile, applyOwnerRegistration, cancelOwnerRegistration } = useAuth();
   const [skills, setSkills] = useState(INITIAL_USER_SKILLS);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [coverImage, setCoverImage] = useState(heroBgImg);
   const [isCoverPreviewOpen, setIsCoverPreviewOpen] = useState(false);
+  const [isOwnerTermsOpen, setIsOwnerTermsOpen] = useState(false);
+  const [isHostSetupOpen, setIsHostSetupOpen] = useState(false);
+  const [isOwnerCancellationOpen, setIsOwnerCancellationOpen] = useState(false);
+  const [ownedVenueCount, setOwnedVenueCount] = useState(0);
   const coverInputRef = useRef(null);
 
   const displayName = user?.profile?.full_name || 'Người dùng SportGo';
@@ -56,6 +63,12 @@ function Home() {
     const file = event.target.files?.[0];
     if (file) setCoverImage(URL.createObjectURL(file));
     event.target.value = '';
+  };
+
+  const handleCancelOwnerRegistration = () => {
+    const ownedVenues = JSON.parse(localStorage.getItem('sportgo_owned_venues') || '[]');
+    setOwnedVenueCount(ownedVenues.length);
+    setIsOwnerCancellationOpen(true);
   };
 
   return (
@@ -96,11 +109,11 @@ function Home() {
 
           <div className="relative px-5 sm:px-8 pb-6">
             <div className="-mt-12 sm:-mt-14 flex flex-col lg:flex-row lg:items-end gap-4 lg:gap-6">
-              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-gradient-to-tr from-[#589470] to-[#74C365] p-1.5 shadow-xl shrink-0">
+              <div className={`w-24 h-24 sm:w-28 sm:h-28 rounded-full p-1.5 shadow-xl shrink-0 ${user?.isCourtOwner ? 'owner-avatar-ring-active' : 'bg-gradient-to-tr from-[#589470] to-[#74C365]'}`}>
                 <div className="w-full h-full rounded-full bg-white dark:bg-[#001F3F] flex items-center justify-center font-black text-4xl sm:text-5xl text-[#589470] dark:text-[#74C365]">{avatarLetter}</div>
               </div>
               <div className="min-w-0 flex-1 lg:pb-1">
-                <h2 className="text-xl sm:text-2xl font-black leading-tight text-slate-900 dark:text-white break-words">{displayName}</h2>
+                <h2 className={`${user?.isCourtOwner ? 'owner-water-text' : 'text-slate-900 dark:text-white'} text-xl sm:text-2xl font-black leading-tight break-words`}>{displayName}</h2>
                 <p className="text-sm text-slate-500 dark:text-slate-400 break-all mt-1">{email}</p>
               </div>
               <div className="flex flex-col sm:flex-row gap-3 lg:pb-1 shrink-0">
@@ -108,6 +121,7 @@ function Home() {
                   <Pencil className="w-4 h-4" />
                   Chỉnh sửa hồ sơ
                 </button>
+                <button onClick={() => user?.ownerStatus === 'registered' ? handleCancelOwnerRegistration() : setIsOwnerTermsOpen(true)} className={`px-5 py-3 font-bold rounded-xl transition-all flex items-center justify-center border ${user?.ownerStatus === 'registered' ? 'border-red-200 bg-red-50 text-red-600 hover:bg-red-100 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-200' : 'border-cyan-200 bg-cyan-50 text-cyan-700 hover:bg-cyan-100 dark:border-cyan-400/20 dark:bg-cyan-400/10 dark:text-cyan-200'}`}>{user?.ownerStatus === 'registered' ? 'Hủy đăng ký chủ sân' : 'Đăng ký làm chủ sân'}</button>
                 <button onClick={() => { logout(); navigate('/login'); }} className="px-5 py-3 bg-red-50 hover:bg-red-100 dark:bg-red-500/10 dark:hover:bg-red-500/20 text-red-600 dark:text-red-400 font-bold rounded-xl transition-all flex items-center justify-center gap-2 border border-red-100 dark:border-red-500/20 active:scale-95">
                   <LogOut className="w-4 h-4" />
                   Đăng xuất
@@ -166,6 +180,9 @@ function Home() {
       </div>
 
       <EditProfileModal isOpen={isEditProfileOpen} onClose={() => setIsEditProfileOpen(false)} user={user} onSave={handleProfileSave} />
+      <OwnerRegistrationModal isOpen={isOwnerTermsOpen} onClose={() => setIsOwnerTermsOpen(false)} onAgree={() => { applyOwnerRegistration(); setIsOwnerTermsOpen(false); setIsHostSetupOpen(true); }} />
+      <OwnerCancellationModal isOpen={isOwnerCancellationOpen} ownedVenueCount={ownedVenueCount} onClose={() => setIsOwnerCancellationOpen(false)} onConfirm={() => { cancelOwnerRegistration(); setIsOwnerCancellationOpen(false); }} />
+      <HostSetupModal isOpen={isHostSetupOpen} onClose={() => setIsHostSetupOpen(false)} onSave={() => setIsHostSetupOpen(false)} />
 
       {isCoverPreviewOpen && (
         <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/80 p-4 sm:p-8 backdrop-blur-sm" onClick={() => setIsCoverPreviewOpen(false)} role="presentation">
