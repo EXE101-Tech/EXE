@@ -1,12 +1,15 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { Search, MapPin, DollarSign, Building2, PlusCircle, Sparkles, Filter, RefreshCw, Trophy, Calendar, SlidersHorizontal, Award, Users, ChevronDown } from 'lucide-react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { MapPin, PlusCircle, Filter, Trophy, Calendar, ChevronDown } from 'lucide-react';
 import { useSportFilter } from '../../shared/context/SportFilterContext';
 import { useChat } from '../../shared/context/ChatContext';
 import VenueCard from './components/VenueCard';
 import HostSetupModal from './components/HostSetupModal';
 import OwnerRegistrationModal from './components/OwnerRegistrationModal';
+import OwnerScheduleModal from './components/OwnerScheduleModal';
 import FilterSelect from '../../shared/components/FilterSelect';
 import { useAuth } from '../../shared/context/AuthContext';
+import { courtService, ownerService } from '../../shared/services/api';
 
 import badmintonImg from '../../assets/sports/badminton.avif';
 import footballImg from '../../assets/sports/foodball.avif';
@@ -15,139 +18,67 @@ import tennisImg from '../../assets/sports/tennis.jpg';
 import basketballImg from '../../assets/sports/bong_ro.jpg';
 import volleyballImg from '../../assets/sports/volleyball.jpg';
 
-const INITIAL_VENUES = [
-  {
-    id: 1,
-    name: 'Sân Cầu Lông Proton VIP Q10',
-    sport: 'badminton',
-    sportName: 'Cầu lông',
-    sportEmoji: '🏸',
-    address: '286 Thành Thái, Phường 14, Quận 10, TP.HCM',
-    distance: '0.8 km',
-    rating: 4.9,
-    reviewCount: 42,
-    price: '50.000đ',
-    priceNumber: 50000,
-    courtCount: 6,
-    image: badmintonImg,
-    hostName: 'Anh Tuấn Proton',
-    facilities: { wifi: true, parking: true, shower: true, canteen: true, rental: true },
-  },
-  {
-    id: 2,
-    name: 'Sân Bóng Đá Cỏ Nhân Tạo Elite Q7',
-    sport: 'football',
-    sportName: 'Bóng đá',
-    sportEmoji: '⚽',
-    address: '45 Nguyễn Thị Thập, Tân Phong, Quận 7, TP.HCM',
-    distance: '2.5 km',
-    rating: 4.8,
-    reviewCount: 56,
-    price: '80.000đ',
-    priceNumber: 80000,
-    courtCount: 4,
-    image: footballImg,
-    hostName: 'Chị Mai Elite',
-    facilities: { wifi: true, parking: true, shower: true, canteen: true, rental: true },
-  },
-  {
-    id: 3,
-    name: 'CLB Pickleball Thảo Điền Smash',
-    sport: 'pickleball',
-    sportName: 'Pickleball',
-    sportEmoji: '🏓',
-    address: '12 Quốc Hương, Thảo Điền, TP. Thủ Đức, TP.HCM',
-    distance: '4.1 km',
-    rating: 5.0,
-    reviewCount: 31,
-    price: '60.000đ',
-    priceNumber: 60000,
-    courtCount: 8,
-    image: pickleballImg,
-    hostName: 'Coach Hùng Pickle',
-    facilities: { wifi: true, parking: true, shower: true, canteen: true, rental: true },
-  },
-  {
-    id: 4,
-    name: 'Cụm Sân Tennis Phú Thọ Thể Thao',
-    sport: 'tennis',
-    sportName: 'Tennis',
-    sportEmoji: '🎾',
-    address: '219 Lý Thường Kiệt, Phường 15, Quận 11, TP.HCM',
-    distance: '1.7 km',
-    rating: 4.7,
-    reviewCount: 28,
-    price: '90.000đ',
-    priceNumber: 90000,
-    courtCount: 5,
-    image: tennisImg,
-    hostName: 'Ban Quản Lý Phú Thọ',
-    facilities: { wifi: true, parking: true, shower: true, canteen: false, rental: true },
-  },
-  {
-    id: 5,
-    name: 'Trung Tâm Bóng Rổ SSA Arena Q3',
-    sport: 'basketball',
-    sportName: 'Bóng rổ',
-    sportEmoji: '🏀',
-    address: '141 Võ Văn Tần, Phường 6, Quận 3, TP.HCM',
-    distance: '3.0 km',
-    rating: 4.9,
-    reviewCount: 19,
-    price: '70.000đ',
-    priceNumber: 70000,
-    courtCount: 3,
-    image: basketballImg,
-    hostName: 'Coach Long SSA',
-    facilities: { wifi: true, parking: true, shower: true, canteen: true, rental: true },
-  },
-  {
-    id: 6,
-    name: 'Nhà Thi Đấu Bóng Chuyền Tân Bình',
-    sport: 'volleyball',
-    sportName: 'Bóng chuyền',
-    sportEmoji: '🏐',
-    address: '448 Hoàng Văn Thụ, Phường 4, Tân Bình, TP.HCM',
-    distance: '3.8 km',
-    rating: 4.6,
-    reviewCount: 22,
-    price: '55.000đ',
-    priceNumber: 55000,
-    courtCount: 4,
-    image: volleyballImg,
-    hostName: 'Anh Hoàng Tân Bình',
-    facilities: { wifi: true, parking: true, shower: true, canteen: true, rental: false },
-  },
-];
-
 export default function Bookings() {
+  const navigate = useNavigate();
   const { selectedSport, setSelectedSport } = useSportFilter();
   const { openChat } = useChat();
   const { user, applyOwnerRegistration } = useAuth();
 
-  const [venues, setVenues] = useState(INITIAL_VENUES);
+  const [venues, setVenues] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [locationFilter, setLocationFilter] = useState('all');
   const [venueScope, setVenueScope] = useState('all');
   const [isHostModalOpen, setIsHostModalOpen] = useState(false);
   const [editingVenue, setEditingVenue] = useState(null);
+  const [scheduleVenue, setScheduleVenue] = useState(null);
 
-  useEffect(() => {
-    const savedOwnedVenues = JSON.parse(localStorage.getItem('sportgo_owned_venues') || '[]');
-    if (savedOwnedVenues.length) setVenues((current) => [...savedOwnedVenues, ...current.filter((venue) => !venue.isOwnedByUser)]);
-  }, []);
   const [isOwnerTermsOpen, setIsOwnerTermsOpen] = useState(false);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
 
-  const handleHostSave = (newVenue) => {
-    setVenues(prev => editingVenue
-      ? prev.map((venue) => venue.id === newVenue.id ? newVenue : venue)
-      : [newVenue, ...prev]);
-    const currentOwnedVenues = editingVenue
-      ? venues.map((venue) => venue.id === newVenue.id ? newVenue : venue).filter((venue) => venue.isOwnedByUser)
-      : [newVenue, ...venues].filter((venue) => venue.isOwnedByUser);
-    localStorage.setItem('sportgo_owned_venues', JSON.stringify(currentOwnedVenues));
+  const loadVenues = useCallback(async () => {
+    try {
+      const rows = await courtService.getVenues();
+      const sportMeta = {
+        badminton: { name: 'Cầu lông', emoji: '🏸', image: badmintonImg },
+        football: { name: 'Bóng đá', emoji: '⚽', image: footballImg },
+        pickleball: { name: 'Pickleball', emoji: '🏓', image: pickleballImg },
+        tennis: { name: 'Tennis', emoji: '🎾', image: tennisImg },
+        basketball: { name: 'Bóng rổ', emoji: '🏀', image: basketballImg },
+        volleyball: { name: 'Bóng chuyền', emoji: '🏐', image: volleyballImg },
+      };
+      setVenues(rows.map((venue) => {
+        const meta = sportMeta[venue.sport_key] || {};
+        return {
+          ...venue,
+          sport: venue.sport_key || '',
+          sportName: meta.name || 'Môn thể thao',
+          sportEmoji: meta.emoji || '🏅',
+          image: venue.image_url || meta.image,
+          price: venue.price_label || '',
+          courtCount: venue.court_count,
+          rating: venue.rating,
+          reviewCount: venue.review_count,
+          hostName: venue.owner_name,
+          isOwnedByUser: venue.owner_id === user?.id,
+          facilities: venue.facilities || {},
+        };
+      }));
+      setError('');
+    } catch (err) {
+      setError(err.message || 'Không tải được danh sách sân');
+    } finally { setIsLoading(false); }
+  }, [user?.id]);
+
+  useEffect(() => { loadVenues(); }, [loadVenues]);
+
+  const handleHostSave = async (venueData) => {
+    if (editingVenue) await ownerService.updateVenue(editingVenue.id, venueData);
+    else await ownerService.createVenue(venueData);
+    await loadVenues();
     setEditingVenue(null);
+    setIsHostModalOpen(false);
   };
 
   const handleEditVenue = (venue) => {
@@ -155,15 +86,22 @@ export default function Bookings() {
     setIsHostModalOpen(true);
   };
 
-  const handleDeleteVenue = (venue) => {
-    if (!window.confirm(`Bạn có chắc muốn xóa ${venue.name} không?`)) return;
-    setVenues((current) => current.filter((item) => item.id !== venue.id));
-    const ownedVenues = JSON.parse(localStorage.getItem('sportgo_owned_venues') || '[]');
-    localStorage.setItem('sportgo_owned_venues', JSON.stringify(ownedVenues.filter((item) => item.id !== venue.id)));
+  const handleDeleteVenue = async (venue) => {
+    if (!window.confirm(`Bạn có chắc muốn gỡ ${venue.name} khỏi danh sách không?`)) return;
+    try {
+      await ownerService.removeVenue(venue.id);
+      await loadVenues();
+    } catch (err) { setError(err.message || 'Không gỡ được sân'); }
   };
 
   const handleOpenChat = (venue) => {
-    openChat(venue.hostName || venue.name);
+    openChat({ id: venue.owner_id, name: venue.hostName || venue.name });
+  };
+
+  const handleOwnerRegistration = async () => {
+    await applyOwnerRegistration();
+    setIsOwnerTermsOpen(false);
+    setIsHostModalOpen(true);
   };
 
   const openOwnerFlow = () => {
@@ -200,7 +138,11 @@ export default function Bookings() {
 
   return (
     <div className="min-h-screen bg-transparent text-slate-900 dark:text-white pb-24 font-sans animate-in fade-in duration-300">
-      
+      <div className="mx-auto flex max-w-[1600px] justify-end px-4 pt-3 sm:px-6">
+        <button type="button" onClick={() => navigate('/my-bookings')} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-white">
+          <Calendar className="h-4 w-4 text-emerald-600" /> Lịch đặt của tôi
+        </button>
+      </div>
       {/* Hero Banner Section */}
 
 
@@ -223,7 +165,7 @@ export default function Bookings() {
               className="px-3.5 py-1.5 rounded-lg font-bold text-sm bg-gradient-to-r from-[#74C365] to-[#589470] text-white shadow-md flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap"
             >
               <PlusCircle className="w-4 h-4 shrink-0" />
-              <span>{user?.ownerStatus === 'registered' ? 'Thêm sân' : 'Đăng ký sân'}</span>
+              <span>{user?.ownerStatus === 'registered' ? 'Thêm sân' : 'Đăng ký chủ sân'}</span>
             </button>
           </div>
 
@@ -292,10 +234,13 @@ export default function Bookings() {
       {/* Venues Grid Area */}
       <main className="max-w-[1600px] mx-auto px-4 sm:px-6 pt-4 sm:pt-6">
 
-        {filteredVenues.length > 0 ? (
+        {error && <div role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">{error}</div>}
+        {isLoading ? (
+          <div className="py-16 text-center text-sm font-semibold text-slate-500">Đang tải danh sách sân…</div>
+        ) : filteredVenues.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredVenues.map((venue) => (
-              <VenueCard key={venue.id} venue={venue} onChat={handleOpenChat} onEdit={handleEditVenue} onDelete={handleDeleteVenue} />
+              <VenueCard key={venue.id} venue={venue} onChat={handleOpenChat} onEdit={handleEditVenue} onDelete={handleDeleteVenue} onSchedule={setScheduleVenue} />
             ))}
           </div>
         ) : (
@@ -329,7 +274,8 @@ export default function Bookings() {
         onClose={() => { setIsHostModalOpen(false); setEditingVenue(null); }} 
         onSave={handleHostSave} 
       />
-      <OwnerRegistrationModal isOpen={isOwnerTermsOpen} onClose={() => setIsOwnerTermsOpen(false)} onAgree={() => { applyOwnerRegistration(); setIsOwnerTermsOpen(false); setIsHostModalOpen(true); }} />
+      <OwnerRegistrationModal isOpen={isOwnerTermsOpen} onClose={() => setIsOwnerTermsOpen(false)} onAgree={handleOwnerRegistration} />
+      <OwnerScheduleModal venue={scheduleVenue} isOpen={!!scheduleVenue} onClose={() => setScheduleVenue(null)} />
 
     </div>
   );

@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 from app import models, schemas
+from app.sport_catalog import resolve_sport, sport_key_for
 
 def get_user_by_id(db: Session, user_id: int):
     return db.query(models.User).filter(models.User.id == user_id).first()
@@ -39,17 +40,22 @@ def update_user_profile_with_sports(db: Session, user_id: int, data: schemas.Use
         
     if data.sports is not None:
         for sport_name, skill_level in data.sports.items():
-            sport = db.query(models.Sport).filter(models.Sport.name == sport_name).first()
-            if sport:
-                user_sport = db.query(models.UserSport).filter(
-                    models.UserSport.user_id == user_id, 
-                    models.UserSport.sport_id == sport.id
-                ).first()
+            sport_key = sport_key_for(sport_name)
+            if not sport_key:
+                continue
+            sport = resolve_sport(db, sport_key)
+            user_sport = db.query(models.UserSport).filter(
+                models.UserSport.user_id == user_id,
+                models.UserSport.sport_id == sport.id
+            ).first()
+            if skill_level == "Chưa biết":
                 if user_sport:
-                    user_sport.skill_level = skill_level
-                else:
-                    user_sport = models.UserSport(user_id=user_id, sport_id=sport.id, skill_level=skill_level)
-                    db.add(user_sport)
+                    db.delete(user_sport)
+                continue
+            if user_sport:
+                user_sport.skill_level = skill_level
+            else:
+                db.add(models.UserSport(user_id=user_id, sport_id=sport.id, skill_level=skill_level))
     
     db.commit()
     return get_user_by_id(db, user_id)

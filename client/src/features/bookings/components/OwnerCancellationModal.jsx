@@ -1,6 +1,6 @@
 import { AlertTriangle, ShieldOff, Trash2, X } from 'lucide-react';
 
-export default function OwnerCancellationModal({ isOpen, ownedVenueCount, onClose, onConfirm }) {
+export default function OwnerCancellationModal({ isOpen, ownedVenueCount, onClose, onConfirm, isSubmitting = false, error = '' }) {
   if (!isOpen) return null;
 
   const canCancel = ownedVenueCount === 0;
@@ -18,6 +18,7 @@ export default function OwnerCancellationModal({ isOpen, ownedVenueCount, onClos
         </div>
 
         <div className="space-y-4 p-5 text-sm text-slate-700 dark:text-slate-200 sm:p-6">
+          {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-700 dark:bg-red-950/30 dark:text-red-300">{error}</p>}
           {canCancel ? (
             <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-400/20 dark:bg-emerald-400/10">
               <p className="font-black text-emerald-800 dark:text-emerald-200">Bạn có thể hủy đăng ký</p>
@@ -33,7 +34,7 @@ export default function OwnerCancellationModal({ isOpen, ownedVenueCount, onClos
 
         <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-slate-100 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5 sm:flex-row sm:justify-end sm:gap-3 sm:p-5">
           <button type="button" onClick={onClose} className="rounded-xl px-5 py-2.5 text-sm font-bold text-slate-600 transition hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-white/10">{canCancel ? 'Giữ đăng ký' : 'Đã hiểu'}</button>
-          {canCancel && <button type="button" onClick={onConfirm} className="rounded-xl bg-gradient-to-r from-[#b42318] to-[#e14b3f] px-5 py-2.5 text-sm font-black text-white shadow-lg shadow-red-700/20 transition hover:-translate-y-0.5">Xác nhận hủy đăng ký</button>}
+          {canCancel && <button type="button" disabled={isSubmitting} onClick={onConfirm} className="rounded-xl bg-gradient-to-r from-[#b42318] to-[#e14b3f] px-5 py-2.5 text-sm font-black text-white shadow-lg shadow-red-700/20 transition hover:-translate-y-0.5 disabled:opacity-50">{isSubmitting ? 'Đang hủy…' : 'Xác nhận hủy đăng ký'}</button>}
         </div>
       </div>
     </div>

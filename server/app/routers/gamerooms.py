@@ -45,6 +45,7 @@ def get_match_by_id(id: int, db: Session = Depends(database.get_db)):
 @router.post("/{id}/join", response_model=schemas.MatchParticipantResponse)
 def join_existing_match(
     id: int,
+    data: schemas.MatchJoinRequest,
     current_user = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db)
 ):
@@ -55,7 +56,7 @@ def join_existing_match(
     if match.status in ["FULL", "FINISHED", "CANCELLED"]:
         raise HTTPException(status_code=400, detail=f"Cannot join match in status {match.status}")
         
-    return crud.join_match(db, match_id=id, user_id=current_user.id)
+    return crud.join_match(db, match_id=id, user_id=current_user.id, note=data.note)
 
 @router.post("/{id}/leave")
 def leave_existing_match(

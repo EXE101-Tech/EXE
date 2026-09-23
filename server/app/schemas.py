@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, ConfigDict, model_validator, field_validator
 from typing import List, Optional, Dict
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Token Schemas
 class Token(BaseModel):
@@ -21,6 +21,18 @@ class SportCreate(SportBase):
 class SportResponse(SportBase):
     id: int
     model_config = ConfigDict(from_attributes=True)
+
+class SportCatalogItem(BaseModel):
+    id: Optional[int] = None
+    key: str
+    name: str
+
+class SearchResult(BaseModel):
+    kind: str
+    id: int
+    title: str
+    subtitle: str
+    href: str
 
 # User Sport Schemas
 class UserSportBase(BaseModel):
@@ -76,6 +88,7 @@ class UserResponse(BaseModel):
     id: int
     email: str
     status: str
+    owner_status: str = "none"
     created_at: datetime
     profile: Optional[UserProfileResponse] = None
     sports: List[UserSportResponse] = []
@@ -91,6 +104,87 @@ class VenueBase(BaseModel):
 
 class VenueCreate(VenueBase):
     pass
+
+class OwnerRegistrationRequest(BaseModel):
+    accepted_terms: bool
+
+class OwnerRegistrationResponse(BaseModel):
+    owner_status: str
+    owned_venues_count: int
+
+class OwnerVenueCreate(BaseModel):
+    name: str = Field(..., min_length=2, max_length=160)
+    address: str = Field(..., min_length=3, max_length=255)
+    sport_id: str = Field(..., min_length=2, max_length=40)
+    price_label: str = Field("50.000đ", max_length=100)
+    court_count: int = Field(1, ge=1, le=50)
+    facilities: Dict[str, bool] = Field(default_factory=dict)
+    description: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    image_url: Optional[str] = None
+
+class OwnerVenueUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=2, max_length=160)
+    address: Optional[str] = Field(None, min_length=3, max_length=255)
+    sport_id: Optional[str] = Field(None, min_length=2, max_length=40)
+    price_label: Optional[str] = Field(None, max_length=100)
+    court_count: Optional[int] = Field(None, ge=1, le=50)
+    facilities: Optional[Dict[str, bool]] = None
+    description: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    image_url: Optional[str] = None
+
+class OwnerVenueResponse(BaseModel):
+    id: int
+    name: str
+    address: str
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    description: Optional[str] = None
+    owner_id: Optional[int] = None
+    sport_id: Optional[str] = None
+    price_label: Optional[str] = None
+    court_count: int
+    facilities: Dict[str, bool] = Field(default_factory=dict)
+    image_url: Optional[str] = None
+    is_active: bool
+    model_config = ConfigDict(from_attributes=True)
+
+class OwnerReservationBlockCreate(BaseModel):
+    court_id: int
+    start_time: datetime
+    end_time: datetime
+    note: Optional[str] = Field(None, max_length=500)
+
+    @field_validator("start_time", "end_time")
+    @classmethod
+    def store_utc_naive(cls, value: datetime) -> datetime:
+        return value.astimezone(timezone.utc).replace(tzinfo=None) if value.tzinfo else value
+
+    @model_validator(mode="after")
+    def validate_times(self) -> "OwnerReservationBlockCreate":
+        if self.end_time <= self.start_time:
+            raise ValueError("Thời gian kết thúc phải sau thời gian bắt đầu")
+        return self
+
+class OwnerScheduleItem(BaseModel):
+    id: int
+    court_id: int
+    court_name: str
+    start_time: datetime
+    end_time: datetime
+    kind: str
+    status: Optional[str] = None
+    note: Optional[str] = None
+
+
+class UserStatsResponse(BaseModel):
+    games_played: int = 0
+    teams_joined: int = 0
+    bookings_count: int = 0
+    average_skill_rating: Optional[float] = None
 
 class CourtBase(BaseModel):
     name: str
@@ -121,6 +215,15 @@ class CourtResponse(BaseModel):
 
 class VenueResponse(VenueBase):
     id: int
+    owner_id: Optional[int] = None
+    owner_name: Optional[str] = None
+    sport_key: Optional[str] = None
+    price_label: Optional[str] = None
+    court_count: int = 0
+    facilities: Dict[str, bool] = Field(default_factory=dict)
+    image_url: Optional[str] = None
+    rating: Optional[float] = None
+    review_count: int = 0
     courts: List[CourtResponse] = []
     model_config = ConfigDict(from_attributes=True)
 
@@ -130,11 +233,19 @@ class BookingCreate(BaseModel):
     start_time: datetime
     end_time: datetime
 
+    @field_validator("start_time", "end_time")
+    @classmethod
+    def store_utc_naive(cls, value: datetime) -> datetime:
+        return value.astimezone(timezone.utc).replace(tzinfo=None) if value.tzinfo else value
+
     @model_validator(mode='after')
     def validate_times(self) -> 'BookingCreate':
         if self.end_time <= self.start_time:
             raise ValueError("Thời gian kết thúc phải lớn hơn thời gian bắt đầu")
         return self
+
+class BookingBatchCreate(BaseModel):
+    bookings: List[BookingCreate] = Field(..., min_length=1, max_length=100)
 
 class BookingResponse(BaseModel):
     id: int
@@ -155,6 +266,7 @@ class MatchParticipantResponse(BaseModel):
     user_id: int
     role: str
     status: str
+    note: Optional[str] = None
     joined_at: datetime
     user: UserResponse
     model_config = ConfigDict(from_attributes=True)
@@ -162,12 +274,19 @@ class MatchParticipantResponse(BaseModel):
 class MatchCreate(BaseModel):
     title: str
     description: Optional[str] = None
+    location: Optional[str] = Field(None, max_length=255)
+    price_info: Optional[str] = Field(None, max_length=120)
     sport_id: int
     court_id: Optional[int] = None
     required_level: str
     start_time: datetime
     end_time: datetime
     max_players: int = Field(..., ge=2)
+
+    @field_validator("start_time", "end_time")
+    @classmethod
+    def store_utc_naive(cls, value: datetime) -> datetime:
+        return value.astimezone(timezone.utc).replace(tzinfo=None) if value.tzinfo else value
 
     @model_validator(mode='after')
     def validate_times(self) -> 'MatchCreate':
@@ -212,3 +331,176 @@ class ParticipantStatusUpdate(BaseModel):
         if v not in valid_statuses:
             raise ValueError("Trạng thái phải là APPROVED hoặc REJECTED")
         return v
+
+
+class MatchJoinRequest(BaseModel):
+    note: Optional[str] = Field(None, max_length=500)
+
+
+class ChatConversationCreate(BaseModel):
+    recipient_id: int = Field(..., gt=0)
+
+
+class ChatMessageCreate(BaseModel):
+    text: str = Field(..., min_length=1, max_length=4000)
+
+    @field_validator("text")
+    @classmethod
+    def validate_text(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Tin nhắn không được để trống")
+        return value
+
+
+class ChatUserResponse(BaseModel):
+    id: int
+    name: str
+    avatar_url: Optional[str] = None
+
+
+class ChatMessageResponse(BaseModel):
+    id: int
+    conversation_id: int
+    sender_id: int
+    text: str
+    created_at: datetime
+    is_read: bool
+
+
+class ChatConversationResponse(BaseModel):
+    id: int
+    other_user: ChatUserResponse
+    last_message: Optional[str] = None
+    updated_at: Optional[datetime] = None
+    unread_count: int = 0
+
+
+class ChatConversationDetailResponse(ChatConversationResponse):
+    messages: List[ChatMessageResponse] = Field(default_factory=list)
+
+
+class BookingAvailabilityItem(BaseModel):
+    court_id: int
+    start_time: datetime
+    end_time: datetime
+
+
+# Team / club schemas
+class TeamCreate(BaseModel):
+    name: str = Field(..., min_length=2, max_length=160)
+    sport_id: str = Field(..., min_length=2, max_length=40)
+    sport_name: str = Field(..., min_length=2, max_length=80)
+    description: Optional[str] = None
+    location: str = Field(..., min_length=2, max_length=255)
+    total_slots: int = Field(20, ge=2, le=500)
+    image_url: Optional[str] = None
+    tags: List[str] = Field(default_factory=list)
+
+class TeamUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=2, max_length=160)
+    sport_id: Optional[str] = Field(None, min_length=2, max_length=40)
+    sport_name: Optional[str] = Field(None, min_length=2, max_length=80)
+    description: Optional[str] = None
+    location: Optional[str] = Field(None, min_length=2, max_length=255)
+    total_slots: Optional[int] = Field(None, ge=2, le=500)
+    image_url: Optional[str] = None
+    tags: Optional[List[str]] = None
+
+class TeamResponse(BaseModel):
+    id: int
+    owner_id: Optional[int] = None
+    owner_name: str
+    name: str
+    sport_id: str
+    sport_name: str
+    description: Optional[str] = None
+    location: str
+    total_slots: int
+    member_count: int
+    rating: float
+    rating_count: int
+    image_url: Optional[str] = None
+    tags: List[str] = Field(default_factory=list)
+    membership_status: Optional[str] = None
+    is_captain: bool = False
+    is_member: bool = False
+    created_at: datetime
+
+class TeamMemberResponse(BaseModel):
+    id: int
+    team_id: int
+    user_id: int
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    status: str
+    joined_at: datetime
+
+class TeamMembershipStatusUpdate(BaseModel):
+    status: str
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, value: str) -> str:
+        if value not in {"APPROVED", "REJECTED"}:
+            raise ValueError("Trạng thái phải là APPROVED hoặc REJECTED")
+        return value
+
+class TeamReviewCreate(BaseModel):
+    rating: int = Field(..., ge=1, le=5)
+    comment: Optional[str] = None
+    tags: List[str] = Field(default_factory=list)
+
+class TeamReviewResponse(BaseModel):
+    id: int
+    team_id: int
+    user_id: int
+    rating: int
+    comment: Optional[str] = None
+    tags: List[str] = Field(default_factory=list)
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+# Forum / find-a-game (LFG) schemas
+class LfgPostCreate(BaseModel):
+    sport_id: str = Field(..., min_length=2, max_length=40)
+    sport_name: str = Field(..., min_length=2, max_length=80)
+    title: str = Field(..., min_length=3, max_length=200)
+    description: Optional[str] = None
+    location: str = Field(..., min_length=2, max_length=255)
+    time_slot: str = Field(..., min_length=1, max_length=100)
+    date_label: str = Field(..., min_length=1, max_length=100)
+    current_members: int = Field(1, ge=1, le=500)
+    total_members: int = Field(4, ge=2, le=500)
+    price: Optional[str] = Field(None, max_length=120)
+    skill_level: str = Field(..., min_length=1, max_length=80)
+    image_url: Optional[str] = None
+
+    @model_validator(mode="after")
+    def validate_member_counts(self):
+        if self.current_members > self.total_members:
+            raise ValueError("Số người hiện có không được vượt quá tổng số người")
+        return self
+
+class LfgPostResponse(BaseModel):
+    id: int
+    author_id: int
+    author_name: str
+    sport_id: str
+    sport_name: str
+    title: str
+    description: Optional[str] = None
+    location: Optional[str] = None
+    price_info: Optional[str] = None
+    location: str
+    time_slot: str
+    date_label: str
+    current_members: int
+    total_members: int
+    price: Optional[str] = None
+    skill_level: str
+    image_url: Optional[str] = None
+    status: str
+    has_joined: bool = False
+    created_at: datetime

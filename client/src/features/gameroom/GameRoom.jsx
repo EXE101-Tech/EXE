@@ -1,13 +1,15 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Search, Plus, PlusCircle, Gamepad2, Trophy, Award, Filter, Sparkles, SlidersHorizontal, RefreshCw, AlertCircle, MessageSquare, Send, X, Crown, CheckCircle2, MapPin, Calendar, DollarSign, Users, ChevronDown } from 'lucide-react';
-import { gameRoomService } from '../../shared/services/api';
+import { gameRoomService, sportService } from '../../shared/services/api';
 import { useSportFilter } from '../../shared/context/SportFilterContext';
 import { useChat } from '../../shared/context/ChatContext';
+import { useAuth } from '../../shared/context/AuthContext';
 import RoomCard from './components/RoomCard';
 import CreateRoomModal from './components/CreateRoomModal';
 import JoinRoomModal from './components/JoinRoomModal';
 import ManageRoomModal from './components/ManageRoomModal';
 import FilterSelect from '../../shared/components/FilterSelect';
+import { useSearchParams } from 'react-router-dom';
 
 const SPORTS_TABS = [
   { id: 'all', name: 'Tất cả môn', emoji: '🌟' },
@@ -26,105 +28,19 @@ const LEVEL_TABS = [
   { id: 'Expert', label: 'Chuyên nghiệp' },
 ];
 
-// Rich Mock Fallback Data
-const INITIAL_ROOMS = [
-  {
-    id: 101,
-    title: 'Kèo Cầu lông tối thứ 5 giao lưu trình độ Trung bình - Khá',
-    description: 'Nhóm cố định 2-4-6 tại sân số 2 Viettel Q.10. Tối nay có 2 bạn bận đột xuất nên cần tìm 2 vđv trình độ trung bình yếu đến đánh giao lưu vui vẻ, bao cầu Yonex, trà đá đầy đủ!',
-    sportId: 'badminton',
-    sportName: 'Cầu lông',
-    required_level: 'Intermediate',
-    start_time: new Date(Date.now() + 3 * 3600 * 1000).toISOString(),
-    end_time: new Date(Date.now() + 5 * 3600 * 1000).toISOString(),
-    max_players: 6,
-    status: 'OPEN',
-    location: 'Sân cầu lông Viettel, Số 1 Đào Duy Anh, Q.10',
-    price_info: '~50.000đ / người (Chia đều)',
-    host: { id: 201, name: 'Minh Khang', avatar: '' },
-    participants: [
-      { id: 301, user_id: 301, name: 'Hoàng Long', status: 'APPROVED' },
-      { id: 302, user_id: 302, name: 'Thu Thảo', status: 'APPROVED' },
-      { id: 303, user_id: 303, name: 'Tuấn Anh', status: 'PENDING' },
-    ],
-  },
-  {
-    id: 102,
-    title: 'FC Elite tìm 2 hậu vệ đá sân 7 tối mai tại Sân Chấu Giang',
-    description: 'Đội hình đá giải cần rà soát lại lối chơi, tìm 2 anh em đá vị trí hậu vệ biên hoặc trung vệ có thể lực tốt, chơi fairplay không quạu. Sân đẹp, nước suối bao trọn gói.',
-    sportId: 'football',
-    sportName: 'Bóng đá',
-    required_level: 'Advanced',
-    start_time: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
-    end_time: new Date(Date.now() + 26 * 3600 * 1000).toISOString(),
-    max_players: 14,
-    status: 'OPEN',
-    location: 'Sân bóng đá Chấu Giang, Quận 7',
-    price_info: '70.000đ / người',
-    host: { id: 202, name: 'Quốc Đạt', avatar: '' },
-    participants: [
-      { id: 304, user_id: 304, name: 'Văn Toàn', status: 'APPROVED' },
-      { id: 305, user_id: 305, name: 'Đức Huy', status: 'APPROVED' },
-      { id: 306, user_id: 306, name: 'Tiến Linh', status: 'APPROVED' },
-      { id: 307, user_id: 307, name: 'Quang Hải', status: 'APPROVED' },
-      { id: 308, user_id: 308, name: 'Hùng Dũng', status: 'APPROVED' },
-      { id: 309, user_id: 309, name: 'Thành Chung', status: 'APPROVED' },
-      { id: 310, user_id: 310, name: 'Tấn Tài', status: 'APPROVED' },
-      { id: 311, user_id: 311, name: 'Tuấn Hải', status: 'APPROVED' },
-      { id: 312, user_id: 312, name: 'Duy Mạnh', status: 'APPROVED' },
-      { id: 313, user_id: 313, name: 'Hoàng Đức', status: 'APPROVED' },
-      { id: 314, user_id: 314, name: 'Bùi Hoàng', status: 'PENDING' },
-    ],
-  },
-  {
-    id: 103,
-    title: 'Pickleball chiều Chủ Nhật trình 2.0+ vui vẻ ra mồ hôi',
-    description: 'Tìm 2 bạn đánh đôi nam nữ hoặc đôi nam vui vẻ, sân mát mẻ, anh em thân thiện hòa đồng.',
-    sportId: 'pickleball',
-    sportName: 'Pickleball',
-    required_level: 'Beginner',
-    start_time: new Date(Date.now() + 48 * 3600 * 1000).toISOString(),
-    end_time: new Date(Date.now() + 50 * 3600 * 1000).toISOString(),
-    max_players: 4,
-    status: 'OPEN',
-    location: 'Sân Pickleball D-Court, Quận 2',
-    price_info: '~60.000đ / người',
-    host: { id: 203, name: 'Thanh Vân', avatar: '' },
-    participants: [
-      { id: 315, user_id: 315, name: 'Minh Tùng', status: 'APPROVED' },
-    ],
-  },
-  {
-    id: 104,
-    title: 'Giao lưu Tennis đơn nam trình độ Khá, đánh giải nội bộ mini',
-    description: 'Cần tìm đối thủ ngang trình đánh giao lưu 3 set chuẩn, sân đẹp bóng mới.',
-    sportId: 'tennis',
-    sportName: 'Tennis',
-    required_level: 'Expert',
-    start_time: new Date(Date.now() + 12 * 3600 * 1000).toISOString(),
-    end_time: new Date(Date.now() + 14 * 3600 * 1000).toISOString(),
-    max_players: 4,
-    status: 'OPEN',
-    location: 'Cụm sân Tennis Lan Anh, Quận 10',
-    price_info: '100.000đ / người',
-    host: { id: 204, name: 'Victor Vũ', avatar: '' },
-    participants: [
-      { id: 316, user_id: 316, name: 'Alex Trần', status: 'APPROVED' },
-      { id: 317, user_id: 317, name: 'David Nguyễn', status: 'APPROVED' },
-    ],
-  },
-];
-
 function GameRoom() {
+  const [searchParams] = useSearchParams();
+  const searchQuery = searchParams.get('search') || '';
   const { selectedSport, setSelectedSport } = useSportFilter();
   const { openChat } = useChat();
-  const [rooms, setRooms] = useState(INITIAL_ROOMS);
+  const { user } = useAuth();
+  const [rooms, setRooms] = useState([]);
   const [selectedLevel, setSelectedLevel] = useState('all');
   const [selectedLocation, setSelectedLocation] = useState('all');
   const [selectedTime, setSelectedTime] = useState('all');
   const [selectedPrice, setSelectedPrice] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
   const [toastMessage, setToastMessage] = useState('');
 
   // Modals state
@@ -133,23 +49,44 @@ function GameRoom() {
   const [joiningRoom, setJoiningRoom] = useState(null);
   const [managingRoom, setManagingRoom] = useState(null);
 
-  // Load from API on mount (Tạm thời vô hiệu hóa endpoint theo yêu cầu, sử dụng trực tiếp dữ liệu mẫu INITIAL_ROOMS)
-  useEffect(() => {
-    // const fetchRooms = async () => {
-    //   setIsLoading(true);
-    //   try {
-    //     const data = await gameRoomService.getAll();
-    //     if (data && Array.isArray(data) && data.length > 0) {
-    //       setRooms(data);
-    //     }
-    //   } catch (err) {
-    //     console.warn('GameRoom API fallback:', err.message);
-    //   } finally {
-    //     setIsLoading(false);
-    //   }
-    // };
-    // fetchRooms();
-  }, []);
+  const loadRooms = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const [data, sports] = await Promise.all([gameRoomService.getAll(), sportService.getAll()]);
+      const keyById = Object.fromEntries(sports.filter((sport) => sport.id != null).map((sport) => [sport.id, sport.key]));
+      const mapped = data.map((match) => ({
+        ...match,
+        sportId: keyById[match.sport_id] || '',
+        sportName: match.sport?.name || 'Môn thể thao',
+        start_time: match.start_time?.endsWith('Z') ? match.start_time : `${match.start_time}Z`,
+        end_time: match.end_time?.endsWith('Z') ? match.end_time : `${match.end_time}Z`,
+        host: {
+          id: match.host_id,
+          name: match.host?.profile?.full_name || match.host?.email || 'Người chơi',
+          avatar: match.host?.profile?.avatar_url || '',
+        },
+        participants: (match.participants || []).filter((participant) => participant.role !== 'HOST').map((participant) => ({
+          ...participant,
+          name: participant.user?.profile?.full_name || participant.user?.email || 'Người chơi',
+          user: {
+            id: participant.user_id,
+            name: participant.user?.profile?.full_name || participant.user?.email || 'Người chơi',
+            avatar: participant.user?.profile?.avatar_url || '',
+          },
+        })),
+        isMyRoom: match.host_id === user?.id,
+      }));
+      setRooms(mapped.filter((room) => !['CANCELLED', 'FINISHED'].includes(room.status)));
+      setError('');
+      return mapped;
+    } catch (err) {
+      setError(err.message || 'Không tải được danh sách phòng chơi');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user?.id]);
+
+  useEffect(() => { loadRooms(); }, [loadRooms]);
 
   // Show auto-dismissing toast
   const showToast = (msg) => {
@@ -160,6 +97,11 @@ function GameRoom() {
   // Filtered rooms
   const filteredRooms = useMemo(() => {
     return rooms.filter((room) => {
+      if (searchQuery.trim()) {
+        const q = searchQuery.trim().toLowerCase();
+        return [room.title, room.location, room.host?.name, room.description]
+          .some((value) => value?.toLowerCase().includes(q));
+      }
       // Filter by Sport from Navbar
       if (selectedSport && selectedSport !== 'all') {
         const s = selectedSport.toLowerCase();
@@ -191,99 +133,66 @@ function GameRoom() {
         if (selectedPrice === '50-80' && (p <= 50000 || p > 80000)) return false;
         if (selectedPrice === 'tren80' && p <= 80000) return false;
       }
-      // Filter by Search Query
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchTitle = room.title?.toLowerCase().includes(q);
-        const matchLoc = room.location?.toLowerCase().includes(q);
-        const matchHost = room.host?.name?.toLowerCase().includes(q);
-        if (!matchTitle && !matchLoc && !matchHost) return false;
-      }
       return true;
     });
   }, [rooms, selectedSport, selectedLevel, selectedLocation, selectedTime, selectedPrice, searchQuery]);
 
-  // Handle Create Room (Sử dụng hoàn toàn mock data tạm thời không gọi API endpoint)
   const handleCreateSubmit = async (newRoomData) => {
     setIsLoading(true);
-    setTimeout(() => {
-      const mockCreated = {
-        id: Date.now(),
-        ...newRoomData,
-        host: { id: 1, name: 'Bạn (Trưởng phòng)', avatar: '' },
-        status: 'OPEN',
-        participants: [],
-        isMyRoom: true,
-      };
-      setRooms((prev) => [mockCreated, ...prev]);
-      showToast('🎉 Đã khởi tạo Phòng chờ mới thành công! Bạn là Trưởng phòng.');
-      setIsLoading(false);
+    try {
+      await gameRoomService.create({
+        title: newRoomData.title.trim(),
+        description: newRoomData.description?.trim() || null,
+        sport_id: Number(newRoomData.sport_id),
+        required_level: newRoomData.required_level,
+        start_time: newRoomData.start_time,
+        end_time: newRoomData.end_time,
+        max_players: Number(newRoomData.max_players),
+        location: newRoomData.location.trim(),
+        price_info: newRoomData.price_info?.trim() || null,
+      });
+      await loadRooms();
+      showToast('Đã tạo phòng chơi.');
       setIsCreateOpen(false);
-    }, 400);
+    } catch (err) {
+      setError(err.message || 'Không tạo được phòng chơi');
+      showToast(err.message || 'Không tạo được phòng chơi');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Handle Join Room Confirm (Sử dụng mock data tạm thời)
   const handleJoinConfirm = async (roomId, note) => {
     setIsLoading(true);
-    setTimeout(() => {
-      setRooms((prev) =>
-        prev.map((r) => {
-          if (r.id === roomId) {
-            const exists = r.participants.some((p) => p.user_id === 1 || p.id === 1);
-            if (!exists) {
-              return {
-                ...r,
-                participants: [
-                  ...r.participants,
-                  { id: 1, user_id: 1, name: 'Bạn', status: 'PENDING', note },
-                ],
-              };
-            }
-          }
-          return r;
-        })
-      );
-      showToast('🚀 Đã gửi yêu cầu xin vào phòng! Trạng thái: Đang chờ duyệt.');
-      setIsLoading(false);
+    try {
+      await gameRoomService.join(roomId, note);
+      await loadRooms();
+      showToast('Đã gửi yêu cầu tham gia phòng.');
       setJoiningRoom(null);
-    }, 400);
+    } catch (err) {
+      showToast(err.message || 'Không gửi được yêu cầu tham gia');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Handle Host Approve / Reject Participant (Sử dụng mock data tạm thời)
   const handleUpdateStatus = async (roomId, userId, status) => {
     setIsLoading(true);
-    setTimeout(() => {
-      const updateFn = (r) => {
-        if (r.id === roomId) {
-          if (status === 'REJECTED') {
-            return {
-              ...r,
-              participants: r.participants.filter((p) => (p.user_id || p.id) !== userId),
-            };
-          } else {
-            return {
-              ...r,
-              participants: r.participants.map((p) =>
-                (p.user_id || p.id) === userId ? { ...p, status: 'APPROVED' } : p
-              ),
-            };
-          }
-        }
-        return r;
-      };
-
-      setRooms((prev) => prev.map(updateFn));
-      if (managingRoom && managingRoom.id === roomId) {
-        setManagingRoom((prev) => updateFn(prev));
-      }
-      showToast(`✔ Đã cập nhật trạng thái thành viên: ${status === 'APPROVED' ? 'Đã duyệt' : 'Đã từ chối'}`);
+    try {
+      await gameRoomService.approveParticipant(roomId, userId, status);
+      const refreshed = await loadRooms();
+      setManagingRoom(refreshed.find((room) => room.id === roomId) || null);
+      showToast(`Đã ${status === 'APPROVED' ? 'duyệt' : 'từ chối'} thành viên.`);
+    } catch (err) {
+      showToast(err.message || 'Không cập nhật được thành viên');
+    } finally {
       setIsLoading(false);
-    }, 300);
+    }
   };
 
   // Handle Open Chat
   const handleOpenChat = (room) => {
-    openChat(room.host?.name || 'Trưởng phòng');
+    openChat(room.host);
   };
 
   return (
@@ -417,6 +326,8 @@ function GameRoom() {
       {/* Main Content Area */}
       <main className="max-w-[1600px] mx-auto px-4 sm:px-6 md:px-12 pt-4 sm:pt-6">
 
+        {error && <div role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">{error}</div>}
+
 
         {/* Room Cards Grid */}
         {isLoading ? (
@@ -446,7 +357,7 @@ function GameRoom() {
               <RoomCard
                 key={room.id}
                 room={room}
-                currentUserId={1}
+                currentUserId={user?.id || 0}
                 onJoin={(r) => setJoiningRoom(r)}
                 onChat={(r) => handleOpenChat(r)}
                 onManage={(r) => setManagingRoom(r)}

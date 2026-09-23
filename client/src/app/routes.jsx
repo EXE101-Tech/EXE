@@ -5,6 +5,7 @@ import Home from '../features/home/Home.jsx';
 import Tournament from '../features/tournament/Tournament.jsx';
 import GameRoom from '../features/gameroom/GameRoom.jsx';
 import Bookings from '../features/bookings/Bookings.jsx';
+import MyBookings from '../features/bookings/MyBookings.jsx';
 import MapPage from '../features/map/Map.jsx';
 import Team from '../features/team/Team.jsx';
 import CourtDetailPage from '../features/courts/pages/CourtDetailPage.jsx';
@@ -89,6 +90,7 @@ function AppRoutes() {
                                 <Route path="/tournaments" element={<Tournament />} />
                                 <Route path="/matches" element={<GameRoom />} />
                                 <Route path="/bookings" element={<Bookings />} />
+                                <Route path="/my-bookings" element={<MyBookings />} />
                                 <Route path="/team" element={<Team />} />
                                 <Route path="/courts/:id" element={<CourtDetailPage />} />
                             </Route>

@@ -1,21 +1,12 @@
-import { useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Activity, CalendarDays, Eye, ImagePlus, LogOut, Pencil, Star, Trophy, Users, X } from 'lucide-react';
+import { Activity, CalendarDays, Eye, LogOut, Pencil, Star, Trophy, Users, X } from 'lucide-react';
 import heroBgImg from '../../assets/sports/badminton.avif';
 import EditProfileModal from '../profile/EditProfileModal';
 import { useAuth } from '../../shared/context/AuthContext';
 import OwnerRegistrationModal from '../bookings/components/OwnerRegistrationModal';
 import OwnerCancellationModal from '../bookings/components/OwnerCancellationModal';
-import HostSetupModal from '../bookings/components/HostSetupModal';
-
-const INITIAL_USER_SKILLS = [
-  { sport: 'Cầu lông', key: 'Badminton', emoji: '🏸', level: 'Khá', percentage: 75, games: 28, rating: '4.8', color: 'from-blue-500 to-indigo-500' },
-  { sport: 'Bóng đá', key: 'Football', emoji: '⚽', level: 'Trung bình khá', percentage: 65, games: 18, rating: '4.5', color: 'from-emerald-500 to-green-500' },
-  { sport: 'Pickleball', key: 'Pickleball', emoji: '🏓', level: 'Mới chơi', percentage: 25, games: 6, rating: '4.1', color: 'from-teal-400 to-cyan-500' },
-  { sport: 'Tennis', key: 'Tennis', emoji: '🎾', level: 'Khá', percentage: 70, games: 21, rating: '4.6', color: 'from-orange-400 to-amber-500' },
-  { sport: 'Bóng rổ', key: 'Basketball', emoji: '🏀', level: 'Trung bình', percentage: 50, games: 12, rating: '4.3', color: 'from-violet-500 to-indigo-500' },
-  { sport: 'Bóng chuyền', key: 'Volleyball', emoji: '🏐', level: 'Cơ bản', percentage: 40, games: 9, rating: '4.2', color: 'from-yellow-400 to-orange-400' },
-];
+import { authService, ownerService } from '../../shared/services/api';
 
 const LEVEL_META = {
   'Chưa biết': { label: 'Chưa biết', percentage: 10 },
@@ -25,50 +16,96 @@ const LEVEL_META = {
   Expert: { label: 'Chuyên nghiệp', percentage: 95 },
 };
 
-const STATS = [
-  { label: 'Trận đã chơi', value: '42', icon: Trophy, color: 'text-amber-500 bg-amber-500/10' },
-  { label: 'Đội đã tham gia', value: '8', icon: Users, color: 'text-blue-500 bg-blue-500/10' },
-  { label: 'Lần đặt sân', value: '16', icon: CalendarDays, color: 'text-emerald-500 bg-emerald-500/10' },
-  { label: 'Điểm uy tín', value: '98', icon: Star, color: 'text-violet-500 bg-violet-500/10' },
-];
+const SKILL_STYLE = {
+  badminton: { emoji: '🏸', color: 'from-blue-500 to-indigo-500' },
+  football: { emoji: '⚽', color: 'from-emerald-500 to-green-500' },
+  pickleball: { emoji: '🏓', color: 'from-teal-400 to-cyan-500' },
+  tennis: { emoji: '🎾', color: 'from-orange-400 to-amber-500' },
+  basketball: { emoji: '🏀', color: 'from-violet-500 to-indigo-500' },
+  volleyball: { emoji: '🏐', color: 'from-yellow-400 to-orange-400' },
+};
+const SPORT_KEY_BY_NAME = { badminton: 'badminton', 'cầu lông': 'badminton', football: 'football', 'bóng đá': 'football', pickleball: 'pickleball', tennis: 'tennis', basketball: 'basketball', 'bóng rổ': 'basketball', volleyball: 'volleyball', 'bóng chuyền': 'volleyball' };
 
 function Home() {
   const navigate = useNavigate();
   const { user, logout, updateProfile, applyOwnerRegistration, cancelOwnerRegistration } = useAuth();
-  const [skills, setSkills] = useState(INITIAL_USER_SKILLS);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
-  const [coverImage, setCoverImage] = useState(heroBgImg);
   const [isCoverPreviewOpen, setIsCoverPreviewOpen] = useState(false);
   const [isOwnerTermsOpen, setIsOwnerTermsOpen] = useState(false);
-  const [isHostSetupOpen, setIsHostSetupOpen] = useState(false);
   const [isOwnerCancellationOpen, setIsOwnerCancellationOpen] = useState(false);
   const [ownedVenueCount, setOwnedVenueCount] = useState(0);
-  const coverInputRef = useRef(null);
+  const [isCancelSubmitting, setIsCancelSubmitting] = useState(false);
+  const [ownerError, setOwnerError] = useState('');
+  const [stats, setStats] = useState({ games_played: 0, teams_joined: 0, bookings_count: 0, average_skill_rating: null });
 
-  const displayName = user?.profile?.full_name || 'Người dùng SportGo';
-  const email = user?.email || 'user@sportgo.vn';
+  const displayName = user?.profile?.full_name || user?.email?.split('@')[0] || 'Người dùng';
+  const email = user?.email || '';
   const avatarLetter = displayName.charAt(0).toUpperCase();
 
-  const handleProfileSave = (data) => {
-    updateProfile(data);
-    if (data.sports) {
-      setSkills((currentSkills) => currentSkills.map((skill) => {
-        const levelMeta = LEVEL_META[data.sports[skill.key]];
-        return levelMeta ? { ...skill, ...levelMeta } : skill;
-      }));
+  useEffect(() => {
+    let active = true;
+    Promise.all([authService.getStats(), ownerService.getStatus()]).then(([nextStats, owner]) => {
+      if (!active) return;
+      setStats(nextStats);
+      setOwnedVenueCount(owner.owned_venues_count);
+    }).catch((error) => {
+      if (active) setOwnerError(error.message || 'Không tải được thống kê tài khoản');
+    });
+    return () => { active = false; };
+  }, [user?.id]);
+
+  const skills = useMemo(() => (user?.sports || []).map((item) => {
+    const sportName = item.sport?.name || 'Môn thể thao';
+    const key = SPORT_KEY_BY_NAME[sportName.toLowerCase()] || sportName.toLowerCase();
+    const level = LEVEL_META[item.skill_level] || { label: item.skill_level, percentage: 0 };
+    return {
+      key: item.id,
+      sport: sportName,
+      emoji: SKILL_STYLE[key]?.emoji || '🏅',
+      color: SKILL_STYLE[key]?.color || 'from-slate-400 to-slate-600',
+      level: level.label,
+      percentage: level.percentage,
+      games: item.games_played || 0,
+      rating: Number(item.rating || 0).toFixed(1),
+    };
+  }), [user?.sports]);
+
+  const statsCards = [
+    { label: 'Trận đã chơi', value: stats.games_played, icon: Trophy, color: 'text-amber-500 bg-amber-500/10' },
+    { label: 'CLB tham gia', value: stats.teams_joined, icon: Users, color: 'text-blue-500 bg-blue-500/10' },
+    { label: 'Lần đặt sân', value: stats.bookings_count, icon: CalendarDays, color: 'text-emerald-500 bg-emerald-500/10' },
+    { label: 'Điểm kỹ năng TB', value: stats.average_skill_rating ?? '—', icon: Star, color: 'text-violet-500 bg-violet-500/10' },
+  ];
+
+  const handleCancelOwnerRegistration = async () => {
+    setOwnerError('');
+    try {
+      const status = await ownerService.getStatus();
+      setOwnedVenueCount(status.owned_venues_count);
+    } catch (error) {
+      setOwnerError(error.message || 'Không tải được trạng thái chủ sân');
     }
-  };
-
-  const handleCoverChange = (event) => {
-    const file = event.target.files?.[0];
-    if (file) setCoverImage(URL.createObjectURL(file));
-    event.target.value = '';
-  };
-
-  const handleCancelOwnerRegistration = () => {
-    const ownedVenues = JSON.parse(localStorage.getItem('sportgo_owned_venues') || '[]');
-    setOwnedVenueCount(ownedVenues.length);
     setIsOwnerCancellationOpen(true);
+  };
+
+  const handleCancelOwnerConfirm = async () => {
+    setIsCancelSubmitting(true);
+    setOwnerError('');
+    try {
+      await cancelOwnerRegistration();
+      setOwnedVenueCount(0);
+      setIsOwnerCancellationOpen(false);
+    } catch (error) {
+      setOwnerError(error.message || 'Không thể hủy đăng ký lúc này');
+      const status = await ownerService.getStatus().catch(() => null);
+      if (status) setOwnedVenueCount(status.owned_venues_count);
+    } finally { setIsCancelSubmitting(false); }
+  };
+
+  const handleOwnerRegistration = async () => {
+    await applyOwnerRegistration();
+    setIsOwnerTermsOpen(false);
+    navigate('/bookings');
   };
 
   return (
@@ -82,7 +119,7 @@ function Home() {
         <section className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl rounded-3xl border border-slate-200/60 dark:border-slate-700/60 shadow-xl shadow-slate-200/30 dark:shadow-black/30 overflow-hidden">
           {/* Cover and profile identity */}
           <div className="relative h-48 sm:h-64 overflow-hidden group/cover">
-            <img src={coverImage} alt="Ảnh bìa hồ sơ" className="w-full h-full object-cover object-[50%_42%]" />
+            <img src={heroBgImg} alt="Ảnh bìa hồ sơ" className="w-full h-full object-cover object-[50%_42%]" />
             <div className="absolute inset-0 bg-gradient-to-r from-slate-950/75 via-slate-900/35 to-[#589470]/35" />
             <div className="absolute right-4 top-4 flex items-center gap-2 opacity-100 sm:opacity-0 group-hover/cover:opacity-100 transition-opacity">
               <button
@@ -94,26 +131,16 @@ function Home() {
                 <Eye className="w-4 h-4" />
                 <span className="hidden sm:inline">Xem ảnh</span>
               </button>
-              <button
-                type="button"
-                onClick={() => coverInputRef.current?.click()}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-white/90 px-3 py-2 text-xs font-bold text-slate-800 hover:bg-white transition-colors"
-                title="Đổi ảnh bìa"
-              >
-                <ImagePlus className="w-4 h-4" />
-                <span className="hidden sm:inline">Đổi ảnh bìa</span>
-              </button>
-              <input ref={coverInputRef} type="file" accept="image/*" onChange={handleCoverChange} className="hidden" />
             </div>
           </div>
 
           <div className="relative px-5 sm:px-8 pb-6">
             <div className="-mt-12 sm:-mt-14 flex flex-col lg:flex-row lg:items-end gap-4 lg:gap-6">
-              <div className={`w-24 h-24 sm:w-28 sm:h-28 rounded-full p-1.5 shadow-xl shrink-0 ${user?.isCourtOwner ? 'owner-avatar-ring-active' : 'bg-gradient-to-tr from-[#589470] to-[#74C365]'}`}>
+              <div className={`w-24 h-24 sm:w-28 sm:h-28 rounded-full p-1.5 shadow-xl shrink-0 ${user?.ownerStatus === 'registered' ? 'owner-avatar-ring-active' : 'bg-gradient-to-tr from-[#589470] to-[#74C365]'}`}>
                 <div className="w-full h-full rounded-full bg-white dark:bg-[#001F3F] flex items-center justify-center font-black text-4xl sm:text-5xl text-[#589470] dark:text-[#74C365]">{avatarLetter}</div>
               </div>
               <div className="min-w-0 flex-1 lg:pb-1">
-                <h2 className={`${user?.isCourtOwner ? 'owner-water-text' : 'text-slate-900 dark:text-white'} text-xl sm:text-2xl font-black leading-tight break-words`}>{displayName}</h2>
+                <h2 className={`${user?.ownerStatus === 'registered' ? 'owner-water-text' : 'text-slate-900 dark:text-white'} text-xl sm:text-2xl font-black leading-tight break-words`}>{displayName}</h2>
                 <p className="text-sm text-slate-500 dark:text-slate-400 break-all mt-1">{email}</p>
               </div>
               <div className="flex flex-col sm:flex-row gap-3 lg:pb-1 shrink-0">
@@ -132,7 +159,7 @@ function Home() {
 
           {/* Quick stats */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 px-5 sm:px-8 pb-7">
-            {STATS.map(({ label, value, icon: Icon, color }) => (
+            {statsCards.map(({ label, value, icon: Icon, color }) => (
               <div key={label} className="rounded-2xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/80 dark:bg-slate-900/30 p-3.5 sm:p-4">
                 <div className={`w-8 h-8 rounded-xl ${color} flex items-center justify-center mb-2`}><Icon className="w-4 h-4" /></div>
                 <p className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">{value}</p>
@@ -175,21 +202,21 @@ function Home() {
                 </div>
               ))}
             </div>
+            {skills.length === 0 && <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700">Bạn chưa thêm môn thể thao hoặc trình độ. Hãy cập nhật hồ sơ để lưu kỹ năng của mình.</div>}
           </div>
         </section>
       </div>
 
-      <EditProfileModal isOpen={isEditProfileOpen} onClose={() => setIsEditProfileOpen(false)} user={user} onSave={handleProfileSave} />
-      <OwnerRegistrationModal isOpen={isOwnerTermsOpen} onClose={() => setIsOwnerTermsOpen(false)} onAgree={() => { applyOwnerRegistration(); setIsOwnerTermsOpen(false); setIsHostSetupOpen(true); }} />
-      <OwnerCancellationModal isOpen={isOwnerCancellationOpen} ownedVenueCount={ownedVenueCount} onClose={() => setIsOwnerCancellationOpen(false)} onConfirm={() => { cancelOwnerRegistration(); setIsOwnerCancellationOpen(false); }} />
-      <HostSetupModal isOpen={isHostSetupOpen} onClose={() => setIsHostSetupOpen(false)} onSave={() => setIsHostSetupOpen(false)} />
+      <EditProfileModal isOpen={isEditProfileOpen} onClose={() => setIsEditProfileOpen(false)} user={user} onSave={updateProfile} />
+      <OwnerRegistrationModal isOpen={isOwnerTermsOpen} onClose={() => setIsOwnerTermsOpen(false)} onAgree={handleOwnerRegistration} />
+      <OwnerCancellationModal isOpen={isOwnerCancellationOpen} ownedVenueCount={ownedVenueCount} isSubmitting={isCancelSubmitting} error={ownerError} onClose={() => setIsOwnerCancellationOpen(false)} onConfirm={handleCancelOwnerConfirm} />
 
       {isCoverPreviewOpen && (
         <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/80 p-4 sm:p-8 backdrop-blur-sm" onClick={() => setIsCoverPreviewOpen(false)} role="presentation">
           <button type="button" onClick={() => setIsCoverPreviewOpen(false)} className="absolute right-4 top-4 rounded-full bg-white/10 p-2.5 text-white hover:bg-white/20 transition-colors" aria-label="Đóng ảnh bìa">
             <X className="w-5 h-5" />
           </button>
-          <img src={coverImage} alt="Ảnh bìa hồ sơ phóng to" className="max-h-[90vh] max-w-full rounded-2xl object-contain shadow-2xl" onClick={(event) => event.stopPropagation()} />
+          <img src={heroBgImg} alt="Ảnh bìa hồ sơ phóng to" className="max-h-[90vh] max-w-full rounded-2xl object-contain shadow-2xl" onClick={(event) => event.stopPropagation()} />
         </div>
       )}
     </div>

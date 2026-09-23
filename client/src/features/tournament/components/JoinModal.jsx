@@ -1,8 +1,22 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { X, CheckCircle, AlertCircle, MapPin, Calendar, Users, DollarSign, Award, ShieldAlert } from 'lucide-react';
 
 export default function JoinModal({ isOpen, onClose, post, onConfirm }) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
   if (!isOpen || !post) return null;
+
+  const confirmJoin = async () => {
+    setIsSubmitting(true);
+    setError('');
+    try {
+      await onConfirm(post);
+    } catch (err) {
+      setError(err.message || 'Không thể tham gia bài đăng này');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -33,6 +47,7 @@ export default function JoinModal({ isOpen, onClose, post, onConfirm }) {
 
         {/* Content Body */}
         <div className="p-6 space-y-5">
+          {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-700 dark:bg-red-950/30 dark:text-red-300">{error}</p>}
           
           {/* Author info */}
           <div className="flex items-center gap-3 p-3.5 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/10">
@@ -94,14 +109,12 @@ export default function JoinModal({ isOpen, onClose, post, onConfirm }) {
           </button>
           
           <button
-            onClick={() => {
-              onConfirm(post);
-              onClose();
-            }}
+            onClick={confirmJoin}
+            disabled={isSubmitting}
             className="px-6 py-2.5 rounded-2xl font-bold text-sm bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-95 text-white shadow-lg shadow-[#589470]/30 flex items-center gap-2 transition-transform active:scale-95"
           >
             <CheckCircle className="w-4 h-4 stroke-[2.5]" />
-            <span>Xác nhận tham gia kèo</span>
+            <span>{isSubmitting ? 'Đang xử lý…' : 'Tham gia bài đăng'}</span>
           </button>
         </div>
 

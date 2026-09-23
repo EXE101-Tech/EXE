@@ -1,4 +1,4 @@
-import { Star, MapPin, MessageSquare, ShieldCheck, Clock, Award } from 'lucide-react';
+import { Star, MapPin, MessageSquare, ShieldCheck } from 'lucide-react';
 import { useChat } from '../../../shared/context/ChatContext';
 
 const SPORT_BADGE = {
@@ -11,7 +11,7 @@ const SPORT_BADGE = {
 };
 
 function CourtInfo({ court }) {
-  const { name, sport, rating, reviewCount, address, distance, price, description, courtCount, hostName } = court;
+  const { sport, rating, reviewCount, address, distance, price, description, courtCount, hostName, owner_id: ownerId } = court;
   const badge = SPORT_BADGE[sport] ?? { label: sport || 'Thể thao', emoji: '🏆', className: 'bg-slate-500/15 text-slate-600 dark:text-slate-300 border border-slate-500/30' };
   const { openChat } = useChat();
 
@@ -28,13 +28,13 @@ function CourtInfo({ court }) {
 
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-bold">
               <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-              <span>{rating || 4.8}</span>
-              <span className="text-slate-400 font-normal">({reviewCount || 24} đánh giá)</span>
+              <span>{rating == null ? 'Chưa đánh giá' : Number(rating).toFixed(1)}</span>
+              <span className="text-slate-400 font-normal">({reviewCount || 0} đánh giá)</span>
             </div>
 
             <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-bold">
               <ShieldCheck className="w-3.5 h-3.5" />
-              <span>{courtCount || 4} sân sẵn sàng</span>
+              <span>{courtCount ?? 0} sân đang hoạt động</span>
             </div>
           </div>
 
@@ -56,19 +56,19 @@ function CourtInfo({ court }) {
             <div className="text-xs text-slate-400 font-medium">Giá thuê khung 30 phút</div>
             <div className="flex items-baseline gap-1">
               <span className="text-2xl font-black bg-gradient-to-r from-[#74C365] to-[#589470] bg-clip-text text-transparent">
-                {price || '50.000đ'}
+                {price || 'Chưa cập nhật'}
               </span>
               <span className="text-xs font-bold text-slate-400">/ 30p</span>
             </div>
           </div>
 
-          <button
-            onClick={() => openChat(hostName || 'Chủ sân')}
+          {ownerId && <button
+            onClick={() => openChat({ id: ownerId, name: hostName || 'Chủ sân' })}
             className="w-full sm:w-auto px-5 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:opacity-95 text-white font-bold text-xs shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 transition-transform active:scale-95"
           >
             <MessageSquare className="w-4 h-4" />
-            <span>Nhắn tin chủ sân ({hostName || 'Host'})</span>
-          </button>
+            <span>Nhắn tin chủ sân ({hostName || 'Chủ sân'})</span>
+          </button>}
         </div>
       </div>
 

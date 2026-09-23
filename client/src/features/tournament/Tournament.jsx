@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Search, PlusCircle, Users, Sparkles, Filter, MessageSquare, CheckCircle2, SlidersHorizontal, MapPin, Calendar, DollarSign, Award, Trophy, ChevronDown } from 'lucide-react';
 import { useSportFilter } from '../../shared/context/SportFilterContext';
 import { useChat } from '../../shared/context/ChatContext';
@@ -6,6 +7,8 @@ import PostCard from './components/PostCard';
 import JoinModal from './components/JoinModal';
 import CreatePostModal from './components/CreatePostModal';
 import FilterSelect from '../../shared/components/FilterSelect';
+import { lfgService } from '../../shared/services/api';
+import { useAuth } from '../../shared/context/AuthContext';
 
 import badmintonImg from '../../assets/sports/badminton.avif';
 import footballImg from '../../assets/sports/foodball.avif';
@@ -14,118 +17,15 @@ import tennisImg from '../../assets/sports/tennis.jpg';
 import basketballImg from '../../assets/sports/bong_ro.jpg';
 import volleyballImg from '../../assets/sports/volleyball.jpg';
 
-const INITIAL_POSTS = [
-  {
-    id: 1,
-    sportId: 'badminton',
-    sportName: 'Cầu lông',
-    sportEmoji: '🏸',
-    image: badmintonImg,
-    authorName: 'Minh Khang',
-    teamName: 'CLB Cầu Lông Proton',
-    timeAgo: '2 giờ trước',
-    title: 'Nhóm Cầu Lông Viettel tối nay cần giao lưu thêm 2 bạn nam/nữ',
-    description: 'Nhóm mình cố định 2-4-6 tại sân số 2 Viettel Q.10. Tối nay có 2 bạn bận đột xuất nên cần tìm 2 vđv trình độ trung bình yếu đến đánh giao lưu vui vẻ, bao cầu Yonex, trà đá đầy đủ!',
-    location: 'Sân cầu lông Viettel, Quận 10',
-    timeSlot: '19:00 - 21:00',
-    date: 'Tối nay (02/07)',
-    currentMembers: 4,
-    totalMembers: 6,
-    price: '~50.000đ / người (Chia đều)',
-    skillLevel: 'Trung bình yếu',
-    isVerified: true,
-    hasJoined: false,
-  },
-  {
-    id: 2,
-    sportId: 'football',
-    sportName: 'Bóng đá',
-    sportEmoji: '⚽',
-    image: footballImg,
-    authorName: 'Hoàng Long',
-    teamName: 'FC Elite Saigon',
-    timeAgo: '4 giờ trước',
-    title: 'FC Elite cần tìm 2 hậu vệ đá sân 7 tối mai tại Sân Chấu Giang',
-    description: 'Đội hình đá giải cần rà soát lại lối chơi, tìm 2 anh em đá vị trí hậu vệ biên hoặc trung vệ có thể lực tốt, chơi fairplay không quạu. Sân đẹp, nước suối bao trọn gói.',
-    location: 'Sân bóng đá Chấu Giang, Quận 7',
-    timeSlot: '20:00 - 21:30',
-    date: 'Tối mai (03/07)',
-    currentMembers: 12,
-    totalMembers: 14,
-    price: '70.000đ / người',
-    skillLevel: 'Khá / Nâng cao',
-    isVerified: true,
-    hasJoined: false,
-  },
-  {
-    id: 3,
-    sportId: 'pickleball',
-    sportName: 'Pickleball',
-    sportEmoji: '🏓',
-    image: pickleballImg,
-    authorName: 'Thu Hà',
-    teamName: 'Thảo Điền Pickleball Club',
-    timeAgo: '5 giờ trước',
-    title: 'Giao lưu Pickleball đôi nam nữ chiều nay, sân chuẩn quốc tế',
-    description: 'Nhóm 3 người đang thiếu 1 bạn nữ để đánh đôi nam nữ. Nhóm vui vẻ thân thiện, hướng dẫn luật chơi nhiệt tình cho người mới. Có sẵn vợt cho bạn nào chưa có trang bị nhé.',
-    location: 'Sân Pickleball Thảo Điền, TP. Thủ Đức',
-    timeSlot: '17:00 - 19:00',
-    date: 'Chiều nay',
-    currentMembers: 3,
-    totalMembers: 4,
-    price: '80.000đ / người',
-    skillLevel: 'Mới chơi / Vui vẻ',
-    isVerified: false,
-    hasJoined: false,
-  },
-  {
-    id: 4,
-    sportId: 'tennis',
-    sportName: 'Tennis',
-    sportEmoji: '🎾',
-    image: tennisImg,
-    authorName: 'Quang Vinh',
-    teamName: 'Hội Tennis Phú Thọ',
-    timeAgo: '1 ngày trước',
-    title: 'Tuyển 1 tay vợt trình 2.5 - 3.0 đánh đôi cố định sáng Chủ Nhật',
-    description: 'Hội anh em văn phòng chơi thể thao rèn luyện sức khỏe, đánh sân có mái che không lo mưa nắng. Cần tìm 1 tay vợt giao lưu cố định hàng tuần.',
-    location: 'Cụm sân Tennis Phú Thọ, Quận 11',
-    timeSlot: '07:00 - 09:00',
-    date: 'Sáng Chủ Nhật',
-    currentMembers: 3,
-    totalMembers: 4,
-    price: '100.000đ / buổi',
-    skillLevel: 'Khá (2.5 - 3.0)',
-    isVerified: true,
-    hasJoined: false,
-  },
-  {
-    id: 5,
-    sportId: 'basketball',
-    sportName: 'Bóng rổ',
-    sportEmoji: '🏀',
-    image: basketballImg,
-    authorName: 'Tuấn Kiệt',
-    teamName: 'Saigon Street Ballers',
-    timeAgo: '1 ngày trước',
-    title: 'Tuyển 2 ballers thi đấu 3v3 nửa sân tối thứ 6 tuần này',
-    description: 'Giao lưu bóng rổ đường phố 3x3, nhịp độ nhanh, vui vẻ không va chạm mạnh. Anh em nào thích ném 3 điểm hay đột phá thì tham gia ngay cùng nhóm!',
-    location: 'Sân bóng rổ Hồ Xuân Hương, Quận 3',
-    timeSlot: '18:30 - 20:30',
-    date: 'Tối Thứ 6',
-    currentMembers: 4,
-    totalMembers: 6,
-    price: '40.000đ / người',
-    skillLevel: 'Trung bình',
-    isVerified: false,
-    hasJoined: false,
-  },
-];
-
 export default function Tournament() {
+  const [searchParams] = useSearchParams();
+  const routeSearch = (searchParams.get('search') || '').trim().toLowerCase();
   const { selectedSport, setSelectedSport } = useSportFilter();
   const { openChat } = useChat();
-  const [posts, setPosts] = useState(INITIAL_POSTS);
+  const { user } = useAuth();
+  const [posts, setPosts] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
   const [filterLocation, setFilterLocation] = useState('all');
   const [filterTime, setFilterTime] = useState('all');
   const [filterPrice, setFilterPrice] = useState('all');
@@ -136,48 +36,94 @@ export default function Tournament() {
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
 
+  const loadPosts = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const items = await lfgService.getAll({ status: 'ALL', sport_id: selectedSport || undefined });
+      const emojis = { badminton: '🏸', football: '⚽', pickleball: '🏓', tennis: '🎾', basketball: '🏀', volleyball: '🏐' };
+      const images = { badminton: badmintonImg, football: footballImg, pickleball: pickleballImg, tennis: tennisImg, basketball: basketballImg, volleyball: volleyballImg };
+      const mapped = items.filter((post) => post.status !== 'CANCELLED').map((post) => ({
+        ...post,
+        sportId: post.sport_id,
+        sportEmoji: emojis[post.sport_id] || '🏅',
+        image: post.image_url || images[post.sport_id] || badmintonImg,
+        authorName: post.author_name || 'Người chơi',
+        teamName: '',
+        timeAgo: new Date(post.created_at).toLocaleString('vi-VN'),
+        timeSlot: post.time_slot,
+        date: post.date_label,
+        currentMembers: post.current_members,
+        totalMembers: post.total_members,
+        skillLevel: post.skill_level,
+        isAuthor: post.author_id === user?.id,
+        hasJoined: post.has_joined,
+        isVerified: false,
+      }));
+      setPosts(mapped);
+      setError('');
+    } catch (err) {
+      setError(err.message || 'Không tải được bài tìm người chơi');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedSport, user?.id]);
+
+  useEffect(() => { loadPosts(); }, [loadPosts]);
+
   // Filter posts based on selected sport in Navbar and 4 dropdown filters
   const filteredPosts = useMemo(() => {
     return posts.filter(post => {
+      if (routeSearch) {
+        return [post.title, post.location, post.description, post.authorName]
+          .some((value) => value?.toLowerCase().includes(routeSearch));
+      }
       const matchSport = !selectedSport || post.sportId === selectedSport;
+      const postPrice = post.price || '';
       
       const matchLocation = filterLocation === 'all' || post.location.toLowerCase().includes(filterLocation.toLowerCase());
       
       const matchTime = filterTime === 'all' || post.date.toLowerCase().includes(filterTime.toLowerCase()) || post.timeSlot.toLowerCase().includes(filterTime.toLowerCase());
       
       const matchPrice = filterPrice === 'all' || 
-        (filterPrice === 'Dưới 60k' && (post.price.includes('40') || post.price.includes('50'))) ||
-        (filterPrice === '60k - 80k' && (post.price.includes('60') || post.price.includes('70') || post.price.includes('80'))) ||
-        (filterPrice === 'Trên 80k' && (post.price.includes('90') || post.price.includes('100')));
+        (filterPrice === 'Dưới 60k' && (postPrice.includes('40') || postPrice.includes('50'))) ||
+        (filterPrice === '60k - 80k' && (postPrice.includes('60') || postPrice.includes('70') || postPrice.includes('80'))) ||
+        (filterPrice === 'Trên 80k' && (postPrice.includes('90') || postPrice.includes('100')));
         
       const matchSkill = filterSkill === 'all' || post.skillLevel.toLowerCase().includes(filterSkill.toLowerCase());
 
       return matchSport && matchLocation && matchTime && matchPrice && matchSkill;
     });
-  }, [posts, selectedSport, filterLocation, filterTime, filterPrice, filterSkill]);
+  }, [posts, selectedSport, filterLocation, filterTime, filterPrice, filterSkill, routeSearch]);
 
   const handleJoinClick = (post) => {
     setSelectedPost(post);
     setIsJoinModalOpen(true);
   };
 
-  const handleConfirmJoin = (post) => {
-    setPosts(prev => prev.map(p => {
-      if (p.id === post.id) {
-        return { ...p, currentMembers: p.currentMembers + 1, hasJoined: true };
-      }
-      return p;
-    }));
-    showToast(`🎉 Đã gửi yêu cầu tham gia kèo "${post.title.slice(0, 30)}..." thành công! Trưởng nhóm sẽ liên hệ bạn sớm.`);
+  const handleConfirmJoin = async (post) => {
+    await lfgService.join(post.id);
+    await loadPosts();
+    showToast('Bạn đã tham gia bài tìm người chơi.');
+    setIsJoinModalOpen(false);
   };
 
   const handleChatClick = (post) => {
-    openChat(post.authorName || 'Trưởng nhóm');
+    openChat({ id: post.author_id, name: post.authorName });
   };
 
-  const handleCreatePost = (newPost) => {
-    setPosts(prev => [newPost, ...prev]);
-    showToast('✨ Đăng bài tìm thành viên thành công! Bài viết của bạn đã xuất hiện trên trang đầu.');
+  const handleCreatePost = async (newPost) => {
+    await lfgService.create(newPost);
+    await loadPosts();
+    showToast('Đã đăng bài tìm người chơi.');
+    setIsCreateModalOpen(false);
+  };
+
+  const handleCancelPost = async (post) => {
+    try {
+      await lfgService.cancel(post.id);
+      await loadPosts();
+      showToast('Đã hủy bài đăng.');
+    } catch (err) { showToast(err.message || 'Không hủy được bài đăng'); }
   };
 
   const showToast = (msg) => {
@@ -317,8 +263,10 @@ export default function Tournament() {
       {/* ── Main Posts Feed ── */}
       <main className="max-w-[1600px] mx-auto px-4 sm:px-6 pt-4 sm:pt-6">
 
-        
-        {filteredPosts.length === 0 ? (
+        {error && <div role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">{error}</div>}
+        {isLoading ? (
+          <div className="py-16 text-center text-sm font-semibold text-slate-500">Đang tải bài đăng…</div>
+        ) : filteredPosts.length === 0 ? (
           <div className="bg-slate-50 dark:bg-white/5 border border-dashed border-slate-200 dark:border-white/10 rounded-3xl p-12 text-center my-6">
             <div className="w-16 h-16 bg-slate-200 dark:bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
               🔍
@@ -347,6 +295,7 @@ export default function Tournament() {
                 post={post} 
                 onJoin={handleJoinClick} 
                 onChat={handleChatClick} 
+                onCancel={handleCancelPost}
               />
             ))}
           </div>

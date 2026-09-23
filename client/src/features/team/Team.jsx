@@ -1,10 +1,13 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Users, PlusCircle, Sparkles, SlidersHorizontal, Crown, Shield, UserCheck, Trophy, Filter, ChevronDown } from 'lucide-react';
 import { useSportFilter } from '../../shared/context/SportFilterContext';
 import TeamCard from './components/TeamCard';
 import CreateTeamModal from './components/CreateTeamModal';
 import ReviewTeamModal from './components/ReviewTeamModal';
 import FilterSelect from '../../shared/components/FilterSelect';
+import { useSearchParams } from 'react-router-dom';
+import { teamService } from '../../shared/services/api';
+import { useChat } from '../../shared/context/ChatContext';
 
 import badmintonImg from '../../assets/sports/badminton.avif';
 import footballImg from '../../assets/sports/foodball.avif';
@@ -13,138 +16,6 @@ import tennisImg from '../../assets/sports/tennis.jpg';
 import basketballImg from '../../assets/sports/bong_ro.jpg';
 import volleyballImg from '../../assets/sports/volleyball.jpg';
 
-// ── Mock Data ──
-// isCaptain = true  → user hiện tại là chủ CLB
-// isMember  = true  → user hiện tại là thành viên CLB
-const INITIAL_TEAMS = [
-  {
-    id: 1,
-    name: 'CLB Cầu Lông Proton',
-    sportId: 'badminton',
-    sportName: 'Cầu lông',
-    sportEmoji: '🏸',
-    image: badmintonImg,
-    logo: badmintonImg,
-    description: 'Câu lạc bộ cầu lông chuyên nghiệp tại Q.10, tập luyện 3 buổi/tuần với sân riêng và huấn luyện viên đẳng cấp. Ưu tiên tinh thần thể thao fairplay và giao lưu vui vẻ.',
-    location: 'Sân Viettel, Quận 10',
-    members: 42,
-    totalSlots: 50,
-    rating: 4.9,
-    ratingCount: 37,
-    isVip: true,
-    captain: 'Bạn',
-    createdAt: '3 tháng trước',
-    tags: ['Sân đẹp', 'Bao cầu', 'Nhiệt tình'],
-    isCaptain: true,
-    isMember: false,
-  },
-  {
-    id: 2,
-    name: 'FC Elite Saigon',
-    sportId: 'football',
-    sportName: 'Bóng đá',
-    sportEmoji: '⚽',
-    image: footballImg,
-    logo: footballImg,
-    description: 'Đội bóng đá sân 7 hoạt động tại Quận 7, thường xuyên tham gia giải phong trào và tuyển thành viên mới. Tập luyện thứ 3 & thứ 5 hàng tuần.',
-    location: 'Sân Chấu Giang, Quận 7',
-    members: 28,
-    totalSlots: 30,
-    rating: 4.6,
-    ratingCount: 15,
-    isVip: true,
-    captain: 'Quốc Đạt',
-    createdAt: '6 tháng trước',
-    tags: ['Fairplay', 'Giải phong trào', 'Bao nước'],
-    isCaptain: false,
-    isMember: true,
-  },
-  {
-    id: 3,
-    name: 'Pickleball Fun Club',
-    sportId: 'pickleball',
-    sportName: 'Pickleball',
-    sportEmoji: '🏓',
-    image: pickleballImg,
-    logo: pickleballImg,
-    description: 'CLB pickleball năng động dành cho mọi trình độ, đặc biệt chào đón người mới bắt đầu. Sân chuẩn quốc tế, có vợt cho mượn.',
-    location: 'Sân D-Court, TP. Thủ Đức',
-    members: 16,
-    totalSlots: 20,
-    rating: 5.0,
-    ratingCount: 8,
-    isVip: false,
-    captain: 'Thu Hà',
-    createdAt: '1 tháng trước',
-    tags: ['Vui vẻ', 'Có vợt cho mượn', 'Mọi trình độ'],
-    isCaptain: false,
-    isMember: true,
-  },
-  {
-    id: 4,
-    name: 'Saigon Street Ballers',
-    sportId: 'basketball',
-    sportName: 'Bóng rổ',
-    sportEmoji: '🏀',
-    image: basketballImg,
-    logo: basketballImg,
-    description: 'Giao lưu bóng rổ đường phố 3x3 và 5v5, nhịp độ nhanh, vui vẻ không va chạm mạnh. Anh em ai thích ném 3 điểm hay đột phá thì gia nhập ngay!',
-    location: 'Sân Hồ Xuân Hương, Quận 3',
-    members: 18,
-    totalSlots: 25,
-    rating: 4.7,
-    ratingCount: 12,
-    isVip: true,
-    captain: 'Bạn',
-    createdAt: '4 tháng trước',
-    tags: ['3x3', 'Streetball', 'Giao lưu thoải mái'],
-    isCaptain: true,
-    isMember: false,
-  },
-  {
-    id: 5,
-    name: 'Tennis Stars Phú Thọ',
-    sportId: 'tennis',
-    sportName: 'Tennis',
-    sportEmoji: '🎾',
-    image: tennisImg,
-    logo: tennisImg,
-    description: 'Nhóm tennis cho anh em văn phòng rèn luyện sức khỏe cuối tuần, sân có mái che không lo mưa nắng. Trình 2.5 - 3.5 NTRP.',
-    location: 'Sân Tennis Phú Thọ, Quận 11',
-    members: 22,
-    totalSlots: 24,
-    rating: 4.3,
-    ratingCount: 9,
-    isVip: false,
-    captain: 'Quang Vinh',
-    createdAt: '2 tháng trước',
-    tags: ['Sân mái che', 'Cuối tuần', 'Đánh giải nội bộ'],
-    isCaptain: false,
-    isMember: false,
-  },
-  {
-    id: 6,
-    name: 'Bóng Chuyền Sài Gòn Open',
-    sportId: 'volleyball',
-    sportName: 'Bóng chuyền',
-    sportEmoji: '🏐',
-    image: volleyballImg,
-    logo: volleyballImg,
-    description: 'CLB bóng chuyền giao lưu thân thiện, tổ chức giải nội bộ hàng quý, chào đón mọi trình độ. Sân tại Q. Bình Thạnh.',
-    location: 'Sân Bình Thạnh, TP.HCM',
-    members: 30,
-    totalSlots: 40,
-    rating: 4.5,
-    ratingCount: 20,
-    isVip: false,
-    captain: 'Hồng Nhung',
-    createdAt: '5 tháng trước',
-    tags: ['Mọi trình độ', 'Giải nội bộ', 'Vui vẻ'],
-    isCaptain: false,
-    isMember: false,
-  },
-];
-
 const TABS = [
   { id: 'captain', label: 'CLB tôi làm chủ', icon: Crown, emoji: '👑' },
   { id: 'member', label: 'CLB tôi tham gia', icon: UserCheck, emoji: '🤝' },
@@ -152,29 +23,119 @@ const TABS = [
 ];
 
 export default function Team() {
+  const [searchParams] = useSearchParams();
+  const routeSearch = (searchParams.get('search') || '').trim().toLowerCase();
   const { selectedSport, setSelectedSport } = useSportFilter();
-  const [teams] = useState(INITIAL_TEAMS);
+  const { openChat } = useChat();
+  const [teams, setTeams] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('captain');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [editingTeam, setEditingTeam] = useState(null);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [reviewTeam, setReviewTeam] = useState(null);
+  const [memberDialog, setMemberDialog] = useState(null);
+  const [members, setMembers] = useState([]);
   const [alertMessage, setAlertMessage] = useState('');
+
+  const loadTeams = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const items = await teamService.getAll({ scope: 'all', sport_id: selectedSport || undefined });
+      const emojis = { badminton: '🏸', football: '⚽', pickleball: '🏓', tennis: '🎾', basketball: '🏀', volleyball: '🏐' };
+      const images = { badminton: badmintonImg, football: footballImg, pickleball: pickleballImg, tennis: tennisImg, basketball: basketballImg, volleyball: volleyballImg };
+      setTeams(items.map((team) => ({
+        ...team,
+        sportId: team.sport_id,
+        sportEmoji: emojis[team.sport_id] || '🏅',
+        image: team.image_url || images[team.sport_id] || badmintonImg,
+        captain: team.owner_name,
+        members: team.member_count,
+        totalSlots: team.total_slots,
+        ratingCount: team.rating_count,
+        createdAt: new Date(team.created_at).toLocaleDateString('vi-VN'),
+        isCaptain: team.is_captain,
+        isMember: team.is_member,
+        membershipStatus: team.membership_status,
+        isVip: false,
+      })));
+      setError('');
+    } catch (err) {
+      setError(err.message || 'Không tải được danh sách CLB');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedSport]);
+
+  useEffect(() => { loadTeams(); }, [loadTeams]);
 
   // Filter by tab (captain / member / discover) + sport from navbar
   const filteredTeams = useMemo(() => {
     return teams.filter(team => {
-      const matchSport = !selectedSport || team.sportId === selectedSport;
+      const matchSport = Boolean(routeSearch) || !selectedSport || team.sportId === selectedSport;
+      const matchSearch = !routeSearch || [team.name, team.location, team.description, team.sportName]
+        .some((value) => value?.toLowerCase().includes(routeSearch));
       let matchTab = false;
-      if (activeTab === 'captain') matchTab = team.isCaptain;
+      if (routeSearch) matchTab = true;
+      else if (activeTab === 'captain') matchTab = team.isCaptain;
       else if (activeTab === 'member') matchTab = team.isMember;
       else if (activeTab === 'discover') matchTab = !team.isCaptain && !team.isMember;
-      return matchSport && matchTab;
+      return matchSport && matchTab && matchSearch;
     });
-  }, [teams, selectedSport, activeTab]);
+  }, [teams, activeTab, selectedSport, routeSearch]);
 
   const showToast = (msg) => {
     setAlertMessage(msg);
     setTimeout(() => setAlertMessage(''), 4500);
+  };
+
+  const handleSaveTeam = async (data) => {
+    try {
+      if (editingTeam) await teamService.update(editingTeam.id, data);
+      else await teamService.create(data);
+      await loadTeams();
+      setIsCreateModalOpen(false);
+      setEditingTeam(null);
+      showToast(editingTeam ? 'Đã cập nhật thông tin CLB.' : 'Đã tạo CLB.');
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  const handleJoinTeam = async (team) => {
+    try {
+      await teamService.join(team.id);
+      await loadTeams();
+      showToast('Đã gửi yêu cầu tham gia CLB.');
+    } catch (err) { showToast(err.message || 'Không gửi được yêu cầu'); }
+  };
+
+  const handleReview = async (data) => {
+    try {
+      await teamService.review(reviewTeam.id, data);
+      await loadTeams();
+      setReviewTeam(null);
+      showToast('Đã lưu đánh giá của bạn.');
+    } catch (err) { throw err; }
+  };
+
+  const openMembers = async (team) => {
+    setMemberDialog(team);
+    try {
+      setMembers(await teamService.getMembers(team.id));
+    } catch (err) {
+      setMembers([]);
+      showToast(err.message || 'Không tải được danh sách thành viên');
+    }
+  };
+
+  const updateMember = async (member, status) => {
+    try {
+      await teamService.setMemberStatus(memberDialog.id, member.user_id, status);
+      setMembers((current) => current.filter((item) => item.user_id !== member.user_id));
+      await loadTeams();
+    } catch (err) { showToast(err.message || 'Không cập nhật được thành viên'); }
   };
 
   return (
@@ -270,8 +231,10 @@ export default function Team() {
       {/* ── Main Teams Feed ── */}
       <main className="max-w-[1600px] mx-auto px-4 sm:px-6 pt-4 sm:pt-6">
 
-        
-        {filteredTeams.length === 0 ? (
+        {error && <div role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">{error}</div>}
+        {isLoading ? (
+          <div className="py-16 text-center text-sm font-semibold text-slate-500">Đang tải dữ liệu CLB…</div>
+        ) : filteredTeams.length === 0 ? (
           <div className="bg-slate-50 dark:bg-white/5 border border-dashed border-slate-200 dark:border-white/10 rounded-3xl p-12 text-center my-6">
             <div className="w-16 h-16 bg-slate-200 dark:bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
               {activeTab === 'captain' ? '👑' : activeTab === 'member' ? '🤝' : '🔍'}
@@ -303,6 +266,10 @@ export default function Team() {
                 team={team}
                 activeTab={activeTab}
                 onReview={() => setReviewTeam(team)}
+                onJoin={handleJoinTeam}
+                onManageMembers={openMembers}
+                onEdit={(item) => { setEditingTeam(item); setIsCreateModalOpen(true); }}
+                onChat={(item) => openChat({ id: item.owner_id, name: item.captain })}
               />
             ))}
           </div>
@@ -313,7 +280,9 @@ export default function Team() {
       {/* ── Modals ── */}
       <CreateTeamModal
         isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
+        initialTeam={editingTeam}
+        onClose={() => { setIsCreateModalOpen(false); setEditingTeam(null); }}
+        onSubmit={handleSaveTeam}
       />
 
       {reviewTeam && (
@@ -321,7 +290,27 @@ export default function Team() {
           teamId={reviewTeam.id}
           isOpen={!!reviewTeam}
           onClose={() => setReviewTeam(null)}
+          onSubmit={handleReview}
         />
+      )}
+
+      {memberDialog && (
+        <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/60 p-4" role="presentation" onClick={() => setMemberDialog(null)}>
+          <section className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl dark:bg-slate-900" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 className="text-lg font-black">{memberDialog.isCaptain ? 'Yêu cầu tham gia' : 'Thành viên CLB'} · {memberDialog.name}</h2>
+              <button onClick={() => setMemberDialog(null)} aria-label="Đóng" className="rounded-lg px-3 py-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10">×</button>
+            </div>
+            {members.length === 0 ? <p className="py-6 text-center text-sm text-slate-500">{memberDialog.isCaptain ? 'Không có yêu cầu đang chờ.' : 'CLB chưa có thành viên được hiển thị.'}</p> : (
+              <ul className="max-h-[60vh] space-y-2 overflow-y-auto">
+                {members.map((member) => <li key={member.id} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 p-3 dark:bg-white/5">
+                  <div className="min-w-0"><p className="truncate text-sm font-bold">{member.full_name || member.email}</p><p className="text-xs text-slate-500">{member.status}</p></div>
+                  {memberDialog.isCaptain && member.status === 'PENDING' && <div className="flex gap-2"><button onClick={() => updateMember(member, 'REJECTED')} className="rounded-lg border px-3 py-1.5 text-xs font-bold">Từ chối</button><button onClick={() => updateMember(member, 'APPROVED')} className="rounded-lg bg-[#589470] px-3 py-1.5 text-xs font-bold text-white">Duyệt</button></div>}
+                </li>)}
+              </ul>
+            )}
+          </section>
+        </div>
       )}
 
     </div>

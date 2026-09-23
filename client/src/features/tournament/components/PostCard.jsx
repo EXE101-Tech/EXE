@@ -1,7 +1,7 @@
 import React from 'react';
-import { MessageSquare, UserPlus, MapPin, Calendar, Users, DollarSign, CheckCircle2, Clock, Award, X, Maximize2 } from 'lucide-react';
+import { MessageSquare, UserPlus, MapPin, Calendar, Users, DollarSign, CheckCircle2, Clock, Award, X, Maximize2, Trash2 } from 'lucide-react';
 
-export default function PostCard({ post, onJoin, onChat }) {
+export default function PostCard({ post, onJoin, onChat, onCancel }) {
   const [isExpanded, setIsExpanded] = React.useState(false);
   const [isImageOpen, setIsImageOpen] = React.useState(false);
   const isFull = post.currentMembers >= post.totalMembers;
@@ -189,20 +189,26 @@ export default function PostCard({ post, onJoin, onChat }) {
             <span className="hidden sm:inline">Nhắn tin</span>
           </button>
 
-          <button
-            onClick={() => onJoin(post)}
-            disabled={isFull || post.hasJoined}
-            className={`flex-1 sm:flex-none justify-center px-4 sm:px-6 py-2.5 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2 transition-all shadow-md ${
-              post.hasJoined
-                ? 'bg-blue-600 text-white cursor-default opacity-90 shadow-blue-500/20'
-                : isFull
-                ? 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed shadow-none'
-                : 'bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-95 text-white shadow-[#589470]/25 hover:shadow-lg hover:shadow-[#589470]/30 active:scale-95'
-            }`}
-          >
-            <UserPlus className="w-4 h-4 stroke-[2.5] shrink-0" />
-            <span>{post.hasJoined ? 'Đã yêu cầu tham gia' : isFull ? 'Đã đủ người' : 'Tham gia'}</span>
-          </button>
+          {post.isAuthor ? (
+            <button onClick={() => onCancel?.(post)} className="flex-1 sm:flex-none justify-center rounded-xl bg-rose-50 px-4 py-2.5 text-xs font-bold text-rose-600 transition hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-300">
+              <Trash2 className="mr-1.5 inline h-4 w-4" />Hủy bài đăng
+            </button>
+          ) : (
+            <button
+              onClick={() => onJoin(post)}
+              disabled={isFull || post.hasJoined}
+              className={`flex-1 sm:flex-none justify-center px-4 sm:px-6 py-2.5 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2 transition-all shadow-md ${
+                post.hasJoined
+                  ? 'bg-blue-600 text-white cursor-default opacity-90 shadow-blue-500/20'
+                  : isFull
+                  ? 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed shadow-none'
+                  : 'bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-95 text-white shadow-[#589470]/25 hover:shadow-lg hover:shadow-[#589470]/30 active:scale-95'
+              }`}
+            >
+              <UserPlus className="w-4 h-4 stroke-[2.5] shrink-0" />
+              <span>{post.hasJoined ? 'Đã tham gia' : isFull ? 'Đã đủ người' : 'Tham gia'}</span>
+            </button>
+          )}
         </div>
 
       </div>

@@ -1,8 +1,19 @@
 import { useState, useEffect } from 'react';
-import { Camera, X, Save, CheckCircle } from 'lucide-react';
+import { X, Save, CheckCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-const ALL_SPORTS = ['Badminton', 'Tennis', 'Football', 'Pickleball', 'Basketball', 'Volleyball'];
+const ALL_SPORTS = [
+  { key: 'badminton', label: 'Badminton' },
+  { key: 'tennis', label: 'Tennis' },
+  { key: 'football', label: 'Football' },
+  { key: 'pickleball', label: 'Pickleball' },
+  { key: 'basketball', label: 'Basketball' },
+  { key: 'volleyball', label: 'Volleyball' },
+];
+const SPORT_KEY_BY_NAME = {
+  badminton: 'badminton', 'cầu lông': 'badminton', tennis: 'tennis', football: 'football', 'bóng đá': 'football',
+  pickleball: 'pickleball', basketball: 'basketball', 'bóng rổ': 'basketball', volleyball: 'volleyball', 'bóng chuyền': 'volleyball',
+};
 function EditProfileModal({ isOpen, onClose, user, onSave }) {
   const { t } = useTranslation();
   const SKILL_LEVELS = [
@@ -20,6 +31,7 @@ function EditProfileModal({ isOpen, onClose, user, onSave }) {
   
   const [isRendered, setIsRendered] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   useEffect(() => {
     if (isOpen) {
@@ -28,9 +40,9 @@ function EditProfileModal({ isOpen, onClose, user, onSave }) {
       // Do not override if we are in the middle of a success animation
       if (!isSuccess) {
         const initialSports = {};
-        ALL_SPORTS.forEach(sport => {
-          const userSport = user?.sports?.find(s => s.sport.name === sport);
-          initialSports[sport] = userSport ? userSport.skill_level : 'Chưa biết';
+        ALL_SPORTS.forEach(({ key }) => {
+          const userSport = user?.sports?.find((item) => SPORT_KEY_BY_NAME[item.sport?.name?.toLowerCase()] === key);
+          initialSports[key] = userSport ? userSport.skill_level : 'Chưa biết';
         });
 
         setFormData({
@@ -58,15 +70,20 @@ function EditProfileModal({ isOpen, onClose, user, onSave }) {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsSuccess(true);
-    onSave?.(formData);
-    setTimeout(() => {
+    setSaveError('');
+    try {
+      await onSave?.(formData);
+      setIsSuccess(true);
+      setTimeout(() => {
       onClose();
       // Reset flip after close animation finishes
       setTimeout(() => setIsSuccess(false), 300);
-    }, 2000);
+      }, 1000);
+    } catch (error) {
+      setSaveError(error.message || 'Không lưu được hồ sơ');
+    }
   };
 
   if (!isRendered) return null;
@@ -103,7 +120,7 @@ function EditProfileModal({ isOpen, onClose, user, onSave }) {
           {/* Avatar Edit with Flip */}
           <div className="flex flex-col items-center mb-4 z-10 relative">
             <div 
-              className="relative cursor-pointer perspective-1000 w-20 h-20"
+                className="relative perspective-1000 w-20 h-20"
               style={{ perspective: '1000px' }}
             >
               <div 
@@ -116,9 +133,6 @@ function EditProfileModal({ isOpen, onClose, user, onSave }) {
                   style={{ backfaceVisibility: 'hidden' }}
                 >
                   {(formData.name || user?.email || '').charAt(0).toUpperCase()}
-                  <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Camera className="w-6 h-6 text-white" />
-                  </div>
                 </div>
                 
                 {/* Back Face: Checkmark */}
@@ -131,12 +145,13 @@ function EditProfileModal({ isOpen, onClose, user, onSave }) {
               </div>
             </div>
             <span className={`text-[10px] mt-3 font-bold uppercase tracking-wider transition-colors duration-500 ${isSuccess ? 'text-green-500 scale-110' : 'text-gray-500 dark:text-gray-400 hover:text-blue-500 cursor-pointer'}`}>
-              {isSuccess ? t('profile.updateSuccess') : t('profile.changeAvatar')}
+              {isSuccess ? t('profile.updateSuccess') : 'Ảnh đại diện hiện không chỉnh sửa được'}
             </span>
           </div>
 
           {/* Form Content (dims on success) */}
           <div className={`space-y-4 transition-all duration-700 ${isSuccess ? 'opacity-30 blur-sm pointer-events-none' : 'opacity-100'}`}>
+            {saveError && <p role="alert" className="rounded-xl bg-red-50 p-3 text-xs font-semibold text-red-700 dark:bg-red-950/30 dark:text-red-300">{saveError}</p>}
             <div>
               <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5 ml-1">{t('profile.fullName')}</label>
               <input 
@@ -153,11 +168,11 @@ function EditProfileModal({ isOpen, onClose, user, onSave }) {
               <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-2 ml-1">{t('profile.sportsSkill')}</label>
               <div className="space-y-2.5">
                 {ALL_SPORTS.map(sport => (
-                  <div key={sport} className="flex items-center justify-between bg-gray-50 dark:bg-gray-800/50 p-2 pl-4 rounded-2xl border border-gray-100 dark:border-gray-700/50">
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{sport}</span>
+                  <div key={sport.key} className="flex items-center justify-between bg-gray-50 dark:bg-gray-800/50 p-2 pl-4 rounded-2xl border border-gray-100 dark:border-gray-700/50">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{sport.label}</span>
                     <select
-                      value={formData.sports[sport] || 'Chưa biết'}
-                      onChange={(e) => handleSportChange(sport, e.target.value)}
+                      value={formData.sports[sport.key] || 'Chưa biết'}
+                      onChange={(e) => handleSportChange(sport.key, e.target.value)}
                       className="bg-white dark:bg-gray-800 text-xs font-semibold text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-xl px-2 py-1.5 outline-none focus:border-blue-500 transition-colors cursor-pointer"
                     >
                       {SKILL_LEVELS.map(level => (

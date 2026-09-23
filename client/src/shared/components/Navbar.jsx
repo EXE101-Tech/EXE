@@ -3,7 +3,56 @@ import { Search, Sun, Moon, Bell, Crown, MessageSquare, MapPin, Gamepad2, Users 
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useChat } from '../context/ChatContext';
-import CreateTeamModal from '../../features/team/components/CreateTeamModal';
+import PremiumInfoModal from '../../features/premium/PremiumInfoModal';
+import { searchService } from '../services/api';
+import forumMobileIcon from '../../../icons/diendan.png';
+import bookingsMobileIcon from '../../../icons/datsan.png';
+import gameRoomMobileIcon from '../../../icons/phonggame.png';
+import teamsMobileIcon from '../../../icons/teams.png';
+
+const SEARCH_KIND_LABELS = {
+  venue: 'Sân',
+  gameroom: 'Phòng chơi',
+  team: 'CLB',
+  lfg: 'Tìm người chơi',
+};
+
+export function SearchResults({ results, loading, error, hasSearched, onSelect }) {
+  if (!hasSearched) return null;
+
+  return (
+    <div className="absolute left-0 right-0 top-full z-[1001] mt-2 max-h-[min(65vh,28rem)] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl dark:border-white/10 dark:bg-slate-900">
+      {loading ? (
+        <p className="px-3 py-4 text-sm text-slate-500 dark:text-slate-300">Đang tìm kiếm…</p>
+      ) : error ? (
+        <p className="px-3 py-4 text-sm text-red-600 dark:text-red-300">{error}</p>
+      ) : results.length === 0 ? (
+        <p className="px-3 py-4 text-sm text-slate-500 dark:text-slate-300">Không tìm thấy kết quả phù hợp.</p>
+      ) : (
+        <div className="space-y-1" role="listbox" aria-label="Kết quả tìm kiếm">
+          {results.map((result) => (
+            <button
+              key={`${result.kind}-${result.id}`}
+              type="button"
+              role="option"
+              aria-selected="false"
+              onClick={() => onSelect(result)}
+              className="flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left hover:bg-slate-100 dark:hover:bg-white/10"
+            >
+              <span className="mt-0.5 shrink-0 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200">
+                {SEARCH_KIND_LABELS[result.kind] || 'Kết quả'}
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-bold text-slate-900 dark:text-white">{result.title}</span>
+                <span className="mt-0.5 block truncate text-xs text-slate-500 dark:text-slate-400">{result.subtitle}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Navbar() {
   const [isDark, setIsDark] = useState(() => {
@@ -15,6 +64,11 @@ export default function Navbar() {
   const { user } = useAuth();
   const [isPremiumOpen, setIsPremiumOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchError, setSearchError] = useState('');
+  const [isSearchLoading, setIsSearchLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const [isSubNavVisible, setIsSubNavVisible] = useState(true);
   const searchInputRef = useRef(null);
   const lastScrollYRef = useRef(0);
@@ -25,16 +79,48 @@ export default function Navbar() {
   };
 
   const navItems = [
-    { label: 'Diễn Đàn', path: '/tournaments', icon: MessageSquare },
-    { label: 'Đặt Sân', path: '/bookings', match: (p) => p.startsWith('/bookings') || p.startsWith('/courts'), icon: MapPin },
-    { label: 'Phòng game', path: '/matches', icon: Gamepad2 },
-    { label: 'Teams', path: '/team', icon: Users },
+    { label: 'Diễn Đàn', path: '/tournaments', icon: MessageSquare, mobileIcon: forumMobileIcon },
+    { label: 'Đặt Sân', path: '/bookings', match: (p) => p.startsWith('/bookings') || p.startsWith('/courts'), icon: MapPin, mobileIcon: bookingsMobileIcon },
+    { label: 'Phòng game', path: '/matches', icon: Gamepad2, mobileIcon: gameRoomMobileIcon },
+    { label: 'Teams', path: '/team', icon: Users, mobileIcon: teamsMobileIcon },
     { label: 'Hồ Sơ', path: '/home', isAvatar: true },
   ];
   const navRefs = useRef([]);
   const navContainerRef = useRef(null);
   const [indicator, setIndicator] = useState({ left: 0, width: 0 });
   const [isInitialRender, setIsInitialRender] = useState(true);
+
+  const handleSearchSubmit = async (event) => {
+    event.preventDefault();
+    const query = searchQuery.trim();
+    if (isSearchLoading) return;
+    if (query.length < 2) {
+      setSearchResults([]);
+      setSearchError('Nhập ít nhất 2 ký tự để tìm kiếm.');
+      setHasSearched(true);
+      return;
+    }
+
+    setIsSearchLoading(true);
+    setSearchError('');
+    setHasSearched(true);
+    try {
+      setSearchResults(await searchService.search(query));
+    } catch (error) {
+      setSearchResults([]);
+      setSearchError(error.message || 'Không thể tìm kiếm lúc này.');
+    } finally {
+      setIsSearchLoading(false);
+    }
+  };
+
+  const handleSearchResult = (result) => {
+    navigate(result.href);
+    setIsSearchOpen(false);
+    setSearchQuery('');
+    setSearchResults([]);
+    setHasSearched(false);
+  };
 
   const activeIndex = navItems.findIndex(item => item.match ? item.match(location.pathname) : location.pathname.startsWith(item.path));
 
@@ -146,20 +232,26 @@ export default function Navbar() {
         </div>
 
         <div className="hidden sm:flex flex-1 max-w-3xl mx-1.5 sm:mx-3 items-center">
-
-          <div className="relative flex items-center flex-1 bg-white/20 dark:bg-white/10 border-2 border-transparent focus-within:border-white/50 focus-within:bg-white/30 rounded-full transition-all duration-200 shadow-inner group">
+          <form onSubmit={handleSearchSubmit} className="relative flex items-center flex-1 bg-white/20 dark:bg-white/10 border-2 border-transparent focus-within:border-white/50 focus-within:bg-white/30 rounded-full transition-all duration-200 shadow-inner group">
             <input
               type="text"
               placeholder="Tìm kiếm phòng chơi, sân bãi, giải đấu, đội nhóm..."
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              aria-label="Tìm kiếm sân, phòng chơi, CLB và bài tìm người"
               className="w-full bg-transparent pl-3.5 sm:pl-5 pr-11 sm:pr-14 py-1.5 sm:py-2.5 text-xs sm:text-base text-white placeholder-white/80 focus:outline-none truncate"
             />
             <button
+              type="submit"
+              disabled={isSearchLoading}
               className="absolute right-1 bg-white hover:bg-gray-50 text-black p-1.5 sm:p-2 rounded-full transition-transform active:scale-95 shadow-sm border border-gray-200 dark:bg-[#0a1128] dark:border-gray-700 dark:text-white dark:hover:bg-[#111c43] flex items-center justify-center m-0.5 shrink-0"
               title="Tìm kiếm"
+              aria-label="Tìm kiếm"
             >
               <Search className="w-3.5 h-3.5 sm:w-5 sm:h-5 stroke-[2.5]" />
             </button>
-          </div>
+            <SearchResults results={searchResults} loading={isSearchLoading} error={searchError} hasSearched={hasSearched} onSelect={handleSearchResult} />
+          </form>
         </div>
 
         <div className="flex items-center gap-2 sm:gap-1.5 shrink-0">
@@ -244,7 +336,11 @@ export default function Navbar() {
                   </div>
                 ) : (
                   <>
-                    {item.icon && <item.icon className="w-5 h-5 stroke-[2.5] sm:hidden" />}
+                    {item.mobileIcon ? (
+                      <img src={item.mobileIcon} alt="" className="mobile-nav-icon h-6 w-6 object-contain sm:hidden" />
+                    ) : (
+                      item.icon && <item.icon className="h-5 w-5 stroke-[2.5] sm:hidden" />
+                    )}
                     <span className={item.icon ? "hidden sm:inline" : ""}>{item.label}</span>
                   </>
                 )}
@@ -257,12 +353,13 @@ export default function Navbar() {
 
       {isSearchOpen && (
         <div
-          className="fixed inset-0 z-[1000] bg-black/35 backdrop-blur-sm sm:hidden"
+          className="fixed inset-0 z-[1000] overflow-y-auto bg-black/35 backdrop-blur-sm sm:hidden"
           onClick={() => setIsSearchOpen(false)}
           role="presentation"
         >
-          <div
-            className="mx-3 mt-2 flex items-center rounded-full bg-white/95 p-1.5 shadow-2xl dark:bg-[#0a1128]/95"
+          <form
+            onSubmit={handleSearchSubmit}
+            className="relative mx-3 mt-2 flex items-center rounded-full bg-white/95 p-1.5 shadow-2xl dark:bg-[#0a1128]/95"
             onClick={(event) => event.stopPropagation()}
           >
             <Search className="ml-3 h-4 w-4 shrink-0 text-slate-500 dark:text-slate-300" />
@@ -270,24 +367,30 @@ export default function Navbar() {
               ref={searchInputRef}
               type="text"
               placeholder="Tìm kiếm phòng chơi, sân bãi, giải đấu..."
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
               className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-white"
               aria-label="Tìm kiếm"
             />
+            <button type="submit" disabled={isSearchLoading} className="rounded-full p-2 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/10" aria-label="Tìm kiếm">
+              <Search className="h-4 w-4" />
+            </button>
             <button
+              type="button"
               onClick={() => setIsSearchOpen(false)}
               className="rounded-full p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/10"
               aria-label="Đóng tìm kiếm"
             >
               ×
             </button>
-          </div>
+            <SearchResults results={searchResults} loading={isSearchLoading} error={searchError} hasSearched={hasSearched} onSelect={handleSearchResult} />
+          </form>
         </div>
       )}
 
-      <CreateTeamModal
+      <PremiumInfoModal
         isOpen={isPremiumOpen}
         onClose={() => setIsPremiumOpen(false)}
-        initialView="info"
       />
     </header>
   );

@@ -1,7 +1,41 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
-from app import database, schemas, crud, auth_utils
+from app import database, schemas, crud, auth_utils, models
+from app.sport_catalog import sport_catalog, sport_key_for
+
+
+def _venue_payload(db: Session, venue: models.Venue):
+    courts = db.query(models.Court).filter(
+        models.Court.venue_id == venue.id,
+        models.Court.is_active.is_(True),
+    ).order_by(models.Court.id.asc()).all()
+    sport_key = venue.sport_key or (sport_key_for(courts[0].sport.name) if courts else None)
+    price_label = venue.price_label
+    if not price_label and courts:
+        per_30_minutes = min(court.price_per_hour for court in courts) // 2
+        price_label = f"{per_30_minutes:,}".replace(",", ".") + "đ"
+    owner = db.query(models.User).options(joinedload(models.User.profile)).filter(
+        models.User.id == venue.owner_id
+    ).first() if venue.owner_id else None
+    return {
+        "id": venue.id,
+        "name": venue.name,
+        "address": venue.address,
+        "latitude": venue.latitude,
+        "longitude": venue.longitude,
+        "description": venue.description,
+        "owner_id": venue.owner_id,
+        "owner_name": owner.profile.full_name if owner and owner.profile and owner.profile.full_name else (owner.email if owner else None),
+        "sport_key": sport_key,
+        "price_label": price_label,
+        "court_count": len(courts),
+        "facilities": venue.facilities or {},
+        "image_url": venue.image_url,
+        "rating": None,
+        "review_count": 0,
+        "courts": courts,
+    }
 
 router = APIRouter(
     prefix="/courts",
@@ -23,12 +57,23 @@ def get_nearby_venues(
     radius: float = Query(5.0, description="Radius in kilometers"),
     db: Session = Depends(database.get_db)
 ):
-    return crud.get_nearby_venues(db, lat=lat, lng=lng, radius=radius)
+    return [_venue_payload(db, venue) for venue in crud.get_nearby_venues(db, lat=lat, lng=lng, radius=radius)]
 
-@router.get("/venues", response_model=List[schemas.VenueMinResponse])
+@router.get("/venues", response_model=List[schemas.VenueResponse])
 def get_all_venues(db: Session = Depends(database.get_db)):
-    """Lấy tất cả venue."""
-    return crud.get_venues(db)
+    return [_venue_payload(db, venue) for venue in crud.get_venues(db)]
+
+
+@router.get("/venues/{venue_id}", response_model=schemas.VenueResponse)
+def get_venue_details(venue_id: int, db: Session = Depends(database.get_db)):
+    venue = crud.get_venue_by_id(db, venue_id)
+    if not venue:
+        raise HTTPException(status_code=404, detail="Không tìm thấy sân")
+    return _venue_payload(db, venue)
+
+@router.get("/sports", response_model=List[schemas.SportCatalogItem])
+def get_supported_sports(db: Session = Depends(database.get_db)):
+    return sport_catalog(db)
 
 @router.post("/venues", response_model=schemas.VenueMinResponse)
 def create_venue(
@@ -40,6 +85,8 @@ def create_venue(
     Tạo venue mới. Nếu không cung cấp latitude/longitude,
     hệ thống sẽ tự động geocode từ address.
     """
+    if current_user.owner_status != "registered":
+        raise HTTPException(status_code=403, detail="Bạn cần đăng ký chủ sân trước")
     return crud.create_venue(db, venue, owner_id=current_user.id)
 
 @router.get("/{id}", response_model=schemas.CourtResponse)
