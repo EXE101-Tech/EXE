@@ -1,7 +1,9 @@
-import { Bell, Search, Menu, Sun, Moon, MessageCircle } from 'lucide-react';
+import { Search, Menu, Sun, Moon, MessageCircle } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useChat } from '../context/ChatContext';
+import NotificationBell from './NotificationBell';
+import useChatUnreadCount from '../hooks/useChatUnreadCount';
 import { useSportFilter } from '../context/SportFilterContext';
 import { searchService } from '../services/api';
 import { SearchResults } from './Navbar';
@@ -25,6 +27,7 @@ export default function TopNavbar() {
   const [isSearchLoading, setIsSearchLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const { toggleChat } = useChat();
+  const chatUnreadCount = useChatUnreadCount();
   const { selectedSport, setSelectedSport } = useSportFilter();
   
   useEffect(() => {
@@ -144,13 +147,11 @@ export default function TopNavbar() {
           {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
         </button>
 
-        <button className="text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors relative">
-          <Bell className="w-5 h-5" />
-          <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-brand-primary shadow-[0_0_8px_var(--theme-glow)]"></span>
-        </button>
+        <NotificationBell className="text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors relative group rounded-full p-1" />
 
         <button onClick={toggleChat} className="text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors relative">
           <MessageCircle className="w-5 h-5" />
+          {chatUnreadCount > 0 && <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-black text-white">{chatUnreadCount > 99 ? '99+' : chatUnreadCount}</span>}
         </button>
 
         <button className="md:hidden text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors">

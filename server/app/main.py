@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 from app.database import engine, Base
-from app.routers import auth, courts, gamerooms, bookings, teams, lfg, owner, chat, search, storage
+from app.routers import auth, courts, gamerooms, bookings, teams, lfg, owner, chat, search, storage, notifications
 
 # Create all database tables on startup if they do not exist
 Base.metadata.create_all(bind=engine)
@@ -38,6 +38,7 @@ app.include_router(owner.router, prefix="/api")
 app.include_router(chat.router, prefix="/api")
 app.include_router(search.router, prefix="/api")
 app.include_router(storage.router, prefix="/api")
+app.include_router(notifications.router, prefix="/api")
 
 @app.get("/")
 def read_root():

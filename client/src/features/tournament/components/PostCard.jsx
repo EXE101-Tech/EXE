@@ -1,10 +1,11 @@
 import React from 'react';
-import { MessageSquare, UserPlus, MapPin, Calendar, Users, DollarSign, CheckCircle2, Clock, Award, X, Maximize2, Trash2, Pencil } from 'lucide-react';
+import { MessageSquare, UserPlus, MapPin, Calendar, Users, DollarSign, CheckCircle2, Clock, Award, X, Maximize2, Trash2, Pencil, ClipboardCheck } from 'lucide-react';
 
-export default function PostCard({ post, onJoin, onChat, onCancel, onEdit }) {
+export default function PostCard({ post, onJoin, onChat, onCancel, onEdit, onManageParticipants }) {
   const [isExpanded, setIsExpanded] = React.useState(false);
   const [isImageOpen, setIsImageOpen] = React.useState(false);
   const isFull = post.currentMembers >= post.totalMembers;
+  const isPending = post.membership_status === 'PENDING';
   const needed = post.totalMembers - post.currentMembers;
 
   React.useEffect(() => {
@@ -181,11 +182,16 @@ export default function PostCard({ post, onJoin, onChat, onCancel, onEdit }) {
         {/* Action Buttons */}
         <div className="flex items-center justify-end gap-2.5 sm:gap-3 pt-3.5 sm:pt-4 border-t border-slate-100 dark:border-white/10">
           {post.isAuthor ? <>
-          <button onClick={() => onEdit?.(post)} className="flex-1 justify-center rounded-xl bg-[#589470]/10 px-4 py-2.5 text-xs font-bold text-[#589470] transition hover:bg-[#589470]/20 dark:text-[#74C365] sm:flex-none">
-            <Pencil className="mr-1.5 inline h-4 w-4" />Chỉnh sửa nội dung
+          <button type="button" onClick={() => onManageParticipants?.(post)} aria-label="Kiểm duyệt người tham gia" title="Kiểm duyệt người tham gia" className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-xs font-bold text-indigo-700 transition hover:bg-indigo-100 dark:bg-indigo-400/10 dark:text-indigo-200 md:h-auto md:w-auto md:px-4 md:py-2.5">
+            <ClipboardCheck className="h-4 w-4 md:mr-1.5" />
+            <span className="hidden md:inline">Kiểm duyệt người chơi</span>
+            {post.pending_participants_count > 0 && <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-black text-white md:static md:ml-1 md:h-[18px] md:min-w-[18px]">{post.pending_participants_count}</span>}
           </button>
-          <button onClick={() => onCancel?.(post)} className="flex-1 justify-center rounded-xl bg-rose-50 px-4 py-2.5 text-xs font-bold text-rose-600 transition hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-300 sm:flex-none">
-            <Trash2 className="mr-1.5 inline h-4 w-4" />Hủy bài đăng
+          <button type="button" onClick={() => onEdit?.(post)} aria-label="Chỉnh sửa nội dung" title="Chỉnh sửa nội dung" className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#589470]/10 text-xs font-bold text-[#589470] transition hover:bg-[#589470]/20 dark:text-[#74C365] md:h-auto md:w-auto md:px-4 md:py-2.5">
+            <Pencil className="h-4 w-4 md:mr-1.5" /><span className="hidden md:inline">Chỉnh sửa nội dung</span>
+          </button>
+          <button type="button" onClick={() => onCancel?.(post)} aria-label="Hủy bài đăng" title="Hủy bài đăng" className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-xs font-bold text-rose-600 transition hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-300 md:h-auto md:w-auto md:px-4 md:py-2.5">
+            <Trash2 className="h-4 w-4 md:mr-1.5" /><span className="hidden md:inline">Hủy bài đăng</span>
           </button>
           </> : <>
           <button
@@ -199,17 +205,19 @@ export default function PostCard({ post, onJoin, onChat, onCancel, onEdit }) {
 
             <button
               onClick={() => onJoin(post)}
-              disabled={isFull || post.hasJoined}
+              disabled={isPending || isFull || post.hasJoined}
               className={`flex-1 sm:flex-none justify-center px-4 sm:px-6 py-2.5 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2 transition-all shadow-md ${
-                post.hasJoined
+                isPending
+                  ? 'bg-amber-100 text-amber-800 cursor-default opacity-90 shadow-none dark:bg-amber-400/15 dark:text-amber-200'
+                  : post.hasJoined
                   ? 'bg-blue-600 text-white cursor-default opacity-90 shadow-blue-500/20'
                   : isFull
                   ? 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed shadow-none'
                   : 'bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-95 text-white shadow-[#589470]/25 hover:shadow-lg hover:shadow-[#589470]/30 active:scale-95'
               }`}
             >
-              <UserPlus className="w-4 h-4 stroke-[2.5] shrink-0" />
-              <span>{post.hasJoined ? 'Đã tham gia' : isFull ? 'Đã đủ người' : 'Tham gia'}</span>
+              {isPending ? <Clock className="w-4 h-4 shrink-0" /> : <UserPlus className="w-4 h-4 stroke-[2.5] shrink-0" />}
+              <span>{isPending ? 'Đợi kiểm duyệt' : post.hasJoined ? 'Đã tham gia' : isFull ? 'Đã đủ người' : 'Tham gia'}</span>
             </button>
           </>}
         </div>

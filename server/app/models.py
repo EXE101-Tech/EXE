@@ -282,10 +282,29 @@ class LfgPostParticipant(Base):
     id = Column(Integer, primary_key=True, index=True)
     post_id = Column(Integer, ForeignKey("lfg_posts.id", ondelete="CASCADE"), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    status = Column(String(20), nullable=False, default="PENDING", index=True)  # PENDING, APPROVED, REJECTED
     joined_at = Column(DateTime, default=utc_now_naive, nullable=False)
 
     post = relationship("LfgPost", back_populates="participants")
     user = relationship("User", back_populates="lfg_participations")
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    recipient_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    actor_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    type = Column(String(40), nullable=False, index=True)
+    title = Column(String(160), nullable=False)
+    body = Column(Text, nullable=False)
+    target_url = Column(Text, nullable=True)
+    entity_type = Column(String(40), nullable=True)
+    entity_id = Column(Integer, nullable=True)
+    is_read = Column(Boolean, nullable=False, default=False, index=True)
+    created_at = Column(DateTime, nullable=False, default=utc_now_naive, index=True)
+
+    actor = relationship("User", foreign_keys=[actor_id])
 
 
 class Conversation(Base):

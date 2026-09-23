@@ -113,10 +113,13 @@ export const lfgService = {
   join: (id) => apiClient.post(`/lfg/posts/${id}/join`),
   leave: (id) => apiClient.delete(`/lfg/posts/${id}/membership`),
   cancel: (id) => apiClient.delete(`/lfg/posts/${id}`),
+  getParticipants: (id, status = 'PENDING') => apiClient.get(`/lfg/posts/${id}/participants`, { params: { status } }),
+  setParticipantStatus: (id, userId, status) => apiClient.patch(`/lfg/posts/${id}/participants/${userId}`, { status }),
 };
 
 export const chatService = {
   getConversations: () => apiClient.get('/chat/conversations'),
+  getUnreadCount: () => apiClient.get('/chat/unread-count'),
   startConversation: (recipientId) => apiClient.post('/chat/conversations', { recipient_id: recipientId }),
   getMessages: (conversationId) => apiClient.get(`/chat/conversations/${conversationId}/messages`),
   sendMessage: (conversationId, text) => apiClient.post(`/chat/conversations/${conversationId}/messages`, { text }),
@@ -126,6 +129,12 @@ export const chatService = {
   sendFriendRequest: (userId) => apiClient.post('/chat/friends/requests', { recipient_id: userId }),
   acceptFriendRequest: (friendshipId) => apiClient.post(`/chat/friends/requests/${friendshipId}/accept`),
   removeFriendship: (friendshipId) => apiClient.delete(`/chat/friends/${friendshipId}`),
+};
+
+export const notificationService = {
+  getAll: (limit = 20) => apiClient.get('/notifications', { params: { limit } }),
+  markRead: (id) => apiClient.patch(`/notifications/${id}/read`),
+  markAllRead: () => apiClient.post('/notifications/read-all'),
 };
 
 export const bookingService = {

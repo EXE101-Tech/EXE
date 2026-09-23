@@ -6,6 +6,7 @@ import { useChat } from '../../shared/context/ChatContext';
 import PostCard from './components/PostCard';
 import JoinModal from './components/JoinModal';
 import CreatePostModal from './components/CreatePostModal';
+import LfgParticipantsModal from './components/LfgParticipantsModal';
 import FilterSelect from '../../shared/components/FilterSelect';
 import { lfgService, resolveMediaUrl, storageService } from '../../shared/services/api';
 import { useAuth } from '../../shared/context/AuthContext';
@@ -34,6 +35,7 @@ export default function Tournament() {
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingPost, setEditingPost] = useState(null);
+  const [managingPost, setManagingPost] = useState(null);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
 
@@ -105,7 +107,7 @@ export default function Tournament() {
   const handleConfirmJoin = async (post) => {
     await lfgService.join(post.id);
     await loadPosts();
-    showToast('Bạn đã tham gia bài tìm người chơi.');
+    showToast('Đã gửi yêu cầu tham gia. Đang chờ chủ bài kiểm duyệt.');
     setIsJoinModalOpen(false);
   };
 
@@ -308,6 +310,7 @@ export default function Tournament() {
                 onChat={handleChatClick} 
                 onCancel={handleCancelPost}
                 onEdit={handleEditPost}
+                onManageParticipants={setManagingPost}
               />
             ))}
           </div>
@@ -329,6 +332,13 @@ export default function Tournament() {
         onClose={() => { setIsCreateModalOpen(false); setEditingPost(null); }}
         onCreate={handleSavePost}
         initialPost={editingPost}
+      />
+
+      <LfgParticipantsModal
+        isOpen={Boolean(managingPost)}
+        post={managingPost}
+        onClose={() => setManagingPost(null)}
+        onChanged={loadPosts}
       />
 
     </div>

@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app import auth_utils, database, models, schemas
+from app.notification_utils import create_notification, display_name
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
@@ -78,6 +79,21 @@ def list_conversations(
     return [_conversation_payload(db, item, current_user.id) for item in conversations]
 
 
+@router.get("/unread-count")
+def unread_message_count(
+    current_user: models.User = Depends(auth_utils.get_current_user),
+    db: Session = Depends(database.get_db),
+):
+    count = db.query(func.count(models.Message.id)).join(
+        models.Conversation, models.Conversation.id == models.Message.conversation_id,
+    ).filter(
+        or_(models.Conversation.user1_id == current_user.id, models.Conversation.user2_id == current_user.id),
+        models.Message.sender_id != current_user.id,
+        models.Message.is_read == 0,
+    ).scalar() or 0
+    return {"unread_count": count}
+
+
 @router.post("/conversations", response_model=schemas.ChatConversationResponse)
 def start_conversation(
     data: schemas.ChatConversationCreate,
@@ -127,6 +143,13 @@ def get_messages(
         models.Message.sender_id != current_user.id,
         models.Message.is_read == 0,
     ).update({models.Message.is_read: 1}, synchronize_session=False)
+    db.query(models.Notification).filter(
+        models.Notification.recipient_id == current_user.id,
+        models.Notification.type == "chat_message",
+        models.Notification.entity_type == "conversation",
+        models.Notification.entity_id == conversation.id,
+        models.Notification.is_read.is_(False),
+    ).update({models.Notification.is_read: True}, synchronize_session=False)
     db.commit()
     messages = db.query(models.Message).filter_by(conversation_id=conversation.id).order_by(
         models.Message.created_at.asc(), models.Message.id.asc()
@@ -168,6 +191,18 @@ def send_message(
     conversation.last_message = data.text
     conversation.updated_at = message.created_at
     db.add(message)
+    recipient = _other_user(conversation, current_user.id)
+    create_notification(
+        db,
+        recipient_id=recipient.id,
+        actor=current_user,
+        notification_type="chat_message",
+        title="Bạn có tin nhắn mới",
+        body=f'{display_name(current_user)} đã gửi cho bạn một tin nhắn.',
+        target_url="/chat",
+        entity_type="conversation",
+        entity_id=conversation.id,
+    )
     db.commit()
     db.refresh(message)
     return {
@@ -289,6 +324,18 @@ def send_friend_request(
     )
     db.add(relationship)
     try:
+        db.flush()
+        create_notification(
+            db,
+            recipient_id=recipient_id,
+            actor=current_user,
+            notification_type="friend_request",
+            title="Lời mời kết bạn mới",
+            body=f'{display_name(current_user)} đã gửi cho bạn lời mời kết bạn.',
+            target_url="/home",
+            entity_type="friendship",
+            entity_id=relationship.id,
+        )
         db.commit()
     except IntegrityError:
         db.rollback()
@@ -316,6 +363,17 @@ def accept_friend_request(
         raise HTTPException(status_code=409, detail="Bạn không thể chấp nhận lời mời này")
     relationship.status = "accepted"
     relationship.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    create_notification(
+        db,
+        recipient_id=relationship.requester_id,
+        actor=current_user,
+        notification_type="friend_request_accepted",
+        title="Lời mời kết bạn được chấp nhận",
+        body=f'{display_name(current_user)} đã chấp nhận lời mời kết bạn của bạn.',
+        target_url="/home",
+        entity_type="friendship",
+        entity_id=relationship.id,
+    )
     db.commit()
     return _friendship_payload(relationship, current_user.id)
 
@@ -329,5 +387,17 @@ def remove_friendship(
     relationship = db.query(models.Friendship).filter_by(id=friendship_id).first()
     if not relationship or current_user.id not in (relationship.user_low_id, relationship.user_high_id):
         raise HTTPException(status_code=404, detail="Không tìm thấy mối quan hệ bạn bè")
+    other_user_id = relationship.user_high_id if relationship.user_low_id == current_user.id else relationship.user_low_id
+    create_notification(
+        db,
+        recipient_id=other_user_id,
+        actor=current_user,
+        notification_type="friend_removed",
+        title="Mối quan hệ bạn bè đã thay đổi",
+        body=f'{display_name(current_user)} đã xóa kết bạn với bạn.',
+        target_url="/home",
+        entity_type="friendship",
+        entity_id=relationship.id,
+    )
     db.delete(relationship)
     db.commit()

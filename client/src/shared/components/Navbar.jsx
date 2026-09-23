@@ -1,8 +1,10 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
-import { Search, Sun, Moon, Bell, Crown, MessageSquare, MapPin, Gamepad2, Users } from 'lucide-react';
+import { Search, Sun, Moon, Crown, MessageSquare, MapPin, Gamepad2, Users } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useChat } from '../context/ChatContext';
+import NotificationBell from './NotificationBell';
+import useChatUnreadCount from '../hooks/useChatUnreadCount';
 import PremiumInfoModal from '../../features/premium/PremiumInfoModal';
 import { searchService } from '../services/api';
 import forumMobileIcon from '../../../icons/diendan.png';
@@ -61,6 +63,7 @@ export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { isChatOpen, toggleChat, closeChat } = useChat();
+  const chatUnreadCount = useChatUnreadCount();
   const { user } = useAuth();
   const [isPremiumOpen, setIsPremiumOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -301,7 +304,7 @@ export default function Navbar() {
 
           <button
             onClick={handleChatToggle}
-            className={`inline-flex items-center justify-center gap-1.5 w-8 h-8 p-0 sm:w-auto sm:h-auto sm:px-3.5 sm:py-2 rounded-full sm:rounded-2xl text-xs sm:text-sm font-bold shadow-md transition-all shrink-0 ${
+            className={`inline-flex relative items-center justify-center gap-1.5 w-8 h-8 p-0 sm:w-auto sm:h-auto sm:px-3.5 sm:py-2 rounded-full sm:rounded-2xl text-xs sm:text-sm font-bold shadow-md transition-all shrink-0 ${
               isChatOpen
                 ? 'bg-white text-[#589470] scale-105'
                 : 'bg-white/20 hover:bg-white/30 text-white border border-white/20'
@@ -311,6 +314,11 @@ export default function Navbar() {
           >
             <MessageSquare className="w-4 h-4 shrink-0" />
             <span className="hidden sm:inline">Chat</span>
+            {chatUnreadCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-black text-white ring-2 ring-[#589470] sm:-right-1.5 sm:-top-1.5 sm:h-[18px] sm:min-w-[18px] sm:text-[10px]">
+                {chatUnreadCount > 99 ? '99+' : chatUnreadCount}
+              </span>
+            )}
           </button>
 
           <button
@@ -323,10 +331,7 @@ export default function Navbar() {
             <div className="absolute inset-0 w-[200%] -translate-x-full bg-gradient-to-r from-transparent via-white/40 to-transparent animate-pulse pointer-events-none" />
           </button>
 
-          <button className="w-8 h-8 p-0 sm:w-auto sm:h-auto sm:p-2.5 inline-flex items-center justify-center hover:bg-white/20 rounded-full transition-colors text-white relative group" title="Thông báo">
-            <Bell className="w-4 h-4 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
-            <span className="absolute top-1 right-1 sm:top-2 sm:right-2 w-2 h-2 bg-red-500 rounded-full ring-2 ring-[#589470] dark:ring-[#2A593D]" />
-          </button>
+          <NotificationBell className="w-8 h-8 p-0 sm:w-auto sm:h-auto sm:p-2.5 inline-flex items-center justify-center hover:bg-white/20 rounded-full transition-colors text-white relative group" />
 
           <button
             onClick={toggleTheme}

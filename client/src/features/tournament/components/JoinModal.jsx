@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, CheckCircle, AlertCircle, MapPin, Calendar, Users, DollarSign, Award, ShieldAlert } from 'lucide-react';
+import { useState } from 'react';
+import { X, CheckCircle, MapPin, Calendar, Users, ShieldAlert } from 'lucide-react';
 
 export default function JoinModal({ isOpen, onClose, post, onConfirm }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -92,7 +92,7 @@ export default function JoinModal({ isOpen, onClose, post, onConfirm }) {
             <div className="space-y-1">
               <p className="font-bold">Lưu ý trước khi tham gia:</p>
               <p className="opacity-90 leading-relaxed">
-                Vui lòng đến đúng giờ, mang theo trang bị phù hợp và tuân thủ nội quy của nhóm chơi. Bấm xác nhận sẽ gửi thông báo đến chủ bài đăng để ghép kèo cho bạn!
+                Vui lòng đến đúng giờ, mang theo trang bị phù hợp và tuân thủ nội quy của nhóm chơi. Xác nhận sẽ gửi yêu cầu đến chủ bài đăng; bạn chỉ được tính là đã tham gia sau khi chủ bài chấp nhận.
               </p>
             </div>
           </div>
@@ -114,7 +114,7 @@ export default function JoinModal({ isOpen, onClose, post, onConfirm }) {
             className="px-6 py-2.5 rounded-2xl font-bold text-sm bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-95 text-white shadow-lg shadow-[#589470]/30 flex items-center gap-2 transition-transform active:scale-95"
           >
             <CheckCircle className="w-4 h-4 stroke-[2.5]" />
-            <span>{isSubmitting ? 'Đang xử lý…' : 'Tham gia bài đăng'}</span>
+            <span>{isSubmitting ? 'Đang gửi…' : 'Gửi yêu cầu tham gia'}</span>
           </button>
         </div>
 

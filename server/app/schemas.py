@@ -400,6 +400,24 @@ class ChatConversationDetailResponse(ChatConversationResponse):
     messages: List[ChatMessageResponse] = Field(default_factory=list)
 
 
+class NotificationResponse(BaseModel):
+    id: int
+    type: str
+    title: str
+    body: str
+    target_url: Optional[str] = None
+    entity_type: Optional[str] = None
+    entity_id: Optional[int] = None
+    is_read: bool
+    created_at: datetime
+    actor: Optional[ChatUserResponse] = None
+
+
+class NotificationListResponse(BaseModel):
+    items: List[NotificationResponse] = Field(default_factory=list)
+    unread_count: int = 0
+
+
 class BookingAvailabilityItem(BaseModel):
     court_id: int
     start_time: datetime
@@ -538,4 +556,28 @@ class LfgPostResponse(BaseModel):
     image_url: Optional[str] = None
     status: str
     has_joined: bool = False
+    membership_status: Optional[str] = None
+    pending_participants_count: int = 0
+    approved_participants_count: int = 0
     created_at: datetime
+
+
+class LfgParticipantStatusUpdate(BaseModel):
+    status: str
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, value: str) -> str:
+        if value not in {"APPROVED", "REJECTED"}:
+            raise ValueError("Trạng thái phải là APPROVED hoặc REJECTED")
+        return value
+
+
+class LfgParticipantResponse(BaseModel):
+    id: int
+    post_id: int
+    user_id: int
+    name: str
+    avatar_url: Optional[str] = None
+    status: str
+    joined_at: datetime
