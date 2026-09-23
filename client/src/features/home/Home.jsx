@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Activity, CalendarDays, Eye, LogOut, Pencil, Star, Trophy, Users, X } from 'lucide-react';
+import { Activity, CalendarDays, Eye, ImagePlus, LogOut, Pencil, Star, Trophy, Users, X } from 'lucide-react';
 import heroBgImg from '../../assets/sports/badminton.avif';
 import EditProfileModal from '../profile/EditProfileModal';
 import { useAuth } from '../../shared/context/AuthContext';
 import OwnerRegistrationModal from '../bookings/components/OwnerRegistrationModal';
 import OwnerCancellationModal from '../bookings/components/OwnerCancellationModal';
-import { authService, ownerService } from '../../shared/services/api';
+import { authService, ownerService, storageService } from '../../shared/services/api';
 
 const LEVEL_META = {
   'Chưa biết': { label: 'Chưa biết', percentage: 10 },
@@ -36,11 +36,30 @@ function Home() {
   const [ownedVenueCount, setOwnedVenueCount] = useState(0);
   const [isCancelSubmitting, setIsCancelSubmitting] = useState(false);
   const [ownerError, setOwnerError] = useState('');
+  const [coverError, setCoverError] = useState('');
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
   const [stats, setStats] = useState({ games_played: 0, teams_joined: 0, bookings_count: 0, average_skill_rating: null });
 
   const displayName = user?.profile?.full_name || user?.email?.split('@')[0] || 'Người dùng';
   const email = user?.email || '';
   const avatarLetter = displayName.charAt(0).toUpperCase();
+  const coverImage = user?.profile?.cover_url || heroBgImg;
+
+  const handleCoverChange = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setCoverError('');
+    setIsUploadingCover(true);
+    try {
+      const coverUrl = await storageService.uploadImage(file);
+      await updateProfile({ cover_url: coverUrl });
+    } catch (error) {
+      setCoverError(error.message || 'Không tải được ảnh bìa');
+    } finally {
+      setIsUploadingCover(false);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -119,7 +138,7 @@ function Home() {
         <section className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl rounded-3xl border border-slate-200/60 dark:border-slate-700/60 shadow-xl shadow-slate-200/30 dark:shadow-black/30 overflow-hidden">
           {/* Cover and profile identity */}
           <div className="relative h-48 sm:h-64 overflow-hidden group/cover">
-            <img src={heroBgImg} alt="Ảnh bìa hồ sơ" className="w-full h-full object-cover object-[50%_42%]" />
+            <img src={coverImage} alt="Ảnh bìa hồ sơ" className="w-full h-full object-cover object-[50%_42%]" />
             <div className="absolute inset-0 bg-gradient-to-r from-slate-950/75 via-slate-900/35 to-[#589470]/35" />
             <div className="absolute right-4 top-4 flex items-center gap-2 opacity-100 sm:opacity-0 group-hover/cover:opacity-100 transition-opacity">
               <button
@@ -131,13 +150,20 @@ function Home() {
                 <Eye className="w-4 h-4" />
                 <span className="hidden sm:inline">Xem ảnh</span>
               </button>
+              <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-black/45 px-3 py-2 text-xs font-bold text-white backdrop-blur-md transition-colors hover:bg-black/60">
+                <ImagePlus className="h-4 w-4" />
+                <span>{isUploadingCover ? 'Đang tải…' : 'Đổi ảnh bìa'}</span>
+                <input type="file" accept="image/jpeg,image/png,image/webp,image/avif" disabled={isUploadingCover} className="sr-only" onChange={handleCoverChange} />
+              </label>
             </div>
           </div>
+
+          {coverError && <p role="alert" className="mx-5 mt-3 rounded-xl bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 sm:mx-8">{coverError}</p>}
 
           <div className="relative px-5 sm:px-8 pb-6">
             <div className="-mt-12 sm:-mt-14 flex flex-col lg:flex-row lg:items-end gap-4 lg:gap-6">
               <div className={`w-24 h-24 sm:w-28 sm:h-28 rounded-full p-1.5 shadow-xl shrink-0 ${user?.ownerStatus === 'registered' ? 'owner-avatar-ring-active' : 'bg-gradient-to-tr from-[#589470] to-[#74C365]'}`}>
-                <div className="w-full h-full rounded-full bg-white dark:bg-[#001F3F] flex items-center justify-center font-black text-4xl sm:text-5xl text-[#589470] dark:text-[#74C365]">{avatarLetter}</div>
+                <div className="w-full h-full overflow-hidden rounded-full bg-white dark:bg-[#001F3F] flex items-center justify-center font-black text-4xl sm:text-5xl text-[#589470] dark:text-[#74C365]">{user?.profile?.avatar_url ? <img src={user.profile.avatar_url} alt="Ảnh đại diện" className="h-full w-full object-cover" /> : avatarLetter}</div>
               </div>
               <div className="min-w-0 flex-1 lg:pb-1">
                 <h2 className={`${user?.ownerStatus === 'registered' ? 'owner-water-text' : 'text-slate-900 dark:text-white'} text-xl sm:text-2xl font-black leading-tight break-words`}>{displayName}</h2>
@@ -216,7 +242,7 @@ function Home() {
           <button type="button" onClick={() => setIsCoverPreviewOpen(false)} className="absolute right-4 top-4 rounded-full bg-white/10 p-2.5 text-white hover:bg-white/20 transition-colors" aria-label="Đóng ảnh bìa">
             <X className="w-5 h-5" />
           </button>
-          <img src={heroBgImg} alt="Ảnh bìa hồ sơ phóng to" className="max-h-[90vh] max-w-full rounded-2xl object-contain shadow-2xl" onClick={(event) => event.stopPropagation()} />
+          <img src={coverImage} alt="Ảnh bìa hồ sơ phóng to" className="max-h-[90vh] max-w-full rounded-2xl object-contain shadow-2xl" onClick={(event) => event.stopPropagation()} />
         </div>
       )}
     </div>

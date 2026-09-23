@@ -14,6 +14,7 @@ def _post_payload(post: models.LfgPost, user_id: Optional[int] = None):
         "id": post.id,
         "author_id": post.author_id,
         "author_name": author_name or (post.author.email if post.author else ""),
+        "author_avatar_url": post.author.profile.avatar_url if post.author and post.author.profile else None,
         "sport_id": post.sport_id,
         "sport_name": post.sport_name,
         "title": post.title,
@@ -94,6 +95,29 @@ def get_post(
     db: Session = Depends(database.get_db),
 ):
     return _post_payload(_get_post_or_404(db, post_id), current_user.id)
+
+
+@router.put("/{post_id}", response_model=schemas.LfgPostResponse)
+def update_post(
+    post_id: int,
+    data: schemas.LfgPostUpdate,
+    current_user: models.User = Depends(auth_utils.get_current_user),
+    db: Session = Depends(database.get_db),
+):
+    post = _get_post_or_404(db, post_id)
+    if post.author_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Chỉ tác giả mới được chỉnh sửa bài đăng")
+    if post.status == "CANCELLED":
+        raise HTTPException(status_code=409, detail="Không thể chỉnh sửa bài đăng đã hủy")
+    fields = data.model_dump(exclude_unset=True)
+    next_total = fields.get("total_members", post.total_members)
+    if next_total < post.current_members:
+        raise HTTPException(status_code=400, detail="Tổng số người không được ít hơn số thành viên hiện tại")
+    for key, value in fields.items():
+        setattr(post, key, value)
+    post.status = "FULL" if post.current_members >= post.total_members else "OPEN"
+    db.commit()
+    return _post_payload(_get_post_or_404(db, post.id), current_user.id)
 
 
 @router.post("/{post_id}/join", response_model=schemas.LfgPostResponse)

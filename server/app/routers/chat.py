@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
@@ -20,6 +20,18 @@ def _user_payload(user: models.User):
         "id": user.id,
         "name": (profile.full_name if profile and profile.full_name else user.email),
         "avatar_url": profile.avatar_url if profile else None,
+    }
+
+
+def _friendship_payload(friendship: models.Friendship, current_user_id: int):
+    peer_id = friendship.user_high_id if friendship.user_low_id == current_user_id else friendship.user_low_id
+    peer = friendship.user_high if friendship.user_high_id == peer_id else friendship.user_low
+    return {
+        "id": friendship.id,
+        "requester_id": friendship.requester_id,
+        "status": friendship.status,
+        "user": _user_payload(peer),
+        "created_at": friendship.created_at,
     }
 
 
@@ -166,3 +178,156 @@ def send_message(
         "created_at": message.created_at,
         "is_read": bool(message.is_read),
     }
+
+
+@router.get("/users", response_model=list[schemas.ChatUserSearchResponse])
+def search_chat_users(
+    q: str = Query("", max_length=100),
+    limit: int = Query(20, ge=1, le=50),
+    current_user: models.User = Depends(auth_utils.get_current_user),
+    db: Session = Depends(database.get_db),
+):
+    query = q.strip()
+    if len(query) < 2:
+        return []
+    pattern = f"%{query}%"
+    users = db.query(models.User).options(joinedload(models.User.profile)).outerjoin(
+        models.UserProfile, models.UserProfile.user_id == models.User.id
+    ).filter(
+        models.User.id != current_user.id,
+        func.coalesce(models.User.status, "active") == "active",
+        or_(models.UserProfile.full_name.ilike(pattern), models.User.email.ilike(pattern)),
+    ).order_by(models.UserProfile.full_name.asc(), models.User.id.asc()).limit(limit).all()
+    if not users:
+        return []
+    user_ids = [person.id for person in users]
+    relationships = db.query(models.Friendship).filter(
+        or_(
+            (models.Friendship.user_low_id == current_user.id) & models.Friendship.user_high_id.in_(user_ids),
+            (models.Friendship.user_high_id == current_user.id) & models.Friendship.user_low_id.in_(user_ids),
+        )
+    ).all()
+    by_peer = {
+        (item.user_high_id if item.user_low_id == current_user.id else item.user_low_id): item
+        for item in relationships
+    }
+    results = []
+    for person in users:
+        relationship = by_peer.get(person.id)
+        state = "none"
+        if relationship:
+            state = "accepted" if relationship.status == "accepted" else (
+                "outgoing" if relationship.requester_id == current_user.id else "incoming"
+            )
+        results.append({
+            **_user_payload(person),
+            "friendship_status": state,
+            "friendship_id": relationship.id if relationship else None,
+        })
+    return results
+
+
+@router.get("/friends", response_model=list[schemas.FriendshipResponse])
+def list_friends(
+    current_user: models.User = Depends(auth_utils.get_current_user),
+    db: Session = Depends(database.get_db),
+):
+    relationships = db.query(models.Friendship).options(
+        joinedload(models.Friendship.user_low).joinedload(models.User.profile),
+        joinedload(models.Friendship.user_high).joinedload(models.User.profile),
+    ).filter(
+        models.Friendship.status == "accepted",
+        or_(models.Friendship.user_low_id == current_user.id, models.Friendship.user_high_id == current_user.id),
+    ).order_by(models.Friendship.updated_at.desc()).all()
+    return [_friendship_payload(item, current_user.id) for item in relationships]
+
+
+@router.get("/friends/requests", response_model=list[schemas.FriendshipResponse])
+def list_friend_requests(
+    current_user: models.User = Depends(auth_utils.get_current_user),
+    db: Session = Depends(database.get_db),
+):
+    relationships = db.query(models.Friendship).options(
+        joinedload(models.Friendship.user_low).joinedload(models.User.profile),
+        joinedload(models.Friendship.user_high).joinedload(models.User.profile),
+    ).filter(
+        models.Friendship.status == "pending",
+        models.Friendship.requester_id != current_user.id,
+        or_(models.Friendship.user_low_id == current_user.id, models.Friendship.user_high_id == current_user.id),
+    ).order_by(models.Friendship.created_at.desc()).all()
+    return [_friendship_payload(item, current_user.id) for item in relationships]
+
+
+@router.post("/friends/requests", response_model=schemas.FriendshipResponse, status_code=status.HTTP_201_CREATED)
+def send_friend_request(
+    data: schemas.FriendRequestCreate,
+    current_user: models.User = Depends(auth_utils.get_current_user),
+    db: Session = Depends(database.get_db),
+):
+    recipient_id = data.recipient_id
+    if recipient_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Bạn không thể kết bạn với chính mình")
+    recipient = db.query(models.User).filter_by(id=recipient_id).first()
+    if not recipient:
+        raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
+    low_id, high_id = sorted((current_user.id, recipient_id))
+    relationship = db.query(models.Friendship).options(
+        joinedload(models.Friendship.user_low).joinedload(models.User.profile),
+        joinedload(models.Friendship.user_high).joinedload(models.User.profile),
+    ).filter_by(user_low_id=low_id, user_high_id=high_id).first()
+    if relationship:
+        if relationship.status == "accepted":
+            raise HTTPException(status_code=409, detail="Hai bạn đã là bạn bè")
+        if relationship.requester_id == current_user.id:
+            raise HTTPException(status_code=409, detail="Bạn đã gửi lời mời kết bạn")
+        raise HTTPException(status_code=409, detail="Người này đã gửi lời mời; hãy chấp nhận trong mục Bạn bè")
+    relationship = models.Friendship(
+        user_low_id=low_id,
+        user_high_id=high_id,
+        requester_id=current_user.id,
+        status="pending",
+    )
+    db.add(relationship)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Lời mời kết bạn đã tồn tại")
+    relationship = db.query(models.Friendship).options(
+        joinedload(models.Friendship.user_low).joinedload(models.User.profile),
+        joinedload(models.Friendship.user_high).joinedload(models.User.profile),
+    ).filter_by(id=relationship.id).one()
+    return _friendship_payload(relationship, current_user.id)
+
+
+@router.post("/friends/requests/{friendship_id}/accept", response_model=schemas.FriendshipResponse)
+def accept_friend_request(
+    friendship_id: int,
+    current_user: models.User = Depends(auth_utils.get_current_user),
+    db: Session = Depends(database.get_db),
+):
+    relationship = db.query(models.Friendship).options(
+        joinedload(models.Friendship.user_low).joinedload(models.User.profile),
+        joinedload(models.Friendship.user_high).joinedload(models.User.profile),
+    ).filter_by(id=friendship_id).first()
+    if not relationship or current_user.id not in (relationship.user_low_id, relationship.user_high_id):
+        raise HTTPException(status_code=404, detail="Không tìm thấy lời mời kết bạn")
+    if relationship.status != "pending" or relationship.requester_id == current_user.id:
+        raise HTTPException(status_code=409, detail="Bạn không thể chấp nhận lời mời này")
+    relationship.status = "accepted"
+    relationship.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    db.commit()
+    return _friendship_payload(relationship, current_user.id)
+
+
+@router.delete("/friends/{friendship_id}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_friendship(
+    friendship_id: int,
+    current_user: models.User = Depends(auth_utils.get_current_user),
+    db: Session = Depends(database.get_db),
+):
+    relationship = db.query(models.Friendship).filter_by(id=friendship_id).first()
+    if not relationship or current_user.id not in (relationship.user_low_id, relationship.user_high_id):
+        raise HTTPException(status_code=404, detail="Không tìm thấy mối quan hệ bạn bè")
+    db.delete(relationship)
+    db.commit()

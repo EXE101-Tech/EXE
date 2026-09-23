@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { Search, Sun, Moon, Bell, Crown, MessageSquare, MapPin, Gamepad2, Users } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -60,7 +60,7 @@ export default function Navbar() {
   });
   const navigate = useNavigate();
   const location = useLocation();
-  const { isChatOpen, toggleChat } = useChat();
+  const { isChatOpen, toggleChat, closeChat } = useChat();
   const { user } = useAuth();
   const [isPremiumOpen, setIsPremiumOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -71,7 +71,31 @@ export default function Navbar() {
   const [hasSearched, setHasSearched] = useState(false);
   const [isSubNavVisible, setIsSubNavVisible] = useState(true);
   const searchInputRef = useRef(null);
+  const headerRef = useRef(null);
   const lastScrollYRef = useRef(0);
+
+  useLayoutEffect(() => {
+    const header = headerRef.current;
+    if (!header) return undefined;
+
+    const root = document.documentElement;
+    const previousChatTop = root.style.getPropertyValue('--mobile-chat-top');
+    const updateChatTop = () => {
+      root.style.setProperty('--mobile-chat-top', `${header.getBoundingClientRect().bottom}px`);
+    };
+
+    updateChatTop();
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateChatTop) : null;
+    observer?.observe(header);
+    window.addEventListener('resize', updateChatTop);
+
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', updateChatTop);
+      if (previousChatTop) root.style.setProperty('--mobile-chat-top', previousChatTop);
+      else root.style.removeProperty('--mobile-chat-top');
+    };
+  }, []);
 
   const getAvatarLetter = () => {
     const name = user?.profile?.full_name || user?.email || 'U';
@@ -116,6 +140,7 @@ export default function Navbar() {
 
   const handleSearchResult = (result) => {
     navigate(result.href);
+    closeChat();
     setIsSearchOpen(false);
     setSearchQuery('');
     setSearchResults([]);
@@ -179,6 +204,11 @@ export default function Navbar() {
   }, [isSearchOpen]);
 
   useEffect(() => {
+    if (isChatOpen) {
+      lastScrollYRef.current = window.scrollY;
+      return undefined;
+    }
+
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
       const previousScrollY = lastScrollYRef.current;
@@ -196,12 +226,17 @@ export default function Navbar() {
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [isChatOpen]);
 
   useEffect(() => {
-    document.body.classList.toggle('navbar-tabs-hidden', !isSubNavVisible);
+    document.body.classList.toggle('navbar-tabs-hidden', !isSubNavVisible && !isChatOpen);
     return () => document.body.classList.remove('navbar-tabs-hidden');
-  }, [isSubNavVisible]);
+  }, [isSubNavVisible, isChatOpen]);
+
+  const handleChatToggle = () => {
+    if (!isChatOpen) setIsSubNavVisible(true);
+    toggleChat();
+  };
 
   const toggleTheme = () => {
     setIsDark(prev => {
@@ -218,11 +253,11 @@ export default function Navbar() {
   };
 
   return (
-    <header className="w-full bg-gradient-to-r from-[#589470] to-[#74C365] dark:from-[#122A25] dark:to-[#1B3A31] border-b border-transparent dark:border-[#65E6A0]/15 fixed top-0 left-0 right-0 z-[999] shadow-md dark:shadow-[0_8px_30px_rgba(3,10,20,0.35)] transition-colors duration-500">
+    <header ref={headerRef} className="w-full bg-gradient-to-r from-[#589470] to-[#74C365] dark:from-[#122A25] dark:to-[#1B3A31] border-b border-transparent dark:border-[#65E6A0]/15 fixed top-0 left-0 right-0 z-[999] shadow-md dark:shadow-[0_8px_30px_rgba(3,10,20,0.35)] transition-colors duration-500">
       <div className="max-w-7xl mx-auto px-2.5 sm:px-6 h-14 sm:h-20 flex items-center justify-between gap-1 sm:gap-6">
         <div className="flex items-center shrink-0">
           <div
-            onClick={() => navigate('/home')}
+            onClick={() => { closeChat(); navigate('/home'); }}
             className="cursor-pointer group select-none flex items-center gap-1.5"
           >
             <span className="text-xl sm:text-3xl font-black tracking-tight text-white transition-transform group-hover:scale-105">
@@ -265,7 +300,7 @@ export default function Navbar() {
           </button>
 
           <button
-            onClick={toggleChat}
+            onClick={handleChatToggle}
             className={`inline-flex items-center justify-center gap-1.5 w-8 h-8 p-0 sm:w-auto sm:h-auto sm:px-3.5 sm:py-2 rounded-full sm:rounded-2xl text-xs sm:text-sm font-bold shadow-md transition-all shrink-0 ${
               isChatOpen
                 ? 'bg-white text-[#589470] scale-105'
@@ -329,6 +364,7 @@ export default function Navbar() {
                     : 'text-white/80 hover:text-white'
                 }`}
                 title={item.label}
+                onClick={closeChat}
               >
                 {item.isAvatar ? (
                   <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center font-black text-[11px] sm:text-xs transition-colors shadow-sm ${user?.isCourtOwner ? 'owner-avatar-ring-active p-[2px]' : isActive ? 'bg-white text-[#589470]' : 'bg-white/80 text-[#589470] group-hover:bg-white'}`}>

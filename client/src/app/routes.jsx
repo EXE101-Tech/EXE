@@ -16,12 +16,9 @@ import { ChatProvider, useChat } from '../shared/context/ChatContext.jsx';
 import LandingPage from '../features/landing/Landing.jsx';
 import PublicLayout from '../shared/layouts/PublicLayout.jsx';
 import NavbarLayout from '../shared/layouts/NavbarLayout.jsx';
-import Particles from '../features/landing/components/Particles.jsx';
-import { useTheme } from '../shared/context/ThemeContext.jsx';
 import { SportFilterProvider } from '../shared/context/SportFilterContext.jsx';
 
 function GlobalWrapper({ children }) {
-    const { toggleTheme } = useTheme();
     return (
         <div className="min-h-screen text-slate-900 dark:text-white overflow-x-clip selection:bg-brand-primary/30 font-sans relative theme-transition">
             <div className="relative z-10 h-full w-full">
@@ -40,8 +37,7 @@ function MainLayout({ children }) {
 
             {/* Nội dung chính — margin left để tránh Sidebar */}
             <div
-                className="flex-1 flex flex-col min-w-0 transition-[margin] duration-300 ease-in-out ml-[292px] relative"
-                style={{ marginRight: isChatOpen ? '388px' : '0px' }}
+                className={`flex-1 flex flex-col min-w-0 transition-[margin] duration-300 ease-in-out ml-[292px] relative ${isChatOpen ? 'md:mr-[388px]' : 'md:mr-0'}`}
             >
                 <TopNavbar />
                 

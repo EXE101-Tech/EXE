@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, Table, Boolean, JSON, UniqueConstraint
+from sqlalchemy import CheckConstraint, Column, Integer, String, Float, DateTime, ForeignKey, Text, Table, Boolean, JSON, UniqueConstraint
 from sqlalchemy.orm import relationship
 from .database import Base
 
@@ -38,6 +38,7 @@ class UserProfile(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
     full_name = Column(String, nullable=True)
     avatar_url = Column(String, nullable=True)
+    cover_url = Column(Text, nullable=True)
     gender = Column(String, nullable=True)  # Male, Female, Other
     birth_date = Column(String, nullable=True)
     bio = Column(Text, nullable=True)
@@ -319,3 +320,24 @@ class Message(Base):
 
     conversation = relationship("Conversation", back_populates="messages")
     sender = relationship("User", back_populates="sent_messages")
+
+
+class Friendship(Base):
+    __tablename__ = "friendships"
+    __table_args__ = (
+        UniqueConstraint("user_low_id", "user_high_id", name="uq_friendship_pair"),
+        CheckConstraint("user_low_id < user_high_id", name="ck_friendship_ordered_users"),
+        CheckConstraint("requester_id IN (user_low_id, user_high_id)", name="ck_friendship_requester_member"),
+        CheckConstraint("status IN ('pending', 'accepted')", name="ck_friendship_status"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_low_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_high_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    requester_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    status = Column(String(20), nullable=False, default="pending")
+    created_at = Column(DateTime, default=utc_now_naive, nullable=False)
+    updated_at = Column(DateTime, default=utc_now_naive, onupdate=utc_now_naive, nullable=False)
+
+    user_low = relationship("User", foreign_keys=[user_low_id])
+    user_high = relationship("User", foreign_keys=[user_high_id])

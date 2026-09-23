@@ -35,8 +35,15 @@ def update_user_profile(db: Session, user_id: int, profile_update: schemas.UserP
 
 def update_user_profile_with_sports(db: Session, user_id: int, data: schemas.UserProfileWithSportsUpdate):
     db_profile = db.query(models.UserProfile).filter(models.UserProfile.user_id == user_id).first()
+    if not db_profile:
+        db_profile = models.UserProfile(user_id=user_id)
+        db.add(db_profile)
     if db_profile and data.name is not None:
         db_profile.full_name = data.name
+    if data.avatar_url is not None:
+        db_profile.avatar_url = data.avatar_url
+    if data.cover_url is not None:
+        db_profile.cover_url = data.cover_url
         
     if data.sports is not None:
         for sport_name, skill_level in data.sports.items():

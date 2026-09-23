@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 
 const ChatContext = createContext(null);
 
@@ -6,9 +6,26 @@ export function ChatProvider({ children }) {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [pendingRecipient, setPendingRecipient] = useState(null);
 
+  useEffect(() => {
+    if (!isChatOpen || !window.matchMedia('(max-width: 767px)').matches) return undefined;
+
+    const htmlOverflow = document.documentElement.style.overflow;
+    const bodyOverflow = document.body.style.overflow;
+    const bodyOverscroll = document.body.style.overscrollBehavior;
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    document.body.style.overscrollBehavior = 'none';
+
+    return () => {
+      document.documentElement.style.overflow = htmlOverflow;
+      document.body.style.overflow = bodyOverflow;
+      document.body.style.overscrollBehavior = bodyOverscroll;
+    };
+  }, [isChatOpen]);
+
   const openChat = (recipient) => {
-    const user = recipient?.host || recipient?.author || recipient;
-    const id = Number(user?.id || user?.user_id || user?.owner_id || user?.author_id);
+    const user = recipient?.host_user || recipient?.author || recipient?.host || recipient?.user || recipient?.owner || recipient;
+    const id = Number(user?.user_id || user?.author_id || user?.owner_id || user?.host_id || user?.id);
     setPendingRecipient(Number.isInteger(id) && id > 0 ? {
       id,
       name: user.name || user.full_name || user.author_name || user.owner_name || 'Người chơi',

@@ -1,7 +1,7 @@
 import React from 'react';
-import { MessageSquare, UserPlus, MapPin, Calendar, Users, DollarSign, CheckCircle2, Clock, Award, X, Maximize2, Trash2 } from 'lucide-react';
+import { MessageSquare, UserPlus, MapPin, Calendar, Users, DollarSign, CheckCircle2, Clock, Award, X, Maximize2, Trash2, Pencil } from 'lucide-react';
 
-export default function PostCard({ post, onJoin, onChat, onCancel }) {
+export default function PostCard({ post, onJoin, onChat, onCancel, onEdit }) {
   const [isExpanded, setIsExpanded] = React.useState(false);
   const [isImageOpen, setIsImageOpen] = React.useState(false);
   const isFull = post.currentMembers >= post.totalMembers;
@@ -87,9 +87,9 @@ export default function PostCard({ post, onJoin, onChat, onCancel }) {
             {/* Top Row: Avatar + Name + Status Badge on 1 line */}
             <div className="flex items-center justify-between gap-2 mb-1 sm:mb-1.5">
               <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-tr from-[#589470] to-[#74C365] p-[2px] shadow-sm shrink-0 flex items-center justify-center aspect-square">
-                  <div className="w-full h-full rounded-full bg-white dark:bg-[#001F3F] flex items-center justify-center font-black text-xs sm:text-sm text-[#589470] dark:text-[#74C365]">
-                    {post.authorName.charAt(0).toUpperCase()}
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-tr from-[#589470] to-[#74C365] p-[2px] shadow-sm shrink-0 flex items-center justify-center aspect-square overflow-hidden">
+                  <div className="w-full h-full rounded-full bg-white dark:bg-[#001F3F] flex items-center justify-center font-black text-xs sm:text-sm text-[#589470] dark:text-[#74C365] overflow-hidden">
+                    {post.authorAvatar ? <img src={post.authorAvatar} alt="" className="h-full w-full object-cover" /> : post.authorName.charAt(0).toUpperCase()}
                   </div>
                 </div>
                 <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
@@ -180,6 +180,14 @@ export default function PostCard({ post, onJoin, onChat, onCancel }) {
 
         {/* Action Buttons */}
         <div className="flex items-center justify-end gap-2.5 sm:gap-3 pt-3.5 sm:pt-4 border-t border-slate-100 dark:border-white/10">
+          {post.isAuthor ? <>
+          <button onClick={() => onEdit?.(post)} className="flex-1 justify-center rounded-xl bg-[#589470]/10 px-4 py-2.5 text-xs font-bold text-[#589470] transition hover:bg-[#589470]/20 dark:text-[#74C365] sm:flex-none">
+            <Pencil className="mr-1.5 inline h-4 w-4" />Chỉnh sửa nội dung
+          </button>
+          <button onClick={() => onCancel?.(post)} className="flex-1 justify-center rounded-xl bg-rose-50 px-4 py-2.5 text-xs font-bold text-rose-600 transition hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-300 sm:flex-none">
+            <Trash2 className="mr-1.5 inline h-4 w-4" />Hủy bài đăng
+          </button>
+          </> : <>
           <button
             onClick={() => onChat(post)}
             className="p-2.5 sm:px-4 sm:py-2.5 bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 text-slate-800 dark:text-white rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 sm:gap-2 transition-all active:scale-95 shrink-0"
@@ -189,11 +197,6 @@ export default function PostCard({ post, onJoin, onChat, onCancel }) {
             <span className="hidden sm:inline">Nhắn tin</span>
           </button>
 
-          {post.isAuthor ? (
-            <button onClick={() => onCancel?.(post)} className="flex-1 sm:flex-none justify-center rounded-xl bg-rose-50 px-4 py-2.5 text-xs font-bold text-rose-600 transition hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-300">
-              <Trash2 className="mr-1.5 inline h-4 w-4" />Hủy bài đăng
-            </button>
-          ) : (
             <button
               onClick={() => onJoin(post)}
               disabled={isFull || post.hasJoined}
@@ -208,7 +211,7 @@ export default function PostCard({ post, onJoin, onChat, onCancel }) {
               <UserPlus className="w-4 h-4 stroke-[2.5] shrink-0" />
               <span>{post.hasJoined ? 'Đã tham gia' : isFull ? 'Đã đủ người' : 'Tham gia'}</span>
             </button>
-          )}
+          </>}
         </div>
 
       </div>

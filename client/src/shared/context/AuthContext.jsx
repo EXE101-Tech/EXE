@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { authService, ownerService } from '../services/api';
+import { createContext, useContext, useEffect, useState } from 'react';
+import { authService, ownerService, resolveMediaUrl } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -10,6 +10,11 @@ function normalizeUser(user) {
   const ownerStatus = user.owner_status || 'none';
   return {
     ...user,
+    profile: user.profile ? {
+      ...user.profile,
+      avatar_url: resolveMediaUrl(user.profile.avatar_url),
+      cover_url: resolveMediaUrl(user.profile.cover_url),
+    } : user.profile,
     name: user.profile?.full_name || user.email?.split('@')[0] || 'Người dùng',
     avatar: user.profile?.avatar_url || '',
     ownerStatus,

@@ -36,6 +36,23 @@ export const authService = {
   getStats: () => apiClient.get('/auth/me/stats'),
 };
 
+export const resolveMediaUrl = (path) => {
+  if (!path || /^(https?:|data:|blob:)/i.test(path)) return path || '';
+  const apiBase = new URL(apiClient.defaults.baseURL, window.location.origin);
+  return new URL(path, apiBase.origin).toString();
+};
+
+export const storageService = {
+  uploadImage: async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const result = await apiClient.post('/storage/images', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return result.url;
+  },
+};
+
 export const sportService = {
   getAll: () => apiClient.get('/courts/sports'),
 };
@@ -92,6 +109,7 @@ export const teamService = {
 export const lfgService = {
   getAll: (filters = {}) => apiClient.get('/lfg/posts', { params: filters }),
   create: (data) => apiClient.post('/lfg/posts', data),
+  update: (id, data) => apiClient.put(`/lfg/posts/${id}`, data),
   join: (id) => apiClient.post(`/lfg/posts/${id}/join`),
   leave: (id) => apiClient.delete(`/lfg/posts/${id}/membership`),
   cancel: (id) => apiClient.delete(`/lfg/posts/${id}`),
@@ -102,6 +120,12 @@ export const chatService = {
   startConversation: (recipientId) => apiClient.post('/chat/conversations', { recipient_id: recipientId }),
   getMessages: (conversationId) => apiClient.get(`/chat/conversations/${conversationId}/messages`),
   sendMessage: (conversationId, text) => apiClient.post(`/chat/conversations/${conversationId}/messages`, { text }),
+  searchUsers: (query) => apiClient.get('/chat/users', { params: { q: query, limit: 30 } }),
+  getFriends: () => apiClient.get('/chat/friends'),
+  getFriendRequests: () => apiClient.get('/chat/friends/requests'),
+  sendFriendRequest: (userId) => apiClient.post('/chat/friends/requests', { recipient_id: userId }),
+  acceptFriendRequest: (friendshipId) => apiClient.post(`/chat/friends/requests/${friendshipId}/accept`),
+  removeFriendship: (friendshipId) => apiClient.delete(`/chat/friends/${friendshipId}`),
 };
 
 export const bookingService = {

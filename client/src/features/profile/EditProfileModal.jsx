@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { X, Save, CheckCircle } from 'lucide-react';
+import { CheckCircle, ImagePlus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { storageService } from '../../shared/services/api';
 
 const ALL_SPORTS = [
   { key: 'badminton', label: 'Badminton' },
@@ -26,8 +27,11 @@ function EditProfileModal({ isOpen, onClose, user, onSave }) {
 
   const [formData, setFormData] = useState({
     name: '',
-    sports: {}
+    sports: {},
+    avatar_url: '',
   });
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState('');
   
   const [isRendered, setIsRendered] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -47,8 +51,11 @@ function EditProfileModal({ isOpen, onClose, user, onSave }) {
 
         setFormData({
           name: user?.profile?.full_name || user?.name || '',
-          sports: initialSports
+          sports: initialSports,
+          avatar_url: user?.profile?.avatar_url || '',
         });
+        setAvatarFile(null);
+        setAvatarPreview('');
       }
     } else {
       const timer = setTimeout(() => {
@@ -58,6 +65,10 @@ function EditProfileModal({ isOpen, onClose, user, onSave }) {
       return () => clearTimeout(timer);
     }
   }, [isOpen, user, isSuccess]);
+
+  useEffect(() => () => {
+    if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+  }, [avatarPreview]);
 
   const handleChange = (e) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -74,7 +85,10 @@ function EditProfileModal({ isOpen, onClose, user, onSave }) {
     e.preventDefault();
     setSaveError('');
     try {
-      await onSave?.(formData);
+      const avatarUrl = avatarFile ? await storageService.uploadImage(avatarFile) : formData.avatar_url;
+      await onSave?.({ ...formData, avatar_url: avatarUrl });
+      setAvatarFile(null);
+      setAvatarPreview('');
       setIsSuccess(true);
       setTimeout(() => {
       onClose();
@@ -129,10 +143,10 @@ function EditProfileModal({ isOpen, onClose, user, onSave }) {
               >
                 {/* Front Face: Avatar */}
                 <div 
-                  className="absolute inset-0 rounded-full bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center text-white text-3xl font-bold shadow-lg shadow-blue-500/30 group"
+                  className="absolute inset-0 overflow-hidden rounded-full bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center text-white text-3xl font-bold shadow-lg shadow-blue-500/30 group"
                   style={{ backfaceVisibility: 'hidden' }}
                 >
-                  {(formData.name || user?.email || '').charAt(0).toUpperCase()}
+                  {(avatarPreview || formData.avatar_url) ? <img src={avatarPreview || formData.avatar_url} alt="Ảnh đại diện xem trước" className="h-full w-full object-cover" /> : (formData.name || user?.email || '').charAt(0).toUpperCase()}
                 </div>
                 
                 {/* Back Face: Checkmark */}
@@ -144,9 +158,12 @@ function EditProfileModal({ isOpen, onClose, user, onSave }) {
                 </div>
               </div>
             </div>
-            <span className={`text-[10px] mt-3 font-bold uppercase tracking-wider transition-colors duration-500 ${isSuccess ? 'text-green-500 scale-110' : 'text-gray-500 dark:text-gray-400 hover:text-blue-500 cursor-pointer'}`}>
-              {isSuccess ? t('profile.updateSuccess') : 'Ảnh đại diện hiện không chỉnh sửa được'}
-            </span>
+            <label className="mt-3 inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200 dark:bg-white/10 dark:text-slate-200">
+              <ImagePlus className="h-3.5 w-3.5" />{avatarFile ? avatarFile.name : 'Đổi ảnh đại diện'}
+              <input type="file" accept="image/jpeg,image/png,image/webp,image/avif" className="sr-only" onChange={(event) => { const file = event.target.files?.[0] || null; event.target.value = ''; setAvatarFile(file); setAvatarPreview(file ? URL.createObjectURL(file) : ''); }} />
+            </label>
+            <span className="mt-1 text-[10px] text-slate-400">Ảnh JPEG, PNG, WebP hoặc AVIF · tối đa 8 MB</span>
+            {isSuccess && <span className="mt-2 text-xs font-bold text-green-500">{t('profile.updateSuccess')}</span>}
           </div>
 
           {/* Form Content (dims on success) */}

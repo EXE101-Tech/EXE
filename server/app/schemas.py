@@ -54,6 +54,7 @@ class UserSportResponse(UserSportBase):
 class UserProfileBase(BaseModel):
     full_name: Optional[str] = None
     avatar_url: Optional[str] = None
+    cover_url: Optional[str] = None
     gender: Optional[str] = None
     birth_date: Optional[str] = None
     bio: Optional[str] = None
@@ -68,6 +69,8 @@ class UserProfileUpdate(UserProfileBase):
 class UserProfileWithSportsUpdate(BaseModel):
     name: Optional[str] = None
     sports: Optional[Dict[str, str]] = None
+    avatar_url: Optional[str] = None
+    cover_url: Optional[str] = None
 
 class UserProfileResponse(UserProfileBase):
     user_id: int
@@ -341,6 +344,10 @@ class ChatConversationCreate(BaseModel):
     recipient_id: int = Field(..., gt=0)
 
 
+class FriendRequestCreate(BaseModel):
+    recipient_id: int = Field(..., gt=0)
+
+
 class ChatMessageCreate(BaseModel):
     text: str = Field(..., min_length=1, max_length=4000)
 
@@ -357,6 +364,19 @@ class ChatUserResponse(BaseModel):
     id: int
     name: str
     avatar_url: Optional[str] = None
+
+
+class ChatUserSearchResponse(ChatUserResponse):
+    friendship_status: str = "none"
+    friendship_id: Optional[int] = None
+
+
+class FriendshipResponse(BaseModel):
+    id: int
+    requester_id: int
+    status: str
+    user: ChatUserResponse
+    created_at: datetime
 
 
 class ChatMessageResponse(BaseModel):
@@ -483,10 +503,25 @@ class LfgPostCreate(BaseModel):
             raise ValueError("Số người hiện có không được vượt quá tổng số người")
         return self
 
+
+class LfgPostUpdate(BaseModel):
+    sport_id: Optional[str] = Field(None, min_length=2, max_length=40)
+    sport_name: Optional[str] = Field(None, min_length=2, max_length=80)
+    title: Optional[str] = Field(None, min_length=3, max_length=200)
+    description: Optional[str] = None
+    location: Optional[str] = Field(None, min_length=2, max_length=255)
+    time_slot: Optional[str] = Field(None, min_length=1, max_length=100)
+    date_label: Optional[str] = Field(None, min_length=1, max_length=100)
+    total_members: Optional[int] = Field(None, ge=2, le=500)
+    price: Optional[str] = Field(None, max_length=120)
+    skill_level: Optional[str] = Field(None, min_length=1, max_length=80)
+    image_url: Optional[str] = None
+
 class LfgPostResponse(BaseModel):
     id: int
     author_id: int
     author_name: str
+    author_avatar_url: Optional[str] = None
     sport_id: str
     sport_name: str
     title: str

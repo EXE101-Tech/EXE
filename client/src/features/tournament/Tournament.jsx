@@ -1,13 +1,13 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search, PlusCircle, Users, Sparkles, Filter, MessageSquare, CheckCircle2, SlidersHorizontal, MapPin, Calendar, DollarSign, Award, Trophy, ChevronDown } from 'lucide-react';
+import { PlusCircle, Sparkles, Filter, MapPin, Calendar, DollarSign, Award, Trophy, ChevronDown } from 'lucide-react';
 import { useSportFilter } from '../../shared/context/SportFilterContext';
 import { useChat } from '../../shared/context/ChatContext';
 import PostCard from './components/PostCard';
 import JoinModal from './components/JoinModal';
 import CreatePostModal from './components/CreatePostModal';
 import FilterSelect from '../../shared/components/FilterSelect';
-import { lfgService } from '../../shared/services/api';
+import { lfgService, resolveMediaUrl, storageService } from '../../shared/services/api';
 import { useAuth } from '../../shared/context/AuthContext';
 
 import badmintonImg from '../../assets/sports/badminton.avif';
@@ -33,6 +33,7 @@ export default function Tournament() {
   const [selectedPost, setSelectedPost] = useState(null);
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [editingPost, setEditingPost] = useState(null);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
 
@@ -46,8 +47,9 @@ export default function Tournament() {
         ...post,
         sportId: post.sport_id,
         sportEmoji: emojis[post.sport_id] || '🏅',
-        image: post.image_url || images[post.sport_id] || badmintonImg,
+        image: resolveMediaUrl(post.image_url) || images[post.sport_id] || badmintonImg,
         authorName: post.author_name || 'Người chơi',
+        authorAvatar: resolveMediaUrl(post.author_avatar_url),
         teamName: '',
         timeAgo: new Date(post.created_at).toLocaleString('vi-VN'),
         timeSlot: post.time_slot,
@@ -55,7 +57,7 @@ export default function Tournament() {
         currentMembers: post.current_members,
         totalMembers: post.total_members,
         skillLevel: post.skill_level,
-        isAuthor: post.author_id === user?.id,
+        isAuthor: Number(post.author_id) === Number(user?.id),
         hasJoined: post.has_joined,
         isVerified: false,
       }));
@@ -111,11 +113,20 @@ export default function Tournament() {
     openChat({ id: post.author_id, name: post.authorName });
   };
 
-  const handleCreatePost = async (newPost) => {
-    await lfgService.create(newPost);
+  const handleSavePost = async (postData) => {
+    const { image_file: imageFile, ...payload } = postData;
+    if (imageFile) payload.image_url = await storageService.uploadImage(imageFile);
+    if (editingPost) await lfgService.update(editingPost.id, payload);
+    else await lfgService.create(payload);
     await loadPosts();
-    showToast('Đã đăng bài tìm người chơi.');
+    showToast(editingPost ? 'Đã cập nhật bài đăng.' : 'Đã đăng bài tìm người chơi.');
     setIsCreateModalOpen(false);
+    setEditingPost(null);
+  };
+
+  const handleEditPost = (post) => {
+    setEditingPost(post);
+    setIsCreateModalOpen(true);
   };
 
   const handleCancelPost = async (post) => {
@@ -296,6 +307,7 @@ export default function Tournament() {
                 onJoin={handleJoinClick} 
                 onChat={handleChatClick} 
                 onCancel={handleCancelPost}
+                onEdit={handleEditPost}
               />
             ))}
           </div>
@@ -312,9 +324,11 @@ export default function Tournament() {
       />
 
       <CreatePostModal 
+        key={`${editingPost?.id || 'new-post'}-${isCreateModalOpen ? 'open' : 'closed'}`}
         isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onCreate={handleCreatePost}
+        onClose={() => { setIsCreateModalOpen(false); setEditingPost(null); }}
+        onCreate={handleSavePost}
+        initialPost={editingPost}
       />
 
     </div>
