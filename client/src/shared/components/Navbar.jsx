@@ -104,6 +104,7 @@ export default function Navbar() {
     const name = user?.profile?.full_name || user?.email || 'U';
     return name.charAt(0).toUpperCase();
   };
+  const avatarUrl = user?.profile?.avatar_url || user?.avatar || '';
 
   const navItems = [
     { label: 'Diễn Đàn', path: '/tournaments', icon: MessageSquare, mobileIcon: forumMobileIcon },
@@ -372,8 +373,14 @@ export default function Navbar() {
                 onClick={closeChat}
               >
                 {item.isAvatar ? (
-                  <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center font-black text-[11px] sm:text-xs transition-colors shadow-sm ${user?.isCourtOwner ? 'owner-avatar-ring-active p-[2px]' : isActive ? 'bg-white text-[#589470]' : 'bg-white/80 text-[#589470] group-hover:bg-white'}`}>
-                    {user?.isCourtOwner ? <span className="flex h-full w-full items-center justify-center rounded-full bg-white text-[#589470]">{getAvatarLetter()}</span> : getAvatarLetter()}
+                  <div className={`h-7 w-7 rounded-full flex items-center justify-center font-black text-xs transition-colors shadow-sm ${user?.isCourtOwner ? 'owner-avatar-ring-active p-[2px]' : isActive ? 'bg-white p-px' : 'bg-white/80 p-px group-hover:bg-white'}`}>
+                    <span className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-white text-[#589470]">
+                      {avatarUrl ? (
+                        <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        getAvatarLetter()
+                      )}
+                    </span>
                   </div>
                 ) : (
                   <>

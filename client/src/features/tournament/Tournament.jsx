@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { PlusCircle, Sparkles, Filter, MapPin, Calendar, DollarSign, Award, Trophy, ChevronDown } from 'lucide-react';
+import { PlusCircle, Sparkles, Filter, MapPin, Calendar, DollarSign, Award, Trophy, ChevronDown, UserRound } from 'lucide-react';
 import { useSportFilter } from '../../shared/context/SportFilterContext';
 import { useChat } from '../../shared/context/ChatContext';
 import PostCard from './components/PostCard';
@@ -10,6 +10,8 @@ import LfgParticipantsModal from './components/LfgParticipantsModal';
 import FilterSelect from '../../shared/components/FilterSelect';
 import { lfgService, resolveMediaUrl, storageService } from '../../shared/services/api';
 import { useAuth } from '../../shared/context/AuthContext';
+import { createSportExperienceMap, sortBySportExperience } from '../../shared/utils/sportExperienceSort';
+import { parseStoredCostToVnd } from '../../shared/utils/price';
 
 import badmintonImg from '../../assets/sports/badminton.avif';
 import footballImg from '../../assets/sports/foodball.avif';
@@ -24,6 +26,7 @@ export default function Tournament() {
   const { selectedSport, setSelectedSport } = useSportFilter();
   const { openChat } = useChat();
   const { user } = useAuth();
+  const sportExperience = useMemo(() => createSportExperienceMap(user?.sports), [user?.sports]);
   const [posts, setPosts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -31,6 +34,7 @@ export default function Tournament() {
   const [filterTime, setFilterTime] = useState('all');
   const [filterPrice, setFilterPrice] = useState('all');
   const [filterSkill, setFilterSkill] = useState('all');
+  const [myPostsOnly, setMyPostsOnly] = useState(false);
   const [selectedPost, setSelectedPost] = useState(null);
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -76,28 +80,30 @@ export default function Tournament() {
 
   // Filter posts based on selected sport in Navbar and 4 dropdown filters
   const filteredPosts = useMemo(() => {
-    return posts.filter(post => {
+    const visiblePosts = posts.filter(post => {
+      if (myPostsOnly && Number(post.author_id) !== Number(user?.id)) return false;
       if (routeSearch) {
         return [post.title, post.location, post.description, post.authorName]
           .some((value) => value?.toLowerCase().includes(routeSearch));
       }
       const matchSport = !selectedSport || post.sportId === selectedSport;
-      const postPrice = post.price || '';
+      const postPrice = parseStoredCostToVnd(post.price);
       
       const matchLocation = filterLocation === 'all' || post.location.toLowerCase().includes(filterLocation.toLowerCase());
       
       const matchTime = filterTime === 'all' || post.date.toLowerCase().includes(filterTime.toLowerCase()) || post.timeSlot.toLowerCase().includes(filterTime.toLowerCase());
       
-      const matchPrice = filterPrice === 'all' || 
-        (filterPrice === 'Dưới 60k' && (postPrice.includes('40') || postPrice.includes('50'))) ||
-        (filterPrice === '60k - 80k' && (postPrice.includes('60') || postPrice.includes('70') || postPrice.includes('80'))) ||
-        (filterPrice === 'Trên 80k' && (postPrice.includes('90') || postPrice.includes('100')));
+      const matchPrice = filterPrice === 'all' ||
+        (postPrice !== null && filterPrice === 'Dưới 60k' && postPrice < 60000) ||
+        (postPrice !== null && filterPrice === '60k - 80k' && postPrice >= 60000 && postPrice <= 80000) ||
+        (postPrice !== null && filterPrice === 'Trên 80k' && postPrice > 80000);
         
       const matchSkill = filterSkill === 'all' || post.skillLevel.toLowerCase().includes(filterSkill.toLowerCase());
 
       return matchSport && matchLocation && matchTime && matchPrice && matchSkill;
     });
-  }, [posts, selectedSport, filterLocation, filterTime, filterPrice, filterSkill, routeSearch]);
+    return sortBySportExperience(visiblePosts, sportExperience, (post) => post.sportId);
+  }, [posts, selectedSport, filterLocation, filterTime, filterPrice, filterSkill, routeSearch, sportExperience, myPostsOnly, user?.id]);
 
   const handleJoinClick = (post) => {
     setSelectedPost(post);
@@ -200,6 +206,16 @@ export default function Tournament() {
               <option value="tennis">🎾 Tennis</option>
               <option value="basketball">🏀 Bóng rổ</option>
               <option value="volleyball">🏐 Bóng chuyền</option>
+            </FilterSelect>
+
+            <FilterSelect
+              icon={UserRound}
+              iconColor="text-violet-500"
+              value={myPostsOnly ? 'mine' : 'all'}
+              onChange={(event) => setMyPostsOnly(event.target.value === 'mine')}
+            >
+              <option value="all">Tất cả bài</option>
+              <option value="mine">Bài của tôi</option>
             </FilterSelect>
 
             {/* 1. Địa điểm (Location) */}

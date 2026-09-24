@@ -8,6 +8,8 @@ import FilterSelect from '../../shared/components/FilterSelect';
 import { useSearchParams } from 'react-router-dom';
 import { teamService } from '../../shared/services/api';
 import { useChat } from '../../shared/context/ChatContext';
+import { useAuth } from '../../shared/context/AuthContext';
+import { createSportExperienceMap, sortBySportExperience } from '../../shared/utils/sportExperienceSort';
 
 import badmintonImg from '../../assets/sports/badminton.avif';
 import footballImg from '../../assets/sports/foodball.avif';
@@ -27,6 +29,8 @@ export default function Team() {
   const routeSearch = (searchParams.get('search') || '').trim().toLowerCase();
   const { selectedSport, setSelectedSport } = useSportFilter();
   const { openChat } = useChat();
+  const { user } = useAuth();
+  const sportExperience = useMemo(() => createSportExperienceMap(user?.sports), [user?.sports]);
   const [teams, setTeams] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -72,7 +76,7 @@ export default function Team() {
 
   // Filter by tab (captain / member / discover) + sport from navbar
   const filteredTeams = useMemo(() => {
-    return teams.filter(team => {
+    const visibleTeams = teams.filter(team => {
       const matchSport = Boolean(routeSearch) || !selectedSport || team.sportId === selectedSport;
       const matchSearch = !routeSearch || [team.name, team.location, team.description, team.sportName]
         .some((value) => value?.toLowerCase().includes(routeSearch));
@@ -83,7 +87,10 @@ export default function Team() {
       else if (activeTab === 'discover') matchTab = !team.isCaptain && !team.isMember;
       return matchSport && matchTab && matchSearch;
     });
-  }, [teams, activeTab, selectedSport, routeSearch]);
+    return activeTab === 'discover' || routeSearch
+      ? sortBySportExperience(visibleTeams, sportExperience, (team) => team.sportId || team.sport_id || team.sportName)
+      : visibleTeams;
+  }, [teams, activeTab, selectedSport, routeSearch, sportExperience]);
 
   const showToast = (msg) => {
     setAlertMessage(msg);

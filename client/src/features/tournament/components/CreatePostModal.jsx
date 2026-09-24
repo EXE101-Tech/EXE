@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Calendar, ImagePlus, MapPin, PlusCircle, X } from 'lucide-react';
 import { resolveMediaUrl } from '../../../shared/services/api';
+import { parseCostInputToVnd, storedCostToInput } from '../../../shared/utils/price';
 
 const SPORTS = [
   { id: 'badminton', name: 'Cầu lông', emoji: '🏸' },
@@ -30,7 +31,7 @@ const formFromPost = (post) => post ? {
   date: asDateInput(post.date_label || post.date),
   time_slot: post.time_slot || post.timeSlot,
   total_members: post.total_members || post.totalMembers,
-  price: post.price || '',
+  price: storedCostToInput(post.price),
   skill_level: post.skill_level || post.skillLevel,
   image_url: post.image_url || null,
 } : blankForm();
@@ -52,6 +53,11 @@ export default function CreatePostModal({ isOpen, onClose, onCreate, initialPost
 
   const submit = async (event) => {
     event.preventDefault();
+    const priceVnd = parseCostInputToVnd(form.price);
+    if (priceVnd === null) {
+      setError('Chi phí là bắt buộc. Nhập số nguyên theo nghìn đồng, ví dụ 50 hoặc 50.000; không nhập số thập phân.');
+      return;
+    }
     const sport = SPORTS.find((item) => item.id === form.sport_id);
     const dateLabel = new Date(`${form.date}T12:00:00`).toLocaleDateString('vi-VN');
     setIsSaving(true);
@@ -67,7 +73,7 @@ export default function CreatePostModal({ isOpen, onClose, onCreate, initialPost
         date_label: dateLabel,
         current_members: 1,
         total_members: Number(form.total_members),
-        price: form.price.trim() || null,
+        price: String(priceVnd / 1000),
         skill_level: form.skill_level,
         image_url: form.image_url,
         image_file: imageFile,
@@ -104,7 +110,7 @@ export default function CreatePostModal({ isOpen, onClose, onCreate, initialPost
             <div className="grid gap-4 sm:grid-cols-3">
               <label className="block text-xs font-bold text-slate-600 dark:text-slate-300">Tổng số người<input required type="number" min="2" max="500" value={form.total_members} onChange={update('total_members')} className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-[#589470] dark:border-white/10 dark:bg-white/5 dark:text-white" /></label>
               <label className="block text-xs font-bold text-slate-600 dark:text-slate-300">Trình độ<select value={form.skill_level} onChange={update('skill_level')} className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"><option value="Beginner">Mới chơi</option><option value="Intermediate">Trung bình</option><option value="Advanced">Khá / Giỏi</option><option value="Expert">Chuyên nghiệp</option></select></label>
-              <label className="block text-xs font-bold text-slate-600 dark:text-slate-300">Chi phí<input maxLength={120} value={form.price} onChange={update('price')} placeholder="50.000đ / người" className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-[#589470] dark:border-white/10 dark:bg-white/5 dark:text-white" /></label>
+              <label className="block text-xs font-bold text-slate-600 dark:text-slate-300">Chi phí / người (nghìn đồng) *<input required maxLength={20} inputMode="numeric" pattern="[0-9]+|[0-9]{1,3}([.][0-9]{3})+" value={form.price} onChange={update('price')} placeholder="50 hoặc 50.000" aria-describedby="lfg-price-hint" className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-[#589470] dark:border-white/10 dark:bg-white/5 dark:text-white" /><span id="lfg-price-hint" className="mt-1 block font-normal text-slate-500">Nhập 50 = 50.000đ; có thể nhập 50.000. Không nhập số thập phân.</span></label>
             </div>
             <label className="block text-xs font-bold text-slate-600 dark:text-slate-300">Mô tả<textarea rows={3} maxLength={4000} value={form.description} onChange={update('description')} className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-[#589470] dark:border-white/10 dark:bg-white/5 dark:text-white" /></label>
             <div>

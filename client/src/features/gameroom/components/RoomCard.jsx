@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { MessageSquare, Users, MapPin, Calendar, Clock, Crown, Plus, ShieldCheck, UserCheck, Sparkles } from 'lucide-react';
+import { formatStoredCost } from '../../../shared/utils/price';
 
 const LEVEL_CONFIG = {
   Beginner: { label: 'Mới chơi', badge: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30', glow: 'shadow-[0_0_15px_rgba(16,185,129,0.15)]' },
@@ -221,9 +222,9 @@ function RoomCard({ room, currentUserId = 1, onJoin, onChat, onManage }) {
 
           {/* Chi phí nằm dưới địa chỉ */}
           <div className="flex items-start sm:items-center gap-2">
-            <span className="font-bold text-slate-700 dark:text-slate-300 shrink-0">Chi phí:</span>
+            <span className="font-bold text-slate-700 dark:text-slate-300 shrink-0">Chi phí/người:</span>
             <span className="font-black text-[#589470] dark:text-[#74C365] break-words">
-              {price_info}
+              {formatStoredCost(price_info)}
             </span>
           </div>
         </div>

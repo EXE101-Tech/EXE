@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Search, Plus, PlusCircle, Gamepad2, Trophy, Award, Filter, Sparkles, SlidersHorizontal, RefreshCw, AlertCircle, MessageSquare, Send, X, Crown, CheckCircle2, MapPin, Calendar, DollarSign, Users, ChevronDown } from 'lucide-react';
+import { Search, Plus, PlusCircle, Gamepad2, Trophy, Award, Filter, Sparkles, SlidersHorizontal, RefreshCw, AlertCircle, MessageSquare, Send, X, Crown, CheckCircle2, MapPin, Calendar, DollarSign, Users, ChevronDown, UserRound } from 'lucide-react';
 import { gameRoomService, sportService } from '../../shared/services/api';
 import { useSportFilter } from '../../shared/context/SportFilterContext';
 import { useChat } from '../../shared/context/ChatContext';
@@ -10,6 +10,8 @@ import JoinRoomModal from './components/JoinRoomModal';
 import ManageRoomModal from './components/ManageRoomModal';
 import FilterSelect from '../../shared/components/FilterSelect';
 import { useSearchParams } from 'react-router-dom';
+import { createSportExperienceMap, sortBySportExperience } from '../../shared/utils/sportExperienceSort';
+import { parseStoredCostToVnd } from '../../shared/utils/price';
 
 const SPORTS_TABS = [
   { id: 'all', name: 'Tất cả môn', emoji: '🌟' },
@@ -34,11 +36,13 @@ function GameRoom() {
   const { selectedSport, setSelectedSport } = useSportFilter();
   const { openChat } = useChat();
   const { user } = useAuth();
+  const sportExperience = useMemo(() => createSportExperienceMap(user?.sports), [user?.sports]);
   const [rooms, setRooms] = useState([]);
   const [selectedLevel, setSelectedLevel] = useState('all');
   const [selectedLocation, setSelectedLocation] = useState('all');
   const [selectedTime, setSelectedTime] = useState('all');
   const [selectedPrice, setSelectedPrice] = useState('all');
+  const [myPostsOnly, setMyPostsOnly] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [toastMessage, setToastMessage] = useState('');
@@ -96,7 +100,8 @@ function GameRoom() {
 
   // Filtered rooms
   const filteredRooms = useMemo(() => {
-    return rooms.filter((room) => {
+    const visibleRooms = rooms.filter((room) => {
+      if (myPostsOnly && Number(room.host_id) !== Number(user?.id)) return false;
       if (searchQuery.trim()) {
         const q = searchQuery.trim().toLowerCase();
         return [room.title, room.location, room.host?.name, room.description]
@@ -128,14 +133,17 @@ function GameRoom() {
       }
       // Filter by Price
       if (selectedPrice !== 'all') {
-        const p = parseInt(room.price_info?.replace(/\D/g, '')) || 50000;
-        if (selectedPrice === 'duoi50' && p > 50000) return false;
-        if (selectedPrice === '50-80' && (p <= 50000 || p > 80000)) return false;
-        if (selectedPrice === 'tren80' && p <= 80000) return false;
+        const priceVnd = parseStoredCostToVnd(room.price_info);
+        if (priceVnd === null) return false;
+        if (selectedPrice === 'Free / Miễn phí' && priceVnd !== 0) return false;
+        if (selectedPrice === 'Dưới 50k' && (priceVnd === 0 || priceVnd >= 50000)) return false;
+        if (selectedPrice === '50k - 100k' && (priceVnd < 50000 || priceVnd > 100000)) return false;
+        if (selectedPrice === 'Trên 100k' && priceVnd <= 100000) return false;
       }
       return true;
     });
-  }, [rooms, selectedSport, selectedLevel, selectedLocation, selectedTime, selectedPrice, searchQuery]);
+    return sortBySportExperience(visibleRooms, sportExperience, (room) => room.sportId || room.sportName);
+  }, [rooms, selectedSport, selectedLevel, selectedLocation, selectedTime, selectedPrice, searchQuery, sportExperience, myPostsOnly, user?.id]);
 
   const handleCreateSubmit = async (newRoomData) => {
     setIsLoading(true);
@@ -248,6 +256,16 @@ function GameRoom() {
               <option value="tennis">🎾 Tennis</option>
               <option value="basketball">🏀 Bóng rổ</option>
               <option value="volleyball">🏐 Bóng chuyền</option>
+            </FilterSelect>
+
+            <FilterSelect
+              icon={UserRound}
+              iconColor="text-violet-500"
+              value={myPostsOnly ? 'mine' : 'all'}
+              onChange={(event) => setMyPostsOnly(event.target.value === 'mine')}
+            >
+              <option value="all">Tất cả phòng</option>
+              <option value="mine">Bài của tôi</option>
             </FilterSelect>
 
             {/* 1. Địa điểm (Location) */}

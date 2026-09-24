@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { X, CheckCircle, MapPin, Calendar, Users, ShieldAlert } from 'lucide-react';
+import { formatStoredCost } from '../../../shared/utils/price';
 
 export default function JoinModal({ isOpen, onClose, post, onConfirm }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -81,7 +82,7 @@ export default function JoinModal({ isOpen, onClose, post, onConfirm }) {
               </div>
 
               <div className="flex items-center gap-2.5 p-2.5 bg-slate-50/80 dark:bg-white/5 rounded-xl">
-                <span className="text-slate-700 dark:text-slate-200 font-bold">Chi phí: <strong className="text-[#589470] dark:text-[#74C365] font-black">{post.price}</strong></span>
+                <span className="text-slate-700 dark:text-slate-200 font-bold">Chi phí/người: <strong className="text-[#589470] dark:text-[#74C365] font-black">{formatStoredCost(post.price)}</strong></span>
               </div>
             </div>
           </div>

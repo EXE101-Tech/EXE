@@ -1,5 +1,6 @@
 import React from 'react';
 import { MessageSquare, UserPlus, MapPin, Calendar, Users, DollarSign, CheckCircle2, Clock, Award, X, Maximize2, Trash2, Pencil, ClipboardCheck } from 'lucide-react';
+import { formatStoredCost } from '../../../shared/utils/price';
 
 export default function PostCard({ post, onJoin, onChat, onCancel, onEdit, onManageParticipants }) {
   const [isExpanded, setIsExpanded] = React.useState(false);
@@ -174,7 +175,7 @@ export default function PostCard({ post, onJoin, onChat, onCancel, onEdit, onMan
           <div className="flex items-start sm:items-center gap-2 text-xs sm:text-sm rounded-xl bg-slate-50/70 dark:bg-white/5 px-2.5 py-2">
             <DollarSign className="w-4 h-4 text-amber-500 shrink-0 mt-0.5 sm:mt-0" />
             <span className="text-slate-800 dark:text-slate-100 font-semibold break-words">
-              Chi phí: <strong className="font-black">{post.price}</strong>
+              Chi phí/người: <strong className="font-black">{formatStoredCost(post.price)}</strong>
             </span>
           </div>
         </div>

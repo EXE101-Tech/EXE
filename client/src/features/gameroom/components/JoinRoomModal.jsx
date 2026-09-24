@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Sparkles, Trophy, MapPin, Calendar, Users, DollarSign, AlertTriangle, ShieldCheck, MessageSquare } from 'lucide-react';
+import { formatStoredCost } from '../../../shared/utils/price';
 
 function JoinRoomModal({ isOpen, onClose, onConfirm, room, isLoading = false }) {
   const [note, setNote] = useState('');
@@ -103,8 +104,8 @@ function JoinRoomModal({ isOpen, onClose, onConfirm, room, isLoading = false }) 
                 <span className="font-semibold break-words flex-1 text-slate-800 dark:text-slate-100">{location}</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="font-bold text-slate-700 dark:text-slate-300 shrink-0">Chi phí:</span>
-                <strong className="text-[#589470] dark:text-[#74C365] font-black">{price_info}</strong>
+                <span className="font-bold text-slate-700 dark:text-slate-300 shrink-0">Chi phí/người:</span>
+                <strong className="text-[#589470] dark:text-[#74C365] font-black">{formatStoredCost(price_info)}</strong>
               </div>
             </div>
           </div>

@@ -1,6 +1,24 @@
 from pydantic import BaseModel, Field, ConfigDict, model_validator, field_validator
 from typing import List, Optional, Dict
 from datetime import datetime, timezone
+import re
+
+
+def normalize_cost_thousands(value: str) -> str:
+    raw_value = str(value).strip()
+    if re.fullmatch(r"\d+", raw_value):
+        amount_vnd = int(raw_value) * 1000
+    elif re.fullmatch(r"\d{1,3}(?:\.\d{3})+", raw_value):
+        amount_vnd = int(raw_value.replace(".", ""))
+    else:
+        raise ValueError("Chi phí phải là số nguyên theo đơn vị nghìn đồng (ví dụ: 50 hoặc 50.000)")
+
+    if amount_vnd % 1000 != 0:
+        raise ValueError("Chi phí phải là bội số của 1.000 đồng, không nhập số thập phân")
+    normalized = str(amount_vnd)
+    if len(normalized) > 120:
+        raise ValueError("Chi phí vượt quá giới hạn cho phép")
+    return normalized
 
 # Token Schemas
 class Token(BaseModel):
@@ -278,7 +296,7 @@ class MatchCreate(BaseModel):
     title: str
     description: Optional[str] = None
     location: Optional[str] = Field(None, max_length=255)
-    price_info: Optional[str] = Field(None, max_length=120)
+    price_info: str = Field(..., min_length=1, max_length=120, description="Chi phí nhập theo nghìn đồng; response được chuẩn hóa thành chuỗi số tiền VND")
     sport_id: int
     court_id: Optional[int] = None
     required_level: str
@@ -304,6 +322,11 @@ class MatchCreate(BaseModel):
         if v not in valid_levels:
             raise ValueError("Mức độ kỹ năng phải thuộc một trong các giá trị: Beginner, Intermediate, Advanced, Expert")
         return v
+
+    @field_validator("price_info")
+    @classmethod
+    def validate_price_info(cls, value: str) -> str:
+        return normalize_cost_thousands(value)
 
 class MatchResponse(BaseModel):
     id: int
@@ -511,7 +534,7 @@ class LfgPostCreate(BaseModel):
     date_label: str = Field(..., min_length=1, max_length=100)
     current_members: int = Field(1, ge=1, le=500)
     total_members: int = Field(4, ge=2, le=500)
-    price: Optional[str] = Field(None, max_length=120)
+    price: str = Field(..., min_length=1, max_length=120, description="Chi phí nhập theo nghìn đồng; response được chuẩn hóa thành chuỗi số tiền VND")
     skill_level: str = Field(..., min_length=1, max_length=80)
     image_url: Optional[str] = None
 
@@ -520,6 +543,11 @@ class LfgPostCreate(BaseModel):
         if self.current_members > self.total_members:
             raise ValueError("Số người hiện có không được vượt quá tổng số người")
         return self
+
+    @field_validator("price")
+    @classmethod
+    def validate_price(cls, value: str) -> str:
+        return normalize_cost_thousands(value)
 
 
 class LfgPostUpdate(BaseModel):
@@ -534,6 +562,13 @@ class LfgPostUpdate(BaseModel):
     price: Optional[str] = Field(None, max_length=120)
     skill_level: Optional[str] = Field(None, min_length=1, max_length=80)
     image_url: Optional[str] = None
+
+    @field_validator("price")
+    @classmethod
+    def validate_price(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            raise ValueError("Chi phí là bắt buộc khi đăng bài")
+        return normalize_cost_thousands(value)
 
 class LfgPostResponse(BaseModel):
     id: int
