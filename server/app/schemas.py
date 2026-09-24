@@ -28,6 +28,10 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     email: Optional[str] = None
 
+
+class GoogleLoginRequest(BaseModel):
+    code: str = Field(min_length=1, max_length=4096)
+
 # Sport Schemas
 class SportBase(BaseModel):
     name: str

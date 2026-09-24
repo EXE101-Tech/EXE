@@ -32,6 +32,23 @@ class User(Base):
     conversations_as_user2 = relationship("Conversation", foreign_keys="Conversation.user2_id", back_populates="user2")
     sent_messages = relationship("Message", back_populates="sender")
 
+
+class OAuthIdentity(Base):
+    __tablename__ = "oauth_identities"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    provider = Column(String(32), nullable=False)
+    subject = Column(String(255), nullable=False)
+    created_at = Column(DateTime, default=utc_now_naive, nullable=False)
+
+    user = relationship("User")
+
+    __table_args__ = (
+        UniqueConstraint("provider", "subject", name="uq_oauth_identities_provider_subject"),
+        UniqueConstraint("user_id", "provider", name="uq_oauth_identities_user_provider"),
+    )
+
 class UserProfile(Base):
     __tablename__ = "user_profiles"
 
