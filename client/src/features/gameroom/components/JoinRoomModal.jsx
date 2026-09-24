@@ -41,6 +41,7 @@ function JoinRoomModal({ isOpen, onClose, onConfirm, room, isLoading = false }) 
     'Expert': 'Chuyên nghiệp',
   };
   const displayLevel = LEVEL_VI[required_level] || required_level;
+  const approvedCount = participants.filter((participant) => participant.status === 'APPROVED').length;
 
   const timeStr = formatDateTime(start_time, end_time);
 
@@ -93,7 +94,7 @@ function JoinRoomModal({ isOpen, onClose, onConfirm, room, isLoading = false }) 
             <div className="space-y-2 text-xs sm:text-sm text-slate-800 dark:text-slate-100">
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-sky-500 shrink-0" />
-                <span><span className="font-bold text-slate-700 dark:text-slate-300">Chủ phòng:</span> <strong className="text-slate-900 dark:text-white font-black">{host.name}</strong> ({participants.length + 1}/{max_players} thành viên)</span>
+                <span><span className="font-bold text-slate-700 dark:text-slate-300">Chủ phòng:</span> <strong className="text-slate-900 dark:text-white font-black">{host.name}</strong> ({approvedCount + 1}/{max_players} thành viên)</span>
               </div>
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-[#589470] dark:text-[#DBE64C] shrink-0" />

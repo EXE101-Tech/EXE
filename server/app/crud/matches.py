@@ -49,6 +49,13 @@ def join_match(db: Session, match_id: int, user_id: int, note: str = None):
         models.MatchParticipant.user_id == user_id
     ).first()
     if exists:
+        if exists.status == "REJECTED":
+            exists.status = "PENDING"
+            exists.role = "PLAYER"
+            exists.note = note
+            exists.joined_at = models.utc_now_naive()
+            db.commit()
+            db.refresh(exists)
         return exists
         
     db_participant = models.MatchParticipant(

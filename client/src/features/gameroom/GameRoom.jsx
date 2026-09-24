@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Search, Plus, PlusCircle, Gamepad2, Trophy, Award, Filter, Sparkles, SlidersHorizontal, RefreshCw, AlertCircle, MessageSquare, Send, X, Crown, CheckCircle2, MapPin, Calendar, DollarSign, Users, ChevronDown, UserRound } from 'lucide-react';
-import { gameRoomService, sportService } from '../../shared/services/api';
+import { gameRoomService, resolveMediaUrl, sportService } from '../../shared/services/api';
 import { useSportFilter } from '../../shared/context/SportFilterContext';
 import { useChat } from '../../shared/context/ChatContext';
 import { useAuth } from '../../shared/context/AuthContext';
@@ -67,7 +67,8 @@ function GameRoom() {
         host: {
           id: match.host_id,
           name: match.host?.profile?.full_name || match.host?.email || 'Người chơi',
-          avatar: match.host?.profile?.avatar_url || '',
+          avatar: resolveMediaUrl(match.host?.profile?.avatar_url),
+          ownerStatus: match.host?.owner_status || 'none',
         },
         participants: (match.participants || []).filter((participant) => participant.role !== 'HOST').map((participant) => ({
           ...participant,
@@ -75,7 +76,8 @@ function GameRoom() {
           user: {
             id: participant.user_id,
             name: participant.user?.profile?.full_name || participant.user?.email || 'Người chơi',
-            avatar: participant.user?.profile?.avatar_url || '',
+            avatar: resolveMediaUrl(participant.user?.profile?.avatar_url),
+            ownerStatus: participant.user?.owner_status || 'none',
           },
         })),
         isMyRoom: match.host_id === user?.id,
