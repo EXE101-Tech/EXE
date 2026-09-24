@@ -1,205 +1,125 @@
-import { Check, Calendar, Clock, Layers } from 'lucide-react';
-import { useRef, useEffect, useState } from 'react';
+import { Check, Clock, Layers } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 
 const DAY_NAMES = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 
-function generateDates() {
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() + i);
-    return {
-      dayName: i === 0 ? 'Hôm nay' : DAY_NAMES[d.getDay()],
-      day: d.getDate(),
-      month: d.getMonth() + 1,
-    };
-  });
+function getVietnamDate(offset = 0) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  const date = new Date(Date.UTC(Number(values.year), Number(values.month) - 1, Number(values.day) + offset));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
 }
 
-const TIME_SLOTS = Array.from({ length: 36 }, (_, i) => {
-  // From 06:00 to 23:30
-  const totalMins = 360 + i * 30;
-  const h = Math.floor(totalMins / 60).toString().padStart(2, '0');
-  const m = (totalMins % 60 === 0) ? '00' : '30';
-  return `${h}:${m}`;
+const TIME_SLOTS = Array.from({ length: 36 }, (_, index) => {
+  const minutes = 360 + index * 30;
+  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${minutes % 60 ? '30' : '00'}`;
 });
 
-function CourtSchedule({ selectedDate, onSelectDate, courts, selectedSlots, onToggleSlot, pricePerSlot = 50000 }) {
-  const dates = generateDates();
+function CourtSchedule({
+  selectedDate, onSelectDate, courts, selectedSlots, unavailableSlots,
+  onToggleSlot, pricePerSlot = 0, isAvailabilityLoading, availabilityError,
+}) {
   const scrollRef = useRef(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [startX, setStartX] = useState(0);
-  const [scrollLeft, setScrollLeft] = useState(0);
-
-  const now = new Date();
-  const currentHour = now.getHours();
-  const currentMin = now.getMinutes();
-
-  const isPastTime = (timeStr) => {
-    if (selectedDate !== 0) return false;
-    const [h, m] = timeStr.split(':').map(Number);
-    if (h < currentHour) return true;
-    if (h === currentHour && currentMin >= m) return true;
-    return false;
-  };
+  const dates = Array.from({ length: 7 }, (_, index) => {
+    const value = getVietnamDate(index);
+    const date = new Date(`${value}T12:00:00+07:00`);
+    return {
+      value,
+      label: index === 0 ? 'Hôm nay' : DAY_NAMES[date.getDay()],
+      day: date.getDate(),
+      month: date.getMonth() + 1,
+    };
+  });
+  const nowParts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).formatToParts(new Date());
+  const now = Object.fromEntries(nowParts.map(({ type, value }) => [type, value]));
+  const today = getVietnamDate();
+  const nowMinutes = Number(now.hour) * 60 + Number(now.minute);
 
   useEffect(() => {
-    if (selectedDate === 0 && scrollRef.current) {
-      const currentMinTotal = currentHour * 60 + currentMin;
-      const slotIndex = Math.max(0, Math.floor((currentMinTotal - 360) / 30));
-      const scrollAmount = (slotIndex * 64) - 100;
-      scrollRef.current.scrollLeft = Math.max(0, scrollAmount);
+    if (selectedDate === today && scrollRef.current) {
+      const slotIndex = Math.max(0, Math.floor((nowMinutes - 360) / 30));
+      scrollRef.current.scrollLeft = Math.max(0, slotIndex * 64 - 100);
     }
-  }, [selectedDate, currentHour, currentMin]);
-
-  const handleMouseDown = (e) => {
-    setIsDragging(true);
-    setStartX(e.pageX - scrollRef.current.offsetLeft);
-    setScrollLeft(scrollRef.current.scrollLeft);
-  };
-  const handleMouseLeave = () => {
-    setIsDragging(false);
-  };
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
-  const handleMouseMove = (e) => {
-    if (!isDragging) return;
-    e.preventDefault();
-    const x = e.pageX - scrollRef.current.offsetLeft;
-    const walk = (x - startX) * 1.5;
-    scrollRef.current.scrollLeft = scrollLeft - walk;
-  };
+  }, [selectedDate, today, nowMinutes]);
 
   return (
-    <div className="p-6 bg-white dark:bg-[#001F3F]/80 border border-gray-200 dark:border-white/10 rounded-3xl shadow-xl mt-6 backdrop-blur-md">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+    <section className="mt-6 rounded-3xl border border-gray-200 bg-white p-4 shadow-xl backdrop-blur-md dark:border-white/10 dark:bg-[#001F3F]/80 sm:p-6">
+      <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-            <Clock className="w-5 h-5 text-[#589470]" />
-            <span>Chọn Khung Giờ Thi Đấu (Mỗi ô 30 phút)</span>
+          <h2 className="flex items-center gap-2 text-lg font-black text-slate-900 dark:text-white">
+            <Clock className="h-5 w-5 text-[#589470]" /> Chọn khung giờ (mỗi ô 30 phút)
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            💡 Bấm để chọn 1 hoặc nhiều khung giờ liên tiếp. Giá: <span className="font-bold text-[#589470] dark:text-[#74C365]">{pricePerSlot.toLocaleString()}đ / ô</span>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            Giá tham khảo thấp nhất: <span className="font-bold text-[#589470]">{pricePerSlot.toLocaleString('vi-VN')}đ / 30 phút</span>. Giá từng sân được tính khi xác nhận.
           </p>
         </div>
-
-        {/* Legend */}
-        <div className="flex items-center gap-4 text-xs font-bold text-slate-600 dark:text-slate-300">
-          <div className="flex items-center gap-1.5">
-            <div className="w-3.5 h-3.5 bg-white dark:bg-white/5 border border-slate-300 dark:border-white/20 rounded-md"></div>
-            <span>Còn trống</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-3.5 h-3.5 bg-slate-200 dark:bg-white/10 rounded-md opacity-50"></div>
-            <span>Đã qua / Kín</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-3.5 h-3.5 bg-gradient-to-r from-[#74C365] to-[#589470] rounded-md shadow-sm"></div>
-            <span>Đang chọn ({selectedSlots.size})</span>
-          </div>
+        <div className="flex flex-wrap items-center gap-3 text-xs font-bold text-slate-600 dark:text-slate-300">
+          <span className="flex items-center gap-1.5"><i className="h-3.5 w-3.5 rounded border border-slate-300" /> Còn trống</span>
+          <span className="flex items-center gap-1.5"><i className="h-3.5 w-3.5 rounded bg-slate-300" /> Đã qua / Đã đặt</span>
+          <span className="flex items-center gap-1.5"><i className="h-3.5 w-3.5 rounded bg-emerald-500" /> Đang chọn ({selectedSlots.size})</span>
         </div>
       </div>
 
-      {/* Date Picker Horizontal Scroll */}
-      <div className="flex gap-2.5 overflow-x-auto pb-4 mb-4 scrollbar-hide">
-        {dates.map((date, i) => (
-          <button
-            key={i}
-            onClick={() => onSelectDate(i)}
-            className={`shrink-0 flex flex-col items-center px-5 py-3 rounded-2xl transition-all min-w-[76px] border ${
-              selectedDate === i
-                ? 'bg-gradient-to-r from-[#74C365] to-[#589470] text-white font-black border-transparent shadow-lg shadow-[#589470]/30 scale-105'
-                : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10'
-            }`}
-          >
-            <span className="text-[11px] font-bold uppercase tracking-wider opacity-90">{date.dayName}</span>
-            <span className="text-xl font-black my-0.5">{date.day}</span>
-            <span className={`text-[10px] font-bold ${selectedDate === i ? 'text-white/90' : 'text-slate-400'}`}>
-              Tháng {date.month}
-            </span>
+      <div className="mb-4 flex gap-2.5 overflow-x-auto pb-4">
+        {dates.map((date) => (
+          <button key={date.value} type="button" onClick={() => onSelectDate(date.value)}
+            className={`flex min-w-[76px] shrink-0 flex-col items-center rounded-2xl border px-5 py-3 transition-all ${selectedDate === date.value
+              ? 'border-transparent bg-gradient-to-r from-[#74C365] to-[#589470] font-black text-white shadow-lg'
+              : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-300'}`}>
+            <span className="text-[11px] font-bold uppercase">{date.label}</span>
+            <span className="my-0.5 text-xl font-black">{date.day}</span>
+            <span className="text-[10px] font-bold opacity-75">Tháng {date.month}</span>
           </button>
         ))}
       </div>
 
-      {/* Schedule Grid */}
-      <div 
-        className="w-full overflow-x-auto pb-4 scrollbar-hide select-none cursor-grab active:cursor-grabbing rounded-2xl border border-slate-200 dark:border-white/10 overflow-hidden" 
-        ref={scrollRef}
-        onMouseDown={handleMouseDown}
-        onMouseLeave={handleMouseLeave}
-        onMouseUp={handleMouseUp}
-        onMouseMove={handleMouseMove}
-      >
-        <div className="min-w-max bg-white dark:bg-[#001F3F] relative">
-          
-          {/* Header row with timestamps */}
-          <div className="flex border-b border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-black/30 w-max">
-            {/* Sticky Court Name Column */}
-            <div className="w-32 shrink-0 border-r border-slate-200 dark:border-white/10 p-3 flex items-center justify-center sticky left-0 z-20 bg-slate-100 dark:bg-[#001F3F] shadow-[4px_0_10px_-2px_rgba(0,0,0,0.1)]">
-              <span className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1">
-                <Layers className="w-3.5 h-3.5 text-[#589470]" />
-                <span>Khu Sân</span>
-              </span>
+      {isAvailabilityLoading && <p className="mb-3 text-sm text-slate-500">Đang tải lịch đặt thực tế…</p>}
+      {availabilityError && <p role="alert" className="mb-3 text-sm font-semibold text-rose-600">{availabilityError} Không thể chọn giờ khi chưa tải được lịch.</p>}
+
+      <div ref={scrollRef} className="overflow-x-auto rounded-2xl border border-slate-200 pb-2 dark:border-white/10">
+        <div className="min-w-max bg-white dark:bg-[#001F3F]">
+          <div className="flex w-max border-b border-slate-200 bg-slate-100 dark:border-white/10 dark:bg-black/30">
+            <div className="sticky left-0 z-20 flex w-32 shrink-0 items-center justify-center border-r border-slate-200 bg-slate-100 p-3 dark:border-white/10 dark:bg-[#001F3F]">
+              <span className="flex items-center gap-1 text-xs font-black uppercase text-slate-700 dark:text-slate-200"><Layers className="h-3.5 w-3.5 text-[#589470]" /> Sân</span>
             </div>
-            
-            {/* Timestamps */}
-            {TIME_SLOTS.map((time, idx) => (
-              <div key={time} className="w-16 shrink-0 h-11 relative flex items-center">
-                <span className="absolute left-0 -translate-x-1/2 text-[11px] font-bold text-slate-600 dark:text-slate-400 select-none z-10">
-                  {time}
-                </span>
-                {idx === TIME_SLOTS.length - 1 && (
-                  <span className="absolute right-0 translate-x-1/2 text-[11px] font-bold text-slate-600 dark:text-slate-400 select-none z-10">
-                    24:00
-                  </span>
-                )}
-              </div>
-            ))}
+            {TIME_SLOTS.map((time, index) => <div key={time} className="relative flex h-11 w-16 shrink-0 items-center"><span className="absolute left-0 z-10 -translate-x-1/2 text-[11px] font-bold text-slate-600">{time}</span>{index === TIME_SLOTS.length - 1 && <span className="absolute right-0 translate-x-1/2 text-[11px] font-bold text-slate-600">24:00</span>}</div>)}
           </div>
 
-          {/* Court Rows */}
-          {courts.map((court, idx) => (
-            <div key={court.id || idx} className="flex border-b last:border-b-0 border-slate-200 dark:border-white/10 w-max hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors">
-              {/* Court Name Sticky */}
-              <div className="w-32 shrink-0 border-r border-slate-200 dark:border-white/10 p-3 flex items-center sticky left-0 z-20 bg-white dark:bg-[#001F3F] shadow-[4px_0_10px_-2px_rgba(0,0,0,0.1)]">
-                <span className="text-xs font-bold text-slate-800 dark:text-white truncate" title={court.name}>
-                  {court.name}
-                </span>
+          {courts.map((court) => (
+            <div key={court.id} className="flex w-max border-b border-slate-200 last:border-0 dark:border-white/10">
+              <div className="sticky left-0 z-20 flex w-32 shrink-0 items-center border-r border-slate-200 bg-white p-3 shadow-[4px_0_10px_-2px_rgba(0,0,0,0.1)] dark:border-white/10 dark:bg-[#001F3F]">
+                <span className="truncate text-xs font-bold text-slate-800 dark:text-white" title={court.name}>{court.name}</span>
               </div>
-              
-              {/* Time Slots */}
               {TIME_SLOTS.map((time) => {
-                const slotId = `${court.id || idx}-${time}`;
-                const isSelected = selectedSlots.has(slotId);
-                const isPast = isPastTime(time);
+                const key = `${court.id}|${time}`;
+                const selected = selectedSlots.has(key);
+                const [hour, minute] = time.split(':').map(Number);
+                const past = selectedDate === today && hour * 60 + minute <= nowMinutes;
+                const occupied = unavailableSlots.has(key);
+                const disabled = past || occupied || isAvailabilityLoading || !!availabilityError;
                 return (
-                  <div key={time} className="w-16 shrink-0 border-r last:border-r-0 border-slate-200 dark:border-white/10 h-14 p-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!isPast) onToggleSlot(slotId);
-                      }}
-                      className={`w-full h-full rounded-xl transition-all pointer-events-auto flex items-center justify-center ${
-                        isPast 
-                          ? 'bg-slate-200/80 dark:bg-slate-800/60 text-slate-400 dark:text-slate-500 cursor-grab active:cursor-grabbing'
-                          : isSelected 
-                            ? 'bg-gradient-to-br from-[#74C365] to-[#589470] text-white shadow-md scale-95 cursor-pointer' 
-                            : 'bg-slate-50/50 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/15 cursor-pointer'
-                      }`}
-                      title={isPast ? 'Đã qua giờ này' : `${court.name} - Khung ${time}`}
-                    >
-                      {isSelected && <Check className="w-4 h-4 stroke-[3]" />}
+                  <div key={time} className="h-14 w-16 shrink-0 border-r border-slate-200 p-1 last:border-0 dark:border-white/10">
+                    <button type="button" disabled={disabled} onClick={() => onToggleSlot(key)}
+                      aria-label={`${court.name}, ${time}${occupied ? ', đã được đặt' : ''}`}
+                      title={past ? 'Đã qua giờ này' : occupied ? 'Khung giờ đã có người đặt' : `${court.name} - ${time}`}
+                      className={`flex h-full w-full items-center justify-center rounded-xl transition-all ${disabled
+                        ? 'cursor-not-allowed bg-slate-200/80 text-slate-400 dark:bg-slate-800/60'
+                        : selected ? 'scale-95 cursor-pointer bg-gradient-to-br from-[#74C365] to-[#589470] text-white shadow-md'
+                          : 'cursor-pointer bg-slate-50/50 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/15'}`}>
+                      {selected && <Check className="h-4 w-4 stroke-[3]" />}
                     </button>
                   </div>
                 );
               })}
             </div>
           ))}
-          
         </div>
       </div>
-
-    </div>
+    </section>
   );
 }
 

@@ -1,6 +1,6 @@
-import { ArrowRight, Sparkles, CalendarCheck } from 'lucide-react';
+import { ArrowRight, Sparkles, CalendarCheck, LoaderCircle } from 'lucide-react';
 
-function BookingBar({ selectedCount, totalPrice, onBook }) {
+function BookingBar({ selectedCount, totalPrice, onBook, isSubmitting = false, disabled = false }) {
   const hours = (selectedCount * 0.5).toFixed(1);
 
   return (
@@ -32,16 +32,16 @@ function BookingBar({ selectedCount, totalPrice, onBook }) {
         <button
           type="button"
           onClick={onBook}
-          disabled={selectedCount === 0}
+          disabled={selectedCount === 0 || isSubmitting || disabled}
           className={`px-8 py-3.5 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all shadow-xl active:scale-95 ${
-            selectedCount > 0
+            selectedCount > 0 && !disabled && !isSubmitting
               ? 'bg-gradient-to-r from-[#74C365] to-[#589470] text-white hover:opacity-95 shadow-[#589470]/30 cursor-pointer scale-100'
               : 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-slate-600 cursor-not-allowed border border-slate-200 dark:border-white/5 shadow-none'
           }`}
         >
-          <Sparkles className="w-4 h-4" />
-          <span>Xác Nhận Đặt Sân Ngay</span>
-          {selectedCount > 0 && <ArrowRight className="w-4 h-4" />}
+          {isSubmitting ? <LoaderCircle className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+          <span>{isSubmitting ? 'Đang xác nhận…' : disabled ? 'Đang tải lịch sân' : 'Xác nhận đặt sân'}</span>
+          {selectedCount > 0 && !isSubmitting && !disabled && <ArrowRight className="w-4 h-4" />}
         </button>
       </div>
     </div>

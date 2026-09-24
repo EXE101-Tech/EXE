@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app import database, schemas, crud, auth_utils, models
+from app.notification_utils import create_notification, display_name
 
 router = APIRouter(
     prefix="/gamerooms",
@@ -45,6 +46,7 @@ def get_match_by_id(id: int, db: Session = Depends(database.get_db)):
 @router.post("/{id}/join", response_model=schemas.MatchParticipantResponse)
 def join_existing_match(
     id: int,
+    data: schemas.MatchJoinRequest,
     current_user = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db)
 ):
@@ -54,8 +56,30 @@ def join_existing_match(
         raise HTTPException(status_code=404, detail="Match not found")
     if match.status in ["FULL", "FINISHED", "CANCELLED"]:
         raise HTTPException(status_code=400, detail=f"Cannot join match in status {match.status}")
-        
-    return crud.join_match(db, match_id=id, user_id=current_user.id)
+    if match.host_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Bạn là trưởng phòng này rồi")
+
+    existing = db.query(models.MatchParticipant).filter_by(match_id=id, user_id=current_user.id).first()
+    if existing and existing.status == "APPROVED":
+        raise HTTPException(status_code=409, detail="Bạn đã tham gia phòng này")
+    if existing and existing.status == "PENDING":
+        raise HTTPException(status_code=409, detail="Yêu cầu tham gia của bạn đang chờ duyệt")
+
+    participant = crud.join_match(db, match_id=id, user_id=current_user.id, note=data.note)
+    create_notification(
+        db,
+        recipient_id=match.host_id,
+        actor=current_user,
+        notification_type="gameroom_join_request",
+        title="Có yêu cầu vào phòng game",
+        body=f'{display_name(current_user)} muốn tham gia phòng “{match.title}”.',
+        target_url="/matches",
+        entity_type="game_room",
+        entity_id=match.id,
+    )
+    db.commit()
+    db.refresh(participant)
+    return participant
 
 @router.post("/{id}/leave")
 def leave_existing_match(
@@ -99,8 +123,37 @@ def update_participant_status(
     if match.host_id == user_id:
         raise HTTPException(status_code=400, detail="Host status cannot be updated")
         
+    participant_before = db.query(models.MatchParticipant).filter_by(match_id=id, user_id=user_id).first()
+    if not participant_before:
+        raise HTTPException(status_code=404, detail="Participant not found")
+    previous_status = participant_before.status
     participant = crud.update_match_participant_status(db, match_id=id, user_id=user_id, status=status_data.status)
     if not participant:
         raise HTTPException(status_code=404, detail="Participant not found")
+    if previous_status != status_data.status:
+        if status_data.status == "APPROVED":
+            notification_type = "gameroom_join_approved"
+            title = "Bạn đã được duyệt vào phòng game"
+            body = f'Chủ phòng đã chấp nhận yêu cầu tham gia phòng “{match.title}”.'
+        else:
+            notification_type = "gameroom_join_rejected" if previous_status == "PENDING" else "gameroom_member_removed"
+            title = "Yêu cầu vào phòng đã bị từ chối" if previous_status == "PENDING" else "Bạn đã bị xóa khỏi phòng game"
+            body = (
+                f'Chủ phòng đã từ chối yêu cầu tham gia phòng “{match.title}”.'
+                if previous_status == "PENDING"
+                else f'Chủ phòng đã xóa bạn khỏi phòng “{match.title}”.'
+            )
+        create_notification(
+            db,
+            recipient_id=user_id,
+            actor=current_user,
+            notification_type=notification_type,
+            title=title,
+            body=body,
+            target_url="/matches",
+            entity_type="game_room",
+            entity_id=match.id,
+        )
+        db.commit()
     return participant
 

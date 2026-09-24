@@ -5,6 +5,7 @@ import Home from '../features/home/Home.jsx';
 import Tournament from '../features/tournament/Tournament.jsx';
 import GameRoom from '../features/gameroom/GameRoom.jsx';
 import Bookings from '../features/bookings/Bookings.jsx';
+import MyBookings from '../features/bookings/MyBookings.jsx';
 import MapPage from '../features/map/Map.jsx';
 import Team from '../features/team/Team.jsx';
 import CourtDetailPage from '../features/courts/pages/CourtDetailPage.jsx';
@@ -15,18 +16,11 @@ import { ChatProvider, useChat } from '../shared/context/ChatContext.jsx';
 import LandingPage from '../features/landing/Landing.jsx';
 import PublicLayout from '../shared/layouts/PublicLayout.jsx';
 import NavbarLayout from '../shared/layouts/NavbarLayout.jsx';
-import Particles from '../features/landing/components/Particles.jsx';
-import { useTheme } from '../shared/context/ThemeContext.jsx';
 import { SportFilterProvider } from '../shared/context/SportFilterContext.jsx';
 
 function GlobalWrapper({ children }) {
-    const { toggleTheme } = useTheme();
     return (
         <div className="min-h-screen text-slate-900 dark:text-white overflow-x-clip selection:bg-brand-primary/30 font-sans relative theme-transition">
-            <div className="fixed inset-0 z-0 pointer-events-none">
-                <Particles />
-            </div>
-            
             <div className="relative z-10 h-full w-full">
                 {children}
             </div>
@@ -37,14 +31,13 @@ function GlobalWrapper({ children }) {
 function MainLayout({ children }) {
     const { isChatOpen } = useChat();
     return (
-        <div className="flex h-screen overflow-hidden bg-transparent page-fade-in">
+        <div className="member-app-shell flex h-screen overflow-hidden page-fade-in">
             {/* Sidebar (Desktop) */}
             <Sidebar />
 
             {/* Nội dung chính — margin left để tránh Sidebar */}
             <div
-                className="flex-1 flex flex-col min-w-0 transition-[margin] duration-300 ease-in-out ml-[292px] relative"
-                style={{ marginRight: isChatOpen ? '388px' : '0px' }}
+                className={`flex-1 flex flex-col min-w-0 transition-[margin] duration-300 ease-in-out ml-[292px] relative ${isChatOpen ? 'md:mr-[388px]' : 'md:mr-0'}`}
             >
                 <TopNavbar />
                 
@@ -93,6 +86,7 @@ function AppRoutes() {
                                 <Route path="/tournaments" element={<Tournament />} />
                                 <Route path="/matches" element={<GameRoom />} />
                                 <Route path="/bookings" element={<Bookings />} />
+                                <Route path="/my-bookings" element={<MyBookings />} />
                                 <Route path="/team" element={<Team />} />
                                 <Route path="/courts/:id" element={<CourtDetailPage />} />
                             </Route>

@@ -18,13 +18,13 @@ const getSportBadgeColors = (sportId) => {
   }
 };
 
-export default function TeamCard({ team, activeTab, onReview }) {
+export default function TeamCard({ team, activeTab, onReview, onJoin, onManageMembers, onEdit, onChat }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const isFull = team.members >= team.totalSlots;
   const available = team.totalSlots - team.members;
 
   return (
-    <div className="group relative bg-white dark:bg-[#001F3F]/80 border border-gray-100 dark:border-white/10 rounded-3xl p-4 sm:p-6 shadow-[0_10px_35px_rgba(0,0,0,0.03)] dark:shadow-[0_10px_35px_rgba(0,0,0,0.3)] hover:shadow-[0_15px_45px_rgba(88,148,112,0.12)] dark:hover:shadow-[0_15px_45px_rgba(116,195,101,0.15)] transition-all duration-300 hover:-translate-y-1 flex flex-col md:flex-row gap-6 overflow-hidden">
+    <div className="member-content-card group relative rounded-3xl p-4 sm:p-6 flex flex-col md:flex-row gap-6 overflow-hidden">
       
       {/* Decorative subtle background aura */}
       <div className="absolute -right-20 -bottom-20 w-60 h-60 bg-gradient-to-br from-[#74C365]/10 to-transparent rounded-full blur-2xl pointer-events-none group-hover:scale-125 transition-transform duration-500" />
@@ -177,12 +177,14 @@ export default function TeamCard({ team, activeTab, onReview }) {
             /* Captain actions */
             <>
               <button
+                onClick={() => onManageMembers?.(team)}
                 className="flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm bg-[#589470]/10 dark:bg-[#74C365]/15 text-[#589470] dark:text-[#74C365] border border-[#589470]/20 hover:bg-[#589470]/20 transition-all"
               >
                 <Users className="w-4 h-4 shrink-0" />
                 <span>Quản lý thành viên</span>
               </button>
               <button
+                onClick={() => onEdit?.(team)}
                 className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/15 transition-all"
                 title="Chỉnh sửa CLB"
               >
@@ -195,12 +197,14 @@ export default function TeamCard({ team, activeTab, onReview }) {
             /* Member actions – only view members, no rating */
             <>
               <button
+                onClick={() => onManageMembers?.(team)}
                 className="flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-4 py-2.5 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm bg-[#589470]/10 dark:bg-[#74C365]/15 text-[#589470] dark:text-[#74C365] border border-[#589470]/20 hover:bg-[#589470]/20 transition-all"
               >
                 <Users className="w-4 h-4 shrink-0" />
                 <span>Xem thành viên</span>
               </button>
               <button
+                onClick={() => onChat?.(team)}
                 className="p-2.5 rounded-xl sm:rounded-2xl bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/15 transition-all flex items-center justify-center shrink-0"
                 title="Nhắn tin với Trưởng CLB"
               >
@@ -219,13 +223,16 @@ export default function TeamCard({ team, activeTab, onReview }) {
                 <span className="sm:hidden">Đánh giá</span>
               </button>
               <button
+                onClick={() => onJoin?.(team)}
+                disabled={isFull || team.membershipStatus === 'PENDING' || team.membershipStatus === 'APPROVED'}
                 className="flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-4 py-2.5 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm bg-[#589470] hover:bg-[#4a7c5d] dark:bg-[#74C365] dark:hover:bg-[#63a855] text-white dark:text-[#001F3F] shadow-md transition-all"
               >
                 <UserPlus className="w-4 h-4 shrink-0" />
-                <span className="hidden sm:inline">Xin gia nhập CLB</span>
-                <span className="sm:hidden">Tham gia</span>
+                <span className="hidden sm:inline">{team.membershipStatus === 'PENDING' ? 'Đang chờ duyệt' : team.membershipStatus === 'APPROVED' ? 'Đã là thành viên' : 'Xin gia nhập CLB'}</span>
+                <span className="sm:hidden">{team.membershipStatus === 'PENDING' ? 'Đang chờ' : team.membershipStatus === 'APPROVED' ? 'Đã tham gia' : 'Tham gia'}</span>
               </button>
               <button
+                onClick={() => onChat?.(team)}
                 className="p-2.5 rounded-xl sm:rounded-2xl bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/15 transition-all flex items-center justify-center shrink-0"
                 title="Nhắn tin với Trưởng CLB"
               >

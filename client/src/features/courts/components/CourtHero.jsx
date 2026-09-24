@@ -1,7 +1,7 @@
-import { Heart, ChevronLeft, Share2 } from 'lucide-react';
+import { ChevronLeft, Share2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-function CourtHero({ image, name, isFavorite, onToggleFavorite }) {
+function CourtHero({ image, name }) {
   const navigate = useNavigate();
 
   return (
@@ -44,21 +44,11 @@ function CourtHero({ image, name, isFavorite, onToggleFavorite }) {
             <Share2 className="w-4 h-4" />
           </button>
 
-          <button
-            onClick={onToggleFavorite}
-            className="w-10 h-10 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-2xl border border-white/15 flex items-center justify-center transition-all active:scale-95 shadow-lg"
-            title="Yêu thích sân"
-          >
-            <Heart className={`w-4 h-4 ${isFavorite ? 'fill-rose-500 text-rose-500' : 'text-white'}`} />
-          </button>
         </div>
       </div>
 
       {/* Bottom Title overlay inside Hero */}
       <div className="absolute bottom-6 left-6 right-6 z-10">
-        <div className="inline-block px-3 py-1 rounded-full bg-[#589470]/90 text-white text-xs font-black uppercase tracking-wider mb-2 backdrop-blur-md shadow-md">
-          Sân Đạt Chuẩn Thi Đấu
-        </div>
         <h1 className="text-2xl sm:text-4xl font-black text-white leading-tight drop-shadow-md">
           {name}
         </h1>

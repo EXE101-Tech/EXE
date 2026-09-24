@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from app import database, schemas, crud, auth_utils, models
 from datetime import datetime, timezone, timedelta
+from sqlalchemy import func
 
 router = APIRouter(
     prefix="/auth",
@@ -75,6 +76,32 @@ def logout(credentials = Depends(auth_utils.security), db: Session = Depends(dat
 @router.get("/me", response_model=schemas.UserResponse)
 def get_me(current_user = Depends(auth_utils.get_current_user)):
     return current_user
+
+
+@router.get("/me/stats", response_model=schemas.UserStatsResponse)
+def get_my_stats(
+    current_user = Depends(auth_utils.get_current_user),
+    db: Session = Depends(database.get_db),
+):
+    games_played = db.query(func.coalesce(func.sum(models.UserSport.games_played), 0)).filter(
+        models.UserSport.user_id == current_user.id
+    ).scalar()
+    teams_joined = db.query(models.TeamMembership).filter_by(
+        user_id=current_user.id, status="APPROVED"
+    ).count()
+    bookings_count = db.query(models.Booking).filter(
+        models.Booking.user_id == current_user.id,
+        func.lower(func.coalesce(models.Booking.status, "")) != "cancelled",
+    ).count()
+    average_rating = db.query(func.avg(models.UserSport.rating)).filter(
+        models.UserSport.user_id == current_user.id
+    ).scalar()
+    return {
+        "games_played": int(games_played or 0),
+        "teams_joined": teams_joined,
+        "bookings_count": bookings_count,
+        "average_skill_rating": round(float(average_rating), 1) if average_rating is not None else None,
+    }
 
 @router.put("/me", response_model=schemas.UserResponse)
 def update_me(profile_data: schemas.UserProfileWithSportsUpdate, current_user = Depends(auth_utils.get_current_user), db: Session = Depends(database.get_db)):

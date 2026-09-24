@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { MessageSquare, Users, MapPin, Calendar, Clock, Crown, Plus, ShieldCheck, UserCheck, Sparkles } from 'lucide-react';
+import { formatStoredCost } from '../../../shared/utils/price';
 
 const LEVEL_CONFIG = {
   Beginner: { label: 'Mới chơi', badge: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30', glow: 'shadow-[0_0_15px_rgba(16,185,129,0.15)]' },
@@ -56,8 +57,11 @@ function RoomCard({ room, currentUserId = 1, onJoin, onChat, onManage }) {
   const levelConfig = LEVEL_CONFIG[required_level] || LEVEL_CONFIG.Intermediate;
   const sportEmoji = SPORT_ICONS[sportName?.toLowerCase()] || '⚡';
   const isHost = host.id === currentUserId || room.isMyRoom;
-  const isUserJoined = participants.some((p) => p.user_id === currentUserId || p.id === currentUserId);
-  const currentCount = participants.length + 1; // Gồm Trưởng phòng và các thành viên
+  const currentParticipant = participants.find((p) => Number(p.user_id ?? p.user?.id ?? p.id) === Number(currentUserId));
+  const isUserPending = currentParticipant?.status === 'PENDING';
+  const isUserJoined = currentParticipant?.status === 'APPROVED';
+  const approvedParticipants = participants.filter((participant) => participant.status === 'APPROVED');
+  const currentCount = approvedParticipants.length + 1; // Chỉ tính trưởng phòng và thành viên đã được duyệt
   const isFull = currentCount >= max_players;
   const emptyCount = Math.max(0, max_players - currentCount);
 
@@ -86,15 +90,18 @@ function RoomCard({ room, currentUserId = 1, onJoin, onChat, onManage }) {
         type: 'host',
         name: host.name || 'Trưởng phòng',
         avatar: host.avatar,
+        isCourtOwner: host.ownerStatus === 'registered',
         initials: (host.name || 'H').charAt(0).toUpperCase(),
       };
     }
-    const participant = participants[index - 1];
+    const participant = approvedParticipants[index - 1];
     if (participant) {
       const name = participant.user?.name || participant.name || `Người chơi ${index + 1}`;
       return {
         type: 'player',
         name: name,
+        avatar: participant.user?.avatar || participant.avatar || '',
+        isCourtOwner: participant.user?.ownerStatus === 'registered',
         status: participant.status || 'APPROVED',
         initials: name.charAt(0).toUpperCase(),
       };
@@ -103,12 +110,7 @@ function RoomCard({ room, currentUserId = 1, onJoin, onChat, onManage }) {
   });
 
   return (
-    <div className="group relative bg-white dark:bg-[#001F3F]/80 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-white/10 p-3.5 sm:p-6 shadow-xl hover:shadow-2xl hover:shadow-[#589470]/15 transition-all duration-300 flex flex-col justify-between overflow-hidden backdrop-blur-md">
-      {/* Top Accent Glow for Host / Special rooms */}
-      {isHost && (
-        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500" />
-      )}
-
+    <div className="member-content-card group relative rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 flex flex-col justify-between overflow-hidden">
       <div>
         {/* Top Header: Author + Sport + Status Badge */}
         <div className="mb-2 sm:mb-3">
@@ -116,16 +118,16 @@ function RoomCard({ room, currentUserId = 1, onJoin, onChat, onManage }) {
           <div className="flex items-start justify-between gap-2 mb-1.5 sm:mb-2">
             <div className="flex items-start gap-2 sm:gap-2.5 min-w-0 flex-1">
               {/* Host Avatar Circle */}
-              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gradient-to-tr from-[#589470] to-[#74C365] p-[2px] shadow-sm shrink-0 flex items-center justify-center aspect-square mt-0.5">
-                <div className="w-full h-full rounded-full bg-white dark:bg-[#001F3F] flex items-center justify-center font-black text-sm sm:text-base text-[#589470] dark:text-[#74C365]">
-                  {(host.name || 'H').charAt(0).toUpperCase()}
+              <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full ${host.ownerStatus === 'registered' ? 'owner-avatar-ring-active' : 'bg-gradient-to-tr from-[#589470] to-[#74C365]'} p-[2px] shadow-sm shrink-0 flex items-center justify-center aspect-square mt-0.5`}>
+                <div className="w-full h-full rounded-full bg-white dark:bg-[#001F3F] flex items-center justify-center font-black text-sm sm:text-base text-[#589470] dark:text-[#74C365] overflow-hidden">
+                  {host.avatar ? <img src={host.avatar} alt="" className="w-full h-full object-cover" /> : (host.name || 'H').charAt(0).toUpperCase()}
                 </div>
               </div>
 
               {/* Author Info Column: Name on Top, Sport Badge directly Underneath (như Hình 2) */}
               <div className="flex flex-col items-start gap-1 min-w-0 flex-1">
                 <div className="flex items-center flex-wrap gap-1.5 max-w-full">
-                  <h4 className="font-bold text-slate-900 dark:text-white text-sm sm:text-base leading-tight break-words">
+                  <h4 className={`font-bold ${host.ownerStatus === 'registered' ? 'owner-water-text' : 'text-slate-900 dark:text-white'} text-sm sm:text-base leading-tight break-words`}>
                     {host.name || 'Trưởng phòng'}
                   </h4>
                   {isHost && (
@@ -221,9 +223,9 @@ function RoomCard({ room, currentUserId = 1, onJoin, onChat, onManage }) {
 
           {/* Chi phí nằm dưới địa chỉ */}
           <div className="flex items-start sm:items-center gap-2">
-            <span className="font-bold text-slate-700 dark:text-slate-300 shrink-0">Chi phí:</span>
+            <span className="font-bold text-slate-700 dark:text-slate-300 shrink-0">Chi phí/người:</span>
             <span className="font-black text-[#589470] dark:text-[#74C365] break-words">
-              {price_info}
+              {formatStoredCost(price_info)}
             </span>
           </div>
         </div>
@@ -240,8 +242,10 @@ function RoomCard({ room, currentUserId = 1, onJoin, onChat, onManage }) {
               if (slot.type === 'host') {
                 return (
                   <div key={idx} className="flex flex-col items-center group/slot relative" title={`Trưởng phòng: ${slot.name}`}>
-                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 text-white font-bold flex items-center justify-center shadow-md relative border-2 border-amber-300 dark:border-amber-400">
-                      <span>{slot.initials}</span>
+                    <div className={`w-10 h-10 rounded-2xl ${slot.isCourtOwner ? 'owner-avatar-ring-active p-[2px]' : 'bg-gradient-to-br from-amber-500 to-orange-600 border-2 border-amber-300 dark:border-amber-400'} text-white font-bold flex items-center justify-center shadow-md relative`}>
+                      <div className="w-full h-full rounded-[0.65rem] overflow-hidden flex items-center justify-center bg-white dark:bg-[#001F3F] text-[#589470] dark:text-[#74C365]">
+                        {slot.avatar ? <img src={slot.avatar} alt="" className="w-full h-full object-cover" /> : <span>{slot.initials}</span>}
+                      </div>
                       <div className="absolute -top-1 -right-1 bg-amber-500 text-white rounded-full p-0.5 shadow">
                         <Crown className="w-3 h-3" />
                       </div>
@@ -257,8 +261,14 @@ function RoomCard({ room, currentUserId = 1, onJoin, onChat, onManage }) {
                 const colorClass = AVATAR_COLORS[(idx + 1) % AVATAR_COLORS.length];
                 return (
                   <div key={idx} className="flex flex-col items-center group/slot relative" title={`Thành viên: ${slot.name}`}>
-                    <div className={`w-10 h-10 rounded-2xl ${colorClass} text-white font-bold flex items-center justify-center shadow-md border border-white/20 relative`}>
-                      <span>{slot.initials}</span>
+                    <div className={`w-10 h-10 rounded-2xl ${slot.isCourtOwner ? 'owner-avatar-ring-active p-[2px]' : slot.avatar ? 'border border-white/20' : `${colorClass} border border-white/20`} text-white font-bold flex items-center justify-center shadow-md relative overflow-hidden`}>
+                      {slot.isCourtOwner ? (
+                        <div className="w-full h-full rounded-[0.65rem] overflow-hidden flex items-center justify-center bg-white dark:bg-[#001F3F] text-[#589470] dark:text-[#74C365]">
+                          {slot.avatar ? <img src={slot.avatar} alt="" className="w-full h-full object-cover" /> : <span>{slot.initials}</span>}
+                        </div>
+                      ) : slot.avatar ? (
+                        <img src={slot.avatar} alt="" className="w-full h-full object-cover" />
+                      ) : <span>{slot.initials}</span>}
                       {slot.status === 'PENDING' && (
                         <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-amber-400 rounded-full border-2 border-white dark:border-slate-900" title="Đang chờ duyệt" />
                       )}
@@ -274,9 +284,9 @@ function RoomCard({ room, currentUserId = 1, onJoin, onChat, onManage }) {
               return (
                 <div
                   key={idx}
-                  onClick={() => !isHost && !isUserJoined && !isFull && onJoin?.(room)}
+                  onClick={() => !isHost && !isUserJoined && !isUserPending && !isFull && onJoin?.(room)}
                   className={`flex flex-col items-center justify-center w-full aspect-square max-w-[40px] mx-auto rounded-2xl border-2 border-dashed border-slate-300 dark:border-white/15 text-slate-400 dark:text-slate-400 transition-all ${
-                    !isHost && !isUserJoined && !isFull ? 'hover:border-[#589470] dark:hover:border-[#DBE64C] hover:text-[#589470] dark:hover:text-[#DBE64C] cursor-pointer hover:bg-slate-50 dark:hover:bg-white/5' : 'opacity-60 cursor-default'
+                    !isHost && !isUserJoined && !isUserPending && !isFull ? 'hover:border-[#589470] dark:hover:border-[#DBE64C] hover:text-[#589470] dark:hover:text-[#DBE64C] cursor-pointer hover:bg-slate-50 dark:hover:bg-white/5' : 'opacity-60 cursor-default'
                   }`}
                   title="Ô trống — Bấm để tham gia"
                 >
@@ -309,6 +319,14 @@ function RoomCard({ room, currentUserId = 1, onJoin, onChat, onManage }) {
           >
             <UserCheck className="w-4 h-4 stroke-[2.5] shrink-0" />
             <span>Quản lý ({participants.length})</span>
+          </button>
+        ) : isUserPending ? (
+          <button
+            disabled
+            className="flex-1 sm:flex-none justify-center px-4 sm:px-6 py-2.5 rounded-xl sm:rounded-2xl bg-amber-500/10 text-amber-700 dark:text-amber-300 font-bold text-xs sm:text-sm cursor-default flex items-center gap-1.5 sm:gap-2"
+          >
+            <Clock className="w-4 h-4 shrink-0" />
+            <span>Chờ duyệt</span>
           </button>
         ) : isUserJoined ? (
           <button

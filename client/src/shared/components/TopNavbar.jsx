@@ -1,8 +1,12 @@
-import { Bell, Search, Menu, Sun, Moon, MessageCircle } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
+import { Search, Menu, Sun, Moon, MessageCircle } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useChat } from '../context/ChatContext';
+import NotificationBell from './NotificationBell';
+import useChatUnreadCount from '../hooks/useChatUnreadCount';
 import { useSportFilter } from '../context/SportFilterContext';
+import { searchService } from '../services/api';
+import { SearchResults } from './Navbar';
 
 const CATEGORIES = [
   { id: 'badminton', name: 'Badminton', emoji: '🏸' },
@@ -15,8 +19,15 @@ const CATEGORIES = [
 
 export default function TopNavbar() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [isDark, setIsDark] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchError, setSearchError] = useState('');
+  const [isSearchLoading, setIsSearchLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const { toggleChat } = useChat();
+  const chatUnreadCount = useChatUnreadCount();
   const { selectedSport, setSelectedSport } = useSportFilter();
   
   useEffect(() => {
@@ -46,6 +57,36 @@ export default function TopNavbar() {
 
   const pathName = location.pathname.substring(1) || 'home';
   const pageTitle = pathName.charAt(0).toUpperCase() + pathName.slice(1);
+
+  const handleSearchSubmit = async (event) => {
+    event.preventDefault();
+    const query = searchQuery.trim();
+    if (isSearchLoading) return;
+    if (query.length < 2) {
+      setSearchResults([]);
+      setSearchError('Nhập ít nhất 2 ký tự để tìm kiếm.');
+      setHasSearched(true);
+      return;
+    }
+    setIsSearchLoading(true);
+    setSearchError('');
+    setHasSearched(true);
+    try {
+      setSearchResults(await searchService.search(query));
+    } catch (error) {
+      setSearchResults([]);
+      setSearchError(error.message || 'Không thể tìm kiếm lúc này.');
+    } finally {
+      setIsSearchLoading(false);
+    }
+  };
+
+  const handleSearchResult = (result) => {
+    navigate(result.href);
+    setSearchQuery('');
+    setSearchResults([]);
+    setHasSearched(false);
+  };
 
   return (
     <div className="sticky top-6 z-30 flex justify-center w-full px-4 mb-6 transition-all duration-500">
@@ -87,26 +128,30 @@ export default function TopNavbar() {
 
       {/* Right Actions */}
       <div className="flex items-center gap-5 pl-4 border-l border-slate-200/50 dark:border-white/10 pr-2">
-        <div className="relative hidden xl:block">
-          <Search className="w-4 h-4 text-slate-400 dark:text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input 
+        <form onSubmit={handleSearchSubmit} className="relative hidden xl:block">
+          <button type="submit" aria-label="Tìm kiếm" disabled={isSearchLoading} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-gray-400">
+            <Search className="w-4 h-4" />
+          </button>
+          <input
             type="text" 
-            placeholder="Search..." 
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Tìm sân, phòng chơi, CLB..."
+            aria-label="Tìm kiếm SportGo"
             className="bg-white/50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-full pl-10 pr-4 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-brand-primary/50 transition-colors w-48"
           />
-        </div>
+          <SearchResults results={searchResults} loading={isSearchLoading} error={searchError} hasSearched={hasSearched} onSelect={handleSearchResult} />
+        </form>
 
         <button onClick={toggleTheme} className="text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors relative">
           {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
         </button>
 
-        <button className="text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors relative">
-          <Bell className="w-5 h-5" />
-          <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-brand-primary shadow-[0_0_8px_var(--theme-glow)]"></span>
-        </button>
+        <NotificationBell className="text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors relative group rounded-full p-1" />
 
         <button onClick={toggleChat} className="text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors relative">
           <MessageCircle className="w-5 h-5" />
+          {chatUnreadCount > 0 && <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-black text-white">{chatUnreadCount > 99 ? '99+' : chatUnreadCount}</span>}
         </button>
 
         <button className="md:hidden text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors">

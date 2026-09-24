@@ -1,10 +1,15 @@
-import React, { useState, useMemo } from 'react';
-import { Users, PlusCircle, Sparkles, SlidersHorizontal, Crown, Shield, UserCheck, Trophy } from 'lucide-react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { Users, PlusCircle, Sparkles, SlidersHorizontal, Crown, Shield, UserCheck, Trophy, Filter, ChevronDown } from 'lucide-react';
 import { useSportFilter } from '../../shared/context/SportFilterContext';
 import TeamCard from './components/TeamCard';
 import CreateTeamModal from './components/CreateTeamModal';
 import ReviewTeamModal from './components/ReviewTeamModal';
 import FilterSelect from '../../shared/components/FilterSelect';
+import { useSearchParams } from 'react-router-dom';
+import { teamService } from '../../shared/services/api';
+import { useChat } from '../../shared/context/ChatContext';
+import { useAuth } from '../../shared/context/AuthContext';
+import { createSportExperienceMap, sortBySportExperience } from '../../shared/utils/sportExperienceSort';
 
 import badmintonImg from '../../assets/sports/badminton.avif';
 import footballImg from '../../assets/sports/foodball.avif';
@@ -13,138 +18,6 @@ import tennisImg from '../../assets/sports/tennis.jpg';
 import basketballImg from '../../assets/sports/bong_ro.jpg';
 import volleyballImg from '../../assets/sports/volleyball.jpg';
 
-// ── Mock Data ──
-// isCaptain = true  → user hiện tại là chủ CLB
-// isMember  = true  → user hiện tại là thành viên CLB
-const INITIAL_TEAMS = [
-  {
-    id: 1,
-    name: 'CLB Cầu Lông Proton',
-    sportId: 'badminton',
-    sportName: 'Cầu lông',
-    sportEmoji: '🏸',
-    image: badmintonImg,
-    logo: badmintonImg,
-    description: 'Câu lạc bộ cầu lông chuyên nghiệp tại Q.10, tập luyện 3 buổi/tuần với sân riêng và huấn luyện viên đẳng cấp. Ưu tiên tinh thần thể thao fairplay và giao lưu vui vẻ.',
-    location: 'Sân Viettel, Quận 10',
-    members: 42,
-    totalSlots: 50,
-    rating: 4.9,
-    ratingCount: 37,
-    isVip: true,
-    captain: 'Bạn',
-    createdAt: '3 tháng trước',
-    tags: ['Sân đẹp', 'Bao cầu', 'Nhiệt tình'],
-    isCaptain: true,
-    isMember: false,
-  },
-  {
-    id: 2,
-    name: 'FC Elite Saigon',
-    sportId: 'football',
-    sportName: 'Bóng đá',
-    sportEmoji: '⚽',
-    image: footballImg,
-    logo: footballImg,
-    description: 'Đội bóng đá sân 7 hoạt động tại Quận 7, thường xuyên tham gia giải phong trào và tuyển thành viên mới. Tập luyện thứ 3 & thứ 5 hàng tuần.',
-    location: 'Sân Chấu Giang, Quận 7',
-    members: 28,
-    totalSlots: 30,
-    rating: 4.6,
-    ratingCount: 15,
-    isVip: true,
-    captain: 'Quốc Đạt',
-    createdAt: '6 tháng trước',
-    tags: ['Fairplay', 'Giải phong trào', 'Bao nước'],
-    isCaptain: false,
-    isMember: true,
-  },
-  {
-    id: 3,
-    name: 'Pickleball Fun Club',
-    sportId: 'pickleball',
-    sportName: 'Pickleball',
-    sportEmoji: '🏓',
-    image: pickleballImg,
-    logo: pickleballImg,
-    description: 'CLB pickleball năng động dành cho mọi trình độ, đặc biệt chào đón người mới bắt đầu. Sân chuẩn quốc tế, có vợt cho mượn.',
-    location: 'Sân D-Court, TP. Thủ Đức',
-    members: 16,
-    totalSlots: 20,
-    rating: 5.0,
-    ratingCount: 8,
-    isVip: false,
-    captain: 'Thu Hà',
-    createdAt: '1 tháng trước',
-    tags: ['Vui vẻ', 'Có vợt cho mượn', 'Mọi trình độ'],
-    isCaptain: false,
-    isMember: true,
-  },
-  {
-    id: 4,
-    name: 'Saigon Street Ballers',
-    sportId: 'basketball',
-    sportName: 'Bóng rổ',
-    sportEmoji: '🏀',
-    image: basketballImg,
-    logo: basketballImg,
-    description: 'Giao lưu bóng rổ đường phố 3x3 và 5v5, nhịp độ nhanh, vui vẻ không va chạm mạnh. Anh em ai thích ném 3 điểm hay đột phá thì gia nhập ngay!',
-    location: 'Sân Hồ Xuân Hương, Quận 3',
-    members: 18,
-    totalSlots: 25,
-    rating: 4.7,
-    ratingCount: 12,
-    isVip: true,
-    captain: 'Bạn',
-    createdAt: '4 tháng trước',
-    tags: ['3x3', 'Streetball', 'Giao lưu thoải mái'],
-    isCaptain: true,
-    isMember: false,
-  },
-  {
-    id: 5,
-    name: 'Tennis Stars Phú Thọ',
-    sportId: 'tennis',
-    sportName: 'Tennis',
-    sportEmoji: '🎾',
-    image: tennisImg,
-    logo: tennisImg,
-    description: 'Nhóm tennis cho anh em văn phòng rèn luyện sức khỏe cuối tuần, sân có mái che không lo mưa nắng. Trình 2.5 - 3.5 NTRP.',
-    location: 'Sân Tennis Phú Thọ, Quận 11',
-    members: 22,
-    totalSlots: 24,
-    rating: 4.3,
-    ratingCount: 9,
-    isVip: false,
-    captain: 'Quang Vinh',
-    createdAt: '2 tháng trước',
-    tags: ['Sân mái che', 'Cuối tuần', 'Đánh giải nội bộ'],
-    isCaptain: false,
-    isMember: false,
-  },
-  {
-    id: 6,
-    name: 'Bóng Chuyền Sài Gòn Open',
-    sportId: 'volleyball',
-    sportName: 'Bóng chuyền',
-    sportEmoji: '🏐',
-    image: volleyballImg,
-    logo: volleyballImg,
-    description: 'CLB bóng chuyền giao lưu thân thiện, tổ chức giải nội bộ hàng quý, chào đón mọi trình độ. Sân tại Q. Bình Thạnh.',
-    location: 'Sân Bình Thạnh, TP.HCM',
-    members: 30,
-    totalSlots: 40,
-    rating: 4.5,
-    ratingCount: 20,
-    isVip: false,
-    captain: 'Hồng Nhung',
-    createdAt: '5 tháng trước',
-    tags: ['Mọi trình độ', 'Giải nội bộ', 'Vui vẻ'],
-    isCaptain: false,
-    isMember: false,
-  },
-];
-
 const TABS = [
   { id: 'captain', label: 'CLB tôi làm chủ', icon: Crown, emoji: '👑' },
   { id: 'member', label: 'CLB tôi tham gia', icon: UserCheck, emoji: '🤝' },
@@ -152,33 +25,128 @@ const TABS = [
 ];
 
 export default function Team() {
+  const [searchParams] = useSearchParams();
+  const routeSearch = (searchParams.get('search') || '').trim().toLowerCase();
   const { selectedSport, setSelectedSport } = useSportFilter();
-  const [teams] = useState(INITIAL_TEAMS);
+  const { openChat } = useChat();
+  const { user } = useAuth();
+  const sportExperience = useMemo(() => createSportExperienceMap(user?.sports), [user?.sports]);
+  const [teams, setTeams] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('captain');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [editingTeam, setEditingTeam] = useState(null);
+  const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [reviewTeam, setReviewTeam] = useState(null);
+  const [memberDialog, setMemberDialog] = useState(null);
+  const [members, setMembers] = useState([]);
   const [alertMessage, setAlertMessage] = useState('');
+
+  const loadTeams = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const items = await teamService.getAll({ scope: 'all', sport_id: selectedSport || undefined });
+      const emojis = { badminton: '🏸', football: '⚽', pickleball: '🏓', tennis: '🎾', basketball: '🏀', volleyball: '🏐' };
+      const images = { badminton: badmintonImg, football: footballImg, pickleball: pickleballImg, tennis: tennisImg, basketball: basketballImg, volleyball: volleyballImg };
+      setTeams(items.map((team) => ({
+        ...team,
+        sportId: team.sport_id,
+        sportEmoji: emojis[team.sport_id] || '🏅',
+        image: team.image_url || images[team.sport_id] || badmintonImg,
+        captain: team.owner_name,
+        members: team.member_count,
+        totalSlots: team.total_slots,
+        ratingCount: team.rating_count,
+        createdAt: new Date(team.created_at).toLocaleDateString('vi-VN'),
+        isCaptain: team.is_captain,
+        isMember: team.is_member,
+        membershipStatus: team.membership_status,
+        isVip: false,
+      })));
+      setError('');
+    } catch (err) {
+      setError(err.message || 'Không tải được danh sách CLB');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedSport]);
+
+  useEffect(() => { loadTeams(); }, [loadTeams]);
 
   // Filter by tab (captain / member / discover) + sport from navbar
   const filteredTeams = useMemo(() => {
-    return teams.filter(team => {
-      const matchSport = !selectedSport || team.sportId === selectedSport;
+    const visibleTeams = teams.filter(team => {
+      const matchSport = Boolean(routeSearch) || !selectedSport || team.sportId === selectedSport;
+      const matchSearch = !routeSearch || [team.name, team.location, team.description, team.sportName]
+        .some((value) => value?.toLowerCase().includes(routeSearch));
       let matchTab = false;
-      if (activeTab === 'captain') matchTab = team.isCaptain;
+      if (routeSearch) matchTab = true;
+      else if (activeTab === 'captain') matchTab = team.isCaptain;
       else if (activeTab === 'member') matchTab = team.isMember;
       else if (activeTab === 'discover') matchTab = !team.isCaptain && !team.isMember;
-      return matchSport && matchTab;
+      return matchSport && matchTab && matchSearch;
     });
-  }, [teams, selectedSport, activeTab]);
+    return activeTab === 'discover' || routeSearch
+      ? sortBySportExperience(visibleTeams, sportExperience, (team) => team.sportId || team.sport_id || team.sportName)
+      : visibleTeams;
+  }, [teams, activeTab, selectedSport, routeSearch, sportExperience]);
 
   const showToast = (msg) => {
     setAlertMessage(msg);
     setTimeout(() => setAlertMessage(''), 4500);
   };
 
+  const handleSaveTeam = async (data) => {
+    try {
+      if (editingTeam) await teamService.update(editingTeam.id, data);
+      else await teamService.create(data);
+      await loadTeams();
+      setIsCreateModalOpen(false);
+      setEditingTeam(null);
+      showToast(editingTeam ? 'Đã cập nhật thông tin CLB.' : 'Đã tạo CLB.');
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  const handleJoinTeam = async (team) => {
+    try {
+      await teamService.join(team.id);
+      await loadTeams();
+      showToast('Đã gửi yêu cầu tham gia CLB.');
+    } catch (err) { showToast(err.message || 'Không gửi được yêu cầu'); }
+  };
+
+  const handleReview = async (data) => {
+    try {
+      await teamService.review(reviewTeam.id, data);
+      await loadTeams();
+      setReviewTeam(null);
+      showToast('Đã lưu đánh giá của bạn.');
+    } catch (err) { throw err; }
+  };
+
+  const openMembers = async (team) => {
+    setMemberDialog(team);
+    try {
+      setMembers(await teamService.getMembers(team.id));
+    } catch (err) {
+      setMembers([]);
+      showToast(err.message || 'Không tải được danh sách thành viên');
+    }
+  };
+
+  const updateMember = async (member, status) => {
+    try {
+      await teamService.setMemberStatus(memberDialog.id, member.user_id, status);
+      setMembers((current) => current.filter((item) => item.user_id !== member.user_id));
+      await loadTeams();
+    } catch (err) { showToast(err.message || 'Không cập nhật được thành viên'); }
+  };
+
   return (
     <div className="min-h-screen bg-transparent dark:bg-transparent text-slate-900 dark:text-[#F6F7ED] relative w-full overflow-x-clip font-sans transition-colors duration-500 selection:bg-[#589470]/30 pb-20">
-
       {/* Toast Notification Alert */}
       {alertMessage && (
         <div className="fixed top-36 right-6 z-[9999] max-w-md bg-white dark:bg-slate-900 border-2 border-[#589470] text-slate-800 dark:text-white px-5 py-4 rounded-2xl shadow-2xl flex items-start gap-3 animate-in slide-in-from-right duration-300">
@@ -188,30 +156,33 @@ export default function Team() {
         </div>
       )}
 
-      {/* ── Header Section ── */}
-      <div className="relative bg-transparent pt-10 pb-2 px-4 sm:px-6">
-        <div className="max-w-[1600px] mx-auto">
-          <div>
-            <div className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 py-1 sm:px-3.5 sm:py-1.5 rounded-full bg-[#589470]/10 dark:bg-[#74C365]/15 text-[#589470] dark:text-[#74C365] text-[10px] sm:text-xs font-black uppercase tracking-wider mb-2 sm:mb-3 border border-[#589470]/20">
-              <Shield className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-              <span>Câu Lạc Bộ • Teams</span>
-            </div>
-            <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black text-slate-900 dark:text-white tracking-tight">
-              Câu Lạc Bộ & Đội Nhóm
-            </h1>
-            <p className="text-slate-800 dark:text-slate-100 font-medium text-xs sm:text-base max-w-2xl mt-1.5 sm:mt-2 leading-relaxed">
-              Quản lý các CLB bạn đang sở hữu hoặc tham gia. Đăng ký thành lập CLB VIP để được ưu tiên hiển thị & nhận đánh giá uy tín từ cộng đồng!
-            </p>
-          </div>
-        </div>
-      </div>
+
 
       {/* ── Filter Bar Section ── */}
-      <div className="pb-4 pt-1 px-4 sm:px-6 sticky top-[104px] sm:top-[124px] z-40 transition-all duration-300">
-        <div className="max-w-[1600px] mx-auto bg-white/35 dark:bg-white/[0.08] backdrop-blur-2xl backdrop-saturate-[180%] border border-white/60 dark:border-white/15 rounded-2xl sm:rounded-3xl p-2.5 sm:p-4 shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_1px_0_rgba(255,255,255,0.8),inset_0_0_16px_rgba(255,255,255,0.4)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3),inset_0_1px_1px_0_rgba(255,255,255,0.25),inset_0_0_16px_rgba(255,255,255,0.05)] flex items-center justify-between gap-2 sm:gap-4 transition-all duration-300">
+      <div className="navbar-filter-bar pb-4 pt-2 px-4 sm:px-6 sticky top-[112px] sm:top-[132px] z-40 transition-all duration-300">
+        <div className="member-filter-panel max-w-[1600px] mx-auto rounded-xl sm:rounded-2xl p-1.5 sm:p-2.5 flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-2 xl:gap-3 transition-all duration-300">
           
+          {/* Mobile Header (Toggle + Action Button) */}
+          <div className="flex xl:hidden items-center justify-between gap-2 w-full">
+            <button 
+              onClick={() => setIsMobileFilterOpen(!isMobileFilterOpen)}
+              className="flex items-center justify-center gap-1.5 flex-1 bg-white dark:bg-white/10 text-slate-700 dark:text-slate-200 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 font-bold text-sm shadow-sm"
+            >
+              <Filter className="w-4 h-4" />
+              <span>Bộ lọc</span>
+              <ChevronDown className={`w-4 h-4 transition-transform ${isMobileFilterOpen ? 'rotate-180' : ''}`} />
+            </button>
+            <button
+              onClick={() => setIsCreateModalOpen(true)}
+              className="px-3.5 py-1.5 rounded-lg font-bold text-sm bg-gradient-to-r from-[#74C365] to-[#589470] text-white shadow-md flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap"
+            >
+              <PlusCircle className="w-4 h-4 shrink-0" />
+              <span>Tạo CLB</span>
+            </button>
+          </div>
+
           {/* Tab Buttons & Sport Filter */}
-          <div className="flex items-center gap-2 sm:gap-3 flex-1 overflow-x-auto no-scrollbar p-1 -m-1 sm:p-0 sm:m-0 sm:flex-wrap sm:overflow-visible">
+          <div className={`${isMobileFilterOpen ? 'flex' : 'hidden'} xl:flex flex-col xl:flex-row items-stretch xl:items-center gap-2 xl:gap-3 flex-1 overflow-x-auto no-scrollbar p-1 -m-1 xl:p-0 xl:m-0 xl:flex-wrap xl:overflow-visible`}>
             {/* Sport Filter */}
             <FilterSelect
               icon={Trophy}
@@ -253,7 +224,7 @@ export default function Team() {
           {/* Right action: Create Button */}
           <button
             onClick={() => setIsCreateModalOpen(true)}
-            className="px-3 py-2 sm:px-5 sm:py-2.5 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm bg-gradient-to-r from-amber-400 to-yellow-500 hover:opacity-95 text-white shadow-md hover:shadow-lg flex items-center justify-center gap-1.5 sm:gap-2 transition-all duration-200 active:scale-95 group shrink-0 whitespace-nowrap"
+            className="hidden xl:flex px-3.5 py-2 xl:px-5 xl:py-2.5 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-95 text-white shadow-md hover:shadow-lg items-center justify-center gap-1.5 sm:gap-2 transition-all duration-200 active:scale-95 group shrink-0 whitespace-nowrap"
           >
             <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 group-hover:rotate-90 transition-transform duration-300 shrink-0" />
             <span className="sm:hidden">Tạo CLB</span>
@@ -265,17 +236,11 @@ export default function Team() {
 
       {/* ── Main Teams Feed ── */}
       <main className="max-w-[1600px] mx-auto px-4 sm:px-6 pt-4 sm:pt-6">
-        {/* Filter status header - lướt theo trang */}
-        <div className="flex items-center justify-between mb-4 px-1">
-          <div className="flex items-center gap-1.5 text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100">
-            <SlidersHorizontal className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#589470] dark:text-[#74C365] shrink-0" />
-            <span>
-              Hiển thị: <strong className="text-[#589470] dark:text-[#74C365] font-black text-sm sm:text-base">{filteredTeams.length}</strong> CLB
-            </span>
-          </div>
-        </div>
-        
-        {filteredTeams.length === 0 ? (
+
+        {error && <div role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">{error}</div>}
+        {isLoading ? (
+          <div className="py-16 text-center text-sm font-semibold text-slate-500">Đang tải dữ liệu CLB…</div>
+        ) : filteredTeams.length === 0 ? (
           <div className="bg-slate-50 dark:bg-white/5 border border-dashed border-slate-200 dark:border-white/10 rounded-3xl p-12 text-center my-6">
             <div className="w-16 h-16 bg-slate-200 dark:bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
               {activeTab === 'captain' ? '👑' : activeTab === 'member' ? '🤝' : '🔍'}
@@ -307,6 +272,10 @@ export default function Team() {
                 team={team}
                 activeTab={activeTab}
                 onReview={() => setReviewTeam(team)}
+                onJoin={handleJoinTeam}
+                onManageMembers={openMembers}
+                onEdit={(item) => { setEditingTeam(item); setIsCreateModalOpen(true); }}
+                onChat={(item) => openChat({ id: item.owner_id, name: item.captain })}
               />
             ))}
           </div>
@@ -317,7 +286,9 @@ export default function Team() {
       {/* ── Modals ── */}
       <CreateTeamModal
         isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
+        initialTeam={editingTeam}
+        onClose={() => { setIsCreateModalOpen(false); setEditingTeam(null); }}
+        onSubmit={handleSaveTeam}
       />
 
       {reviewTeam && (
@@ -325,7 +296,27 @@ export default function Team() {
           teamId={reviewTeam.id}
           isOpen={!!reviewTeam}
           onClose={() => setReviewTeam(null)}
+          onSubmit={handleReview}
         />
+      )}
+
+      {memberDialog && (
+        <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/60 p-4" role="presentation" onClick={() => setMemberDialog(null)}>
+          <section className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl dark:bg-slate-900" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 className="text-lg font-black">{memberDialog.isCaptain ? 'Yêu cầu tham gia' : 'Thành viên CLB'} · {memberDialog.name}</h2>
+              <button onClick={() => setMemberDialog(null)} aria-label="Đóng" className="rounded-lg px-3 py-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10">×</button>
+            </div>
+            {members.length === 0 ? <p className="py-6 text-center text-sm text-slate-500">{memberDialog.isCaptain ? 'Không có yêu cầu đang chờ.' : 'CLB chưa có thành viên được hiển thị.'}</p> : (
+              <ul className="max-h-[60vh] space-y-2 overflow-y-auto">
+                {members.map((member) => <li key={member.id} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 p-3 dark:bg-white/5">
+                  <div className="min-w-0"><p className="truncate text-sm font-bold">{member.full_name || member.email}</p><p className="text-xs text-slate-500">{member.status}</p></div>
+                  {memberDialog.isCaptain && member.status === 'PENDING' && <div className="flex gap-2"><button onClick={() => updateMember(member, 'REJECTED')} className="rounded-lg border px-3 py-1.5 text-xs font-bold">Từ chối</button><button onClick={() => updateMember(member, 'APPROVED')} className="rounded-lg bg-[#589470] px-3 py-1.5 text-xs font-bold text-white">Duyệt</button></div>}
+                </li>)}
+              </ul>
+            )}
+          </section>
+        </div>
       )}
 
     </div>

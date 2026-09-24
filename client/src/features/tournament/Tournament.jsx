@@ -1,11 +1,17 @@
-import React, { useState, useMemo } from 'react';
-import { Search, PlusCircle, Users, Sparkles, Filter, MessageSquare, CheckCircle2, SlidersHorizontal, MapPin, Calendar, DollarSign, Award, Trophy } from 'lucide-react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { PlusCircle, Sparkles, Filter, MapPin, Calendar, DollarSign, Award, Trophy, ChevronDown, UserRound } from 'lucide-react';
 import { useSportFilter } from '../../shared/context/SportFilterContext';
 import { useChat } from '../../shared/context/ChatContext';
 import PostCard from './components/PostCard';
 import JoinModal from './components/JoinModal';
 import CreatePostModal from './components/CreatePostModal';
+import LfgParticipantsModal from './components/LfgParticipantsModal';
 import FilterSelect from '../../shared/components/FilterSelect';
+import { lfgService, resolveMediaUrl, storageService } from '../../shared/services/api';
+import { useAuth } from '../../shared/context/AuthContext';
+import { createSportExperienceMap, sortBySportExperience } from '../../shared/utils/sportExperienceSort';
+import { parseStoredCostToVnd } from '../../shared/utils/price';
 
 import badmintonImg from '../../assets/sports/badminton.avif';
 import footballImg from '../../assets/sports/foodball.avif';
@@ -14,169 +20,130 @@ import tennisImg from '../../assets/sports/tennis.jpg';
 import basketballImg from '../../assets/sports/bong_ro.jpg';
 import volleyballImg from '../../assets/sports/volleyball.jpg';
 
-const INITIAL_POSTS = [
-  {
-    id: 1,
-    sportId: 'badminton',
-    sportName: 'Cầu lông',
-    sportEmoji: '🏸',
-    image: badmintonImg,
-    authorName: 'Minh Khang',
-    teamName: 'CLB Cầu Lông Proton',
-    timeAgo: '2 giờ trước',
-    title: 'Nhóm Cầu Lông Viettel tối nay cần giao lưu thêm 2 bạn nam/nữ',
-    description: 'Nhóm mình cố định 2-4-6 tại sân số 2 Viettel Q.10. Tối nay có 2 bạn bận đột xuất nên cần tìm 2 vđv trình độ trung bình yếu đến đánh giao lưu vui vẻ, bao cầu Yonex, trà đá đầy đủ!',
-    location: 'Sân cầu lông Viettel, Quận 10',
-    timeSlot: '19:00 - 21:00',
-    date: 'Tối nay (02/07)',
-    currentMembers: 4,
-    totalMembers: 6,
-    price: '~50.000đ / người (Chia đều)',
-    skillLevel: 'Trung bình yếu',
-    isVerified: true,
-    hasJoined: false,
-  },
-  {
-    id: 2,
-    sportId: 'football',
-    sportName: 'Bóng đá',
-    sportEmoji: '⚽',
-    image: footballImg,
-    authorName: 'Hoàng Long',
-    teamName: 'FC Elite Saigon',
-    timeAgo: '4 giờ trước',
-    title: 'FC Elite cần tìm 2 hậu vệ đá sân 7 tối mai tại Sân Chấu Giang',
-    description: 'Đội hình đá giải cần rà soát lại lối chơi, tìm 2 anh em đá vị trí hậu vệ biên hoặc trung vệ có thể lực tốt, chơi fairplay không quạu. Sân đẹp, nước suối bao trọn gói.',
-    location: 'Sân bóng đá Chấu Giang, Quận 7',
-    timeSlot: '20:00 - 21:30',
-    date: 'Tối mai (03/07)',
-    currentMembers: 12,
-    totalMembers: 14,
-    price: '70.000đ / người',
-    skillLevel: 'Khá / Nâng cao',
-    isVerified: true,
-    hasJoined: false,
-  },
-  {
-    id: 3,
-    sportId: 'pickleball',
-    sportName: 'Pickleball',
-    sportEmoji: '🏓',
-    image: pickleballImg,
-    authorName: 'Thu Hà',
-    teamName: 'Thảo Điền Pickleball Club',
-    timeAgo: '5 giờ trước',
-    title: 'Giao lưu Pickleball đôi nam nữ chiều nay, sân chuẩn quốc tế',
-    description: 'Nhóm 3 người đang thiếu 1 bạn nữ để đánh đôi nam nữ. Nhóm vui vẻ thân thiện, hướng dẫn luật chơi nhiệt tình cho người mới. Có sẵn vợt cho bạn nào chưa có trang bị nhé.',
-    location: 'Sân Pickleball Thảo Điền, TP. Thủ Đức',
-    timeSlot: '17:00 - 19:00',
-    date: 'Chiều nay',
-    currentMembers: 3,
-    totalMembers: 4,
-    price: '80.000đ / người',
-    skillLevel: 'Mới chơi / Vui vẻ',
-    isVerified: false,
-    hasJoined: false,
-  },
-  {
-    id: 4,
-    sportId: 'tennis',
-    sportName: 'Tennis',
-    sportEmoji: '🎾',
-    image: tennisImg,
-    authorName: 'Quang Vinh',
-    teamName: 'Hội Tennis Phú Thọ',
-    timeAgo: '1 ngày trước',
-    title: 'Tuyển 1 tay vợt trình 2.5 - 3.0 đánh đôi cố định sáng Chủ Nhật',
-    description: 'Hội anh em văn phòng chơi thể thao rèn luyện sức khỏe, đánh sân có mái che không lo mưa nắng. Cần tìm 1 tay vợt giao lưu cố định hàng tuần.',
-    location: 'Cụm sân Tennis Phú Thọ, Quận 11',
-    timeSlot: '07:00 - 09:00',
-    date: 'Sáng Chủ Nhật',
-    currentMembers: 3,
-    totalMembers: 4,
-    price: '100.000đ / buổi',
-    skillLevel: 'Khá (2.5 - 3.0)',
-    isVerified: true,
-    hasJoined: false,
-  },
-  {
-    id: 5,
-    sportId: 'basketball',
-    sportName: 'Bóng rổ',
-    sportEmoji: '🏀',
-    image: basketballImg,
-    authorName: 'Tuấn Kiệt',
-    teamName: 'Saigon Street Ballers',
-    timeAgo: '1 ngày trước',
-    title: 'Tuyển 2 ballers thi đấu 3v3 nửa sân tối thứ 6 tuần này',
-    description: 'Giao lưu bóng rổ đường phố 3x3, nhịp độ nhanh, vui vẻ không va chạm mạnh. Anh em nào thích ném 3 điểm hay đột phá thì tham gia ngay cùng nhóm!',
-    location: 'Sân bóng rổ Hồ Xuân Hương, Quận 3',
-    timeSlot: '18:30 - 20:30',
-    date: 'Tối Thứ 6',
-    currentMembers: 4,
-    totalMembers: 6,
-    price: '40.000đ / người',
-    skillLevel: 'Trung bình',
-    isVerified: false,
-    hasJoined: false,
-  },
-];
-
 export default function Tournament() {
+  const [searchParams] = useSearchParams();
+  const routeSearch = (searchParams.get('search') || '').trim().toLowerCase();
   const { selectedSport, setSelectedSport } = useSportFilter();
   const { openChat } = useChat();
-  const [posts, setPosts] = useState(INITIAL_POSTS);
+  const { user } = useAuth();
+  const sportExperience = useMemo(() => createSportExperienceMap(user?.sports), [user?.sports]);
+  const [posts, setPosts] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
   const [filterLocation, setFilterLocation] = useState('all');
   const [filterTime, setFilterTime] = useState('all');
   const [filterPrice, setFilterPrice] = useState('all');
   const [filterSkill, setFilterSkill] = useState('all');
+  const [myPostsOnly, setMyPostsOnly] = useState(false);
   const [selectedPost, setSelectedPost] = useState(null);
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [editingPost, setEditingPost] = useState(null);
+  const [managingPost, setManagingPost] = useState(null);
+  const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
+
+  const loadPosts = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const items = await lfgService.getAll({ status: 'ALL', sport_id: selectedSport || undefined });
+      const emojis = { badminton: '🏸', football: '⚽', pickleball: '🏓', tennis: '🎾', basketball: '🏀', volleyball: '🏐' };
+      const images = { badminton: badmintonImg, football: footballImg, pickleball: pickleballImg, tennis: tennisImg, basketball: basketballImg, volleyball: volleyballImg };
+      const mapped = items.filter((post) => post.status !== 'CANCELLED').map((post) => ({
+        ...post,
+        sportId: post.sport_id,
+        sportEmoji: emojis[post.sport_id] || '🏅',
+        image: resolveMediaUrl(post.image_url) || images[post.sport_id] || badmintonImg,
+        authorName: post.author_name || 'Người chơi',
+        authorAvatar: resolveMediaUrl(post.author_avatar_url),
+        authorIsCourtOwner: post.author_owner_status === 'registered',
+        teamName: '',
+        timeAgo: new Date(post.created_at).toLocaleString('vi-VN'),
+        timeSlot: post.time_slot,
+        date: post.date_label,
+        currentMembers: post.current_members,
+        totalMembers: post.total_members,
+        skillLevel: post.skill_level,
+        isAuthor: Number(post.author_id) === Number(user?.id),
+        hasJoined: post.has_joined,
+        isVerified: false,
+      }));
+      setPosts(mapped);
+      setError('');
+    } catch (err) {
+      setError(err.message || 'Không tải được bài tìm người chơi');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedSport, user?.id]);
+
+  useEffect(() => { loadPosts(); }, [loadPosts]);
 
   // Filter posts based on selected sport in Navbar and 4 dropdown filters
   const filteredPosts = useMemo(() => {
-    return posts.filter(post => {
+    const visiblePosts = posts.filter(post => {
+      if (myPostsOnly && Number(post.author_id) !== Number(user?.id)) return false;
+      if (routeSearch) {
+        return [post.title, post.location, post.description, post.authorName]
+          .some((value) => value?.toLowerCase().includes(routeSearch));
+      }
       const matchSport = !selectedSport || post.sportId === selectedSport;
+      const postPrice = parseStoredCostToVnd(post.price);
       
       const matchLocation = filterLocation === 'all' || post.location.toLowerCase().includes(filterLocation.toLowerCase());
       
       const matchTime = filterTime === 'all' || post.date.toLowerCase().includes(filterTime.toLowerCase()) || post.timeSlot.toLowerCase().includes(filterTime.toLowerCase());
       
-      const matchPrice = filterPrice === 'all' || 
-        (filterPrice === 'Dưới 60k' && (post.price.includes('40') || post.price.includes('50'))) ||
-        (filterPrice === '60k - 80k' && (post.price.includes('60') || post.price.includes('70') || post.price.includes('80'))) ||
-        (filterPrice === 'Trên 80k' && (post.price.includes('90') || post.price.includes('100')));
+      const matchPrice = filterPrice === 'all' ||
+        (postPrice !== null && filterPrice === 'Dưới 60k' && postPrice < 60000) ||
+        (postPrice !== null && filterPrice === '60k - 80k' && postPrice >= 60000 && postPrice <= 80000) ||
+        (postPrice !== null && filterPrice === 'Trên 80k' && postPrice > 80000);
         
       const matchSkill = filterSkill === 'all' || post.skillLevel.toLowerCase().includes(filterSkill.toLowerCase());
 
       return matchSport && matchLocation && matchTime && matchPrice && matchSkill;
     });
-  }, [posts, selectedSport, filterLocation, filterTime, filterPrice, filterSkill]);
+    return sortBySportExperience(visiblePosts, sportExperience, (post) => post.sportId);
+  }, [posts, selectedSport, filterLocation, filterTime, filterPrice, filterSkill, routeSearch, sportExperience, myPostsOnly, user?.id]);
 
   const handleJoinClick = (post) => {
     setSelectedPost(post);
     setIsJoinModalOpen(true);
   };
 
-  const handleConfirmJoin = (post) => {
-    setPosts(prev => prev.map(p => {
-      if (p.id === post.id) {
-        return { ...p, currentMembers: p.currentMembers + 1, hasJoined: true };
-      }
-      return p;
-    }));
-    showToast(`🎉 Đã gửi yêu cầu tham gia kèo "${post.title.slice(0, 30)}..." thành công! Trưởng nhóm sẽ liên hệ bạn sớm.`);
+  const handleConfirmJoin = async (post) => {
+    await lfgService.join(post.id);
+    await loadPosts();
+    showToast('Đã gửi yêu cầu tham gia. Đang chờ chủ bài kiểm duyệt.');
+    setIsJoinModalOpen(false);
   };
 
   const handleChatClick = (post) => {
-    openChat(post.authorName || 'Trưởng nhóm');
+    openChat({ id: post.author_id, name: post.authorName });
   };
 
-  const handleCreatePost = (newPost) => {
-    setPosts(prev => [newPost, ...prev]);
-    showToast('✨ Đăng bài tìm thành viên thành công! Bài viết của bạn đã xuất hiện trên trang đầu.');
+  const handleSavePost = async (postData) => {
+    const { image_file: imageFile, ...payload } = postData;
+    if (imageFile) payload.image_url = await storageService.uploadImage(imageFile);
+    if (editingPost) await lfgService.update(editingPost.id, payload);
+    else await lfgService.create(payload);
+    await loadPosts();
+    showToast(editingPost ? 'Đã cập nhật bài đăng.' : 'Đã đăng bài tìm người chơi.');
+    setIsCreateModalOpen(false);
+    setEditingPost(null);
+  };
+
+  const handleEditPost = (post) => {
+    setEditingPost(post);
+    setIsCreateModalOpen(true);
+  };
+
+  const handleCancelPost = async (post) => {
+    try {
+      await lfgService.cancel(post.id);
+      await loadPosts();
+      showToast('Đã hủy bài đăng.');
+    } catch (err) { showToast(err.message || 'Không hủy được bài đăng'); }
   };
 
   const showToast = (msg) => {
@@ -188,7 +155,6 @@ export default function Tournament() {
 
   return (
     <div className="min-h-screen bg-transparent dark:bg-transparent text-slate-900 dark:text-[#F6F7ED] relative w-full overflow-x-clip font-sans transition-colors duration-500 pb-20">
-      
       {/* Toast Notification Alert */}
       {alertMessage && (
         <div className="fixed top-36 right-6 z-[9999] max-w-md bg-white dark:bg-slate-900 border-2 border-[#589470] text-slate-800 dark:text-white px-5 py-4 rounded-2xl shadow-2xl flex items-start gap-3 animate-in slide-in-from-right duration-300">
@@ -198,30 +164,33 @@ export default function Tournament() {
         </div>
       )}
 
-      {/* ── Header Section ── */}
-      <div className="relative bg-transparent pt-10 pb-2 px-4 sm:px-6">
-        <div className="max-w-[1600px] mx-auto">
-          <div>
-            <div className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 py-1 sm:px-3.5 sm:py-1.5 rounded-full bg-[#589470]/10 dark:bg-[#74C365]/15 text-[#589470] dark:text-[#74C365] text-[10px] sm:text-xs font-black uppercase tracking-wider mb-2 sm:mb-3 border border-[#589470]/20">
-              <Users className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-              <span>Diễn Đàn • Looking For Group</span>
-            </div>
-            <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black text-slate-900 dark:text-white tracking-tight">
-              Tìm Đồng Đội & Ghép Kèo
-            </h1>
-            <p className="text-slate-800 dark:text-slate-100 font-medium text-xs sm:text-base max-w-2xl mt-1.5 sm:mt-2 leading-relaxed">
-              Nơi kết nối các hội nhóm đang thiếu người chơi hoặc người chơi lẻ muốn giao lưu thể thao. Ghép đúng trình độ, vui chơi hết mình!
-            </p>
-          </div>
-        </div>
-      </div>
+
 
       {/* ── Filter Bar Section ── */}
-      <div className="pb-4 pt-1 px-4 sm:px-6 sticky top-[104px] sm:top-[124px] z-40 transition-all duration-300">
-        <div className="max-w-[1600px] mx-auto bg-white/35 dark:bg-white/[0.08] backdrop-blur-2xl backdrop-saturate-[180%] border border-white/60 dark:border-white/15 rounded-2xl sm:rounded-3xl p-2.5 sm:p-4 shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_1px_0_rgba(255,255,255,0.8),inset_0_0_16px_rgba(255,255,255,0.4)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3),inset_0_1px_1px_0_rgba(255,255,255,0.25),inset_0_0_16px_rgba(255,255,255,0.05)] flex items-center justify-between gap-2 sm:gap-4 transition-all duration-300">
+      <div className="navbar-filter-bar pb-4 pt-2 px-4 sm:px-6 sticky top-[112px] sm:top-[132px] z-40 transition-all duration-300">
+        <div className="member-filter-panel max-w-[1600px] mx-auto rounded-xl sm:rounded-2xl p-1.5 sm:p-2.5 flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-2 xl:gap-3 transition-all duration-300">
           
+          {/* Mobile Header (Toggle + Action Button) */}
+          <div className="flex xl:hidden items-center justify-between gap-2 w-full">
+            <button 
+              onClick={() => setIsMobileFilterOpen(!isMobileFilterOpen)}
+              className="flex items-center justify-center gap-1.5 flex-1 bg-white dark:bg-white/10 text-slate-700 dark:text-slate-200 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 font-bold text-sm shadow-sm"
+            >
+              <Filter className="w-4 h-4" />
+              <span>Bộ lọc</span>
+              <ChevronDown className={`w-4 h-4 transition-transform ${isMobileFilterOpen ? 'rotate-180' : ''}`} />
+            </button>
+            <button
+              onClick={() => setIsCreateModalOpen(true)}
+              className="px-3.5 py-1.5 rounded-lg font-bold text-sm bg-gradient-to-r from-[#74C365] to-[#589470] text-white shadow-md flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap"
+            >
+              <PlusCircle className="w-4 h-4 shrink-0" />
+              <span>Đăng bài</span>
+            </button>
+          </div>
+
           {/* Filter Boxes Grid */}
-          <div className="flex items-center gap-2 sm:gap-2.5 flex-1 overflow-x-auto no-scrollbar p-1.5 -m-1.5 sm:p-0 sm:m-0 sm:flex-wrap sm:overflow-visible">
+          <div className={`${isMobileFilterOpen ? 'flex' : 'hidden'} xl:flex flex-col xl:flex-row items-stretch xl:items-center gap-2 xl:gap-2.5 flex-1 overflow-x-auto no-scrollbar p-1.5 -m-1.5 xl:p-0 xl:m-0 xl:flex-wrap xl:overflow-visible`}>
             
             {/* 0. Môn thể thao (Sport) */}
             <FilterSelect
@@ -237,6 +206,16 @@ export default function Tournament() {
               <option value="tennis">🎾 Tennis</option>
               <option value="basketball">🏀 Bóng rổ</option>
               <option value="volleyball">🏐 Bóng chuyền</option>
+            </FilterSelect>
+
+            <FilterSelect
+              icon={UserRound}
+              iconColor="text-violet-500"
+              value={myPostsOnly ? 'mine' : 'all'}
+              onChange={(event) => setMyPostsOnly(event.target.value === 'mine')}
+            >
+              <option value="all">Tất cả bài</option>
+              <option value="mine">Bài của tôi</option>
             </FilterSelect>
 
             {/* 1. Địa điểm (Location) */}
@@ -301,7 +280,7 @@ export default function Tournament() {
           {/* Right action: Create Button */}
           <button
             onClick={() => setIsCreateModalOpen(true)}
-            className="px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-95 text-white shadow-md hover:shadow-lg flex items-center justify-center gap-1.5 sm:gap-2 transition-all duration-200 active:scale-95 group shrink-0 whitespace-nowrap"
+            className="hidden xl:flex px-3.5 py-2 xl:px-5 xl:py-2.5 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-95 text-white shadow-md hover:shadow-lg items-center justify-center gap-1.5 sm:gap-2 transition-all duration-200 active:scale-95 group shrink-0 whitespace-nowrap"
           >
             <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 group-hover:rotate-90 transition-transform duration-300 shrink-0" />
             <span>Đăng bài</span>
@@ -312,22 +291,11 @@ export default function Tournament() {
 
       {/* ── Main Posts Feed ── */}
       <main className="max-w-[1600px] mx-auto px-4 sm:px-6 pt-4 sm:pt-6">
-        {/* Filter status header - lướt theo trang */}
-        <div className="flex items-center justify-between mb-4 px-1">
-          <div className="flex items-center gap-1.5 text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100">
-            <SlidersHorizontal className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#589470] dark:text-[#74C365] shrink-0" />
-            <span>
-              Hiển thị: <strong className="text-[#589470] dark:text-[#74C365] font-black text-sm sm:text-base">{filteredPosts.length}</strong> bài
-              {selectedSport && (
-                <span className="ml-1 text-[#589470] dark:text-[#74C365]">
-                  ({INITIAL_POSTS.find(p => p.sportId === selectedSport)?.sportName || selectedSport})
-                </span>
-              )}
-            </span>
-          </div>
-        </div>
-        
-        {filteredPosts.length === 0 ? (
+
+        {error && <div role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">{error}</div>}
+        {isLoading ? (
+          <div className="py-16 text-center text-sm font-semibold text-slate-500">Đang tải bài đăng…</div>
+        ) : filteredPosts.length === 0 ? (
           <div className="bg-slate-50 dark:bg-white/5 border border-dashed border-slate-200 dark:border-white/10 rounded-3xl p-12 text-center my-6">
             <div className="w-16 h-16 bg-slate-200 dark:bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
               🔍
@@ -356,6 +324,9 @@ export default function Tournament() {
                 post={post} 
                 onJoin={handleJoinClick} 
                 onChat={handleChatClick} 
+                onCancel={handleCancelPost}
+                onEdit={handleEditPost}
+                onManageParticipants={setManagingPost}
               />
             ))}
           </div>
@@ -372,9 +343,18 @@ export default function Tournament() {
       />
 
       <CreatePostModal 
+        key={`${editingPost?.id || 'new-post'}-${isCreateModalOpen ? 'open' : 'closed'}`}
         isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onCreate={handleCreatePost}
+        onClose={() => { setIsCreateModalOpen(false); setEditingPost(null); }}
+        onCreate={handleSavePost}
+        initialPost={editingPost}
+      />
+
+      <LfgParticipantsModal
+        isOpen={Boolean(managingPost)}
+        post={managingPost}
+        onClose={() => setManagingPost(null)}
+        onChanged={loadPosts}
       />
 
     </div>

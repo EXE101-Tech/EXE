@@ -1,4 +1,3 @@
-import React from 'react';
 import { Outlet } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import ChatPanel from '../components/ChatPanel';
@@ -8,11 +7,10 @@ export default function NavbarLayout() {
   const { isChatOpen } = useChat();
 
   return (
-    <div className="min-h-screen bg-transparent dark:bg-transparent text-slate-900 dark:text-[#F6F7ED] relative z-50 w-full overflow-x-clip font-sans transition-colors duration-500 selection:bg-[#589470]/30 flex flex-col">
+    <div className="member-app-shell min-h-screen text-slate-900 dark:text-[#EAF2FF] relative z-50 w-full overflow-x-clip font-sans transition-colors duration-500 selection:bg-[#65E6A0]/30 flex flex-col">
       <Navbar />
       <div 
-        className="flex-1 pt-[104px] sm:pt-[124px] transition-[margin] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] relative"
-        style={{ marginRight: isChatOpen ? '384px' : '0px' }}
+        className={`navbar-content flex-1 pt-[104px] sm:pt-[124px] transition-[margin,padding] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] relative ${isChatOpen ? 'md:mr-[384px]' : 'md:mr-0'}`}
       >
         <Outlet />
       </div>

@@ -8,6 +8,8 @@ def create_match(db: Session, host_id: int, match: schemas.MatchCreate):
         court_id=match.court_id,
         title=match.title,
         description=match.description,
+        location=match.location,
+        price_info=match.price_info,
         required_level=match.required_level,
         start_time=match.start_time,
         end_time=match.end_time,
@@ -41,19 +43,27 @@ def get_matches(db: Session, sport_id: int = None, status: str = None):
 def get_match_by_id(db: Session, match_id: int):
     return db.query(models.Match).filter(models.Match.id == match_id).first()
 
-def join_match(db: Session, match_id: int, user_id: int):
+def join_match(db: Session, match_id: int, user_id: int, note: str = None):
     exists = db.query(models.MatchParticipant).filter(
         models.MatchParticipant.match_id == match_id,
         models.MatchParticipant.user_id == user_id
     ).first()
     if exists:
+        if exists.status == "REJECTED":
+            exists.status = "PENDING"
+            exists.role = "PLAYER"
+            exists.note = note
+            exists.joined_at = models.utc_now_naive()
+            db.commit()
+            db.refresh(exists)
         return exists
         
     db_participant = models.MatchParticipant(
         match_id=match_id,
         user_id=user_id,
         role="PLAYER",
-        status="PENDING"  # Default status is PENDING to support approval flow
+        status="PENDING",  # Default status is PENDING to support approval flow
+        note=note,
     )
     db.add(db_participant)
     db.commit()

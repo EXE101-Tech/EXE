@@ -1,10 +1,60 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
+import { Search, Sun, Moon, Crown, MessageSquare, MapPin, Gamepad2, Users } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Search, Sun, Moon, Check, Bell, ChevronDown, Menu, LogOut, User, Crown, MessageSquare } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useChat } from '../context/ChatContext';
-import EditProfileModal from '../../features/profile/EditProfileModal';
-import CreateTeamModal from '../../features/team/components/CreateTeamModal';
+import NotificationBell from './NotificationBell';
+import useChatUnreadCount from '../hooks/useChatUnreadCount';
+import PremiumInfoModal from '../../features/premium/PremiumInfoModal';
+import { searchService } from '../services/api';
+import forumMobileIcon from '../../../icons/diendan.png';
+import bookingsMobileIcon from '../../../icons/datsan.png';
+import gameRoomMobileIcon from '../../../icons/phonggame.png';
+import teamsMobileIcon from '../../../icons/teams.png';
+
+const SEARCH_KIND_LABELS = {
+  venue: 'Sân',
+  gameroom: 'Phòng chơi',
+  team: 'CLB',
+  lfg: 'Tìm người chơi',
+};
+
+export function SearchResults({ results, loading, error, hasSearched, onSelect }) {
+  if (!hasSearched) return null;
+
+  return (
+    <div className="absolute left-0 right-0 top-full z-[1001] mt-2 max-h-[min(65vh,28rem)] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl dark:border-white/10 dark:bg-slate-900">
+      {loading ? (
+        <p className="px-3 py-4 text-sm text-slate-500 dark:text-slate-300">Đang tìm kiếm…</p>
+      ) : error ? (
+        <p className="px-3 py-4 text-sm text-red-600 dark:text-red-300">{error}</p>
+      ) : results.length === 0 ? (
+        <p className="px-3 py-4 text-sm text-slate-500 dark:text-slate-300">Không tìm thấy kết quả phù hợp.</p>
+      ) : (
+        <div className="space-y-1" role="listbox" aria-label="Kết quả tìm kiếm">
+          {results.map((result) => (
+            <button
+              key={`${result.kind}-${result.id}`}
+              type="button"
+              role="option"
+              aria-selected="false"
+              onClick={() => onSelect(result)}
+              className="flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left hover:bg-slate-100 dark:hover:bg-white/10"
+            >
+              <span className="mt-0.5 shrink-0 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200">
+                {SEARCH_KIND_LABELS[result.kind] || 'Kết quả'}
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-bold text-slate-900 dark:text-white">{result.title}</span>
+                <span className="mt-0.5 block truncate text-xs text-slate-500 dark:text-slate-400">{result.subtitle}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Navbar() {
   const [isDark, setIsDark] = useState(() => {
@@ -12,39 +62,94 @@ export default function Navbar() {
   });
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout, updateProfile } = useAuth();
-  const { isChatOpen, toggleChat } = useChat();
-  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
-  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const { isChatOpen, toggleChat, closeChat } = useChat();
+  const chatUnreadCount = useChatUnreadCount();
+  const { user } = useAuth();
   const [isPremiumOpen, setIsPremiumOpen] = useState(false);
-  const profileRef = useRef(null);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchError, setSearchError] = useState('');
+  const [isSearchLoading, setIsSearchLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [isSubNavVisible, setIsSubNavVisible] = useState(true);
+  const searchInputRef = useRef(null);
+  const headerRef = useRef(null);
+  const lastScrollYRef = useRef(0);
+
+  useLayoutEffect(() => {
+    const header = headerRef.current;
+    if (!header) return undefined;
+
+    const root = document.documentElement;
+    const previousChatTop = root.style.getPropertyValue('--mobile-chat-top');
+    const updateChatTop = () => {
+      root.style.setProperty('--mobile-chat-top', `${header.getBoundingClientRect().bottom}px`);
+    };
+
+    updateChatTop();
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateChatTop) : null;
+    observer?.observe(header);
+    window.addEventListener('resize', updateChatTop);
+
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', updateChatTop);
+      if (previousChatTop) root.style.setProperty('--mobile-chat-top', previousChatTop);
+      else root.style.removeProperty('--mobile-chat-top');
+    };
+  }, []);
 
   const getAvatarLetter = () => {
     const name = user?.profile?.full_name || user?.email || 'U';
     return name.charAt(0).toUpperCase();
   };
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (profileRef.current && !profileRef.current.contains(event.target)) {
-        setShowProfileDropdown(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  const avatarUrl = user?.profile?.avatar_url || user?.avatar || '';
 
   const navItems = [
-    { label: 'Trang Chủ', path: '/home' },
-    { label: 'Diễn Đàn', path: '/tournaments' },
-    { label: 'Đặt Sân', path: '/bookings', match: (p) => p.startsWith('/bookings') || p.startsWith('/courts') },
-    { label: 'Phòng game', path: '/matches' },
-    { label: 'Teams', path: '/team' },
+    { label: 'Diễn Đàn', path: '/tournaments', icon: MessageSquare, mobileIcon: forumMobileIcon },
+    { label: 'Đặt Sân', path: '/bookings', match: (p) => p.startsWith('/bookings') || p.startsWith('/courts'), icon: MapPin, mobileIcon: bookingsMobileIcon },
+    { label: 'Phòng game', path: '/matches', icon: Gamepad2, mobileIcon: gameRoomMobileIcon },
+    { label: 'Teams', path: '/team', icon: Users, mobileIcon: teamsMobileIcon },
+    { label: 'Hồ Sơ', path: '/home', isAvatar: true },
   ];
   const navRefs = useRef([]);
   const navContainerRef = useRef(null);
   const [indicator, setIndicator] = useState({ left: 0, width: 0 });
   const [isInitialRender, setIsInitialRender] = useState(true);
+
+  const handleSearchSubmit = async (event) => {
+    event.preventDefault();
+    const query = searchQuery.trim();
+    if (isSearchLoading) return;
+    if (query.length < 2) {
+      setSearchResults([]);
+      setSearchError('Nhập ít nhất 2 ký tự để tìm kiếm.');
+      setHasSearched(true);
+      return;
+    }
+
+    setIsSearchLoading(true);
+    setSearchError('');
+    setHasSearched(true);
+    try {
+      setSearchResults(await searchService.search(query));
+    } catch (error) {
+      setSearchResults([]);
+      setSearchError(error.message || 'Không thể tìm kiếm lúc này.');
+    } finally {
+      setIsSearchLoading(false);
+    }
+  };
+
+  const handleSearchResult = (result) => {
+    navigate(result.href);
+    closeChat();
+    setIsSearchOpen(false);
+    setSearchQuery('');
+    setSearchResults([]);
+    setHasSearched(false);
+  };
 
   const activeIndex = navItems.findIndex(item => item.match ? item.match(location.pathname) : location.pathname.startsWith(item.path));
 
@@ -91,6 +196,52 @@ export default function Navbar() {
     }
   }, []);
 
+  useEffect(() => {
+    if (!isSearchOpen) return undefined;
+
+    searchInputRef.current?.focus();
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') setIsSearchOpen(false);
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [isSearchOpen]);
+
+  useEffect(() => {
+    if (isChatOpen) {
+      lastScrollYRef.current = window.scrollY;
+      return undefined;
+    }
+
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      const previousScrollY = lastScrollYRef.current;
+
+      if (currentScrollY <= 12) {
+        setIsSubNavVisible(true);
+      } else if (currentScrollY > previousScrollY + 4) {
+        setIsSubNavVisible(false);
+      } else if (currentScrollY < previousScrollY - 4) {
+        setIsSubNavVisible(true);
+      }
+
+      lastScrollYRef.current = currentScrollY;
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [isChatOpen]);
+
+  useEffect(() => {
+    document.body.classList.toggle('navbar-tabs-hidden', !isSubNavVisible && !isChatOpen);
+    return () => document.body.classList.remove('navbar-tabs-hidden');
+  }, [isSubNavVisible, isChatOpen]);
+
+  const handleChatToggle = () => {
+    if (!isChatOpen) setIsSubNavVisible(true);
+    toggleChat();
+  };
+
   const toggleTheme = () => {
     setIsDark(prev => {
       const newDark = !prev;
@@ -106,40 +257,74 @@ export default function Navbar() {
   };
 
   return (
-    <header className="w-full bg-white dark:bg-[#001F3F] border-b border-gray-200 dark:border-white/10 fixed top-0 left-0 right-0 z-[999] shadow-sm transition-colors duration-500">
+    <header ref={headerRef} className="w-full bg-gradient-to-r from-[#589470] to-[#74C365] dark:from-[#122A25] dark:to-[#1B3A31] border-b border-transparent dark:border-[#65E6A0]/15 fixed top-0 left-0 right-0 z-[999] shadow-md dark:shadow-[0_8px_30px_rgba(3,10,20,0.35)] transition-colors duration-500">
       <div className="max-w-7xl mx-auto px-2.5 sm:px-6 h-14 sm:h-20 flex items-center justify-between gap-1 sm:gap-6">
         <div className="flex items-center shrink-0">
           <div
-            onClick={() => navigate('/home')}
+            onClick={() => { closeChat(); navigate('/home'); }}
             className="cursor-pointer group select-none flex items-center gap-1.5"
           >
-            <span className="text-xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white transition-transform group-hover:scale-105">
-              Sport<span className="text-[#74C365]">Go</span>
+            <span className="text-xl sm:text-3xl font-black tracking-tight text-white transition-transform group-hover:scale-105">
+              Sport<span className={user?.isCourtOwner ? 'owner-water-go' : ''}>Go</span>
             </span>
           </div>
         </div>
 
-        <div className="flex-1 max-w-3xl mx-1.5 sm:mx-6 flex items-center">
-
-          <div className="relative flex items-center flex-1 bg-gray-100 dark:bg-white/10 border-2 border-transparent focus-within:border-[#589470] dark:focus-within:border-[#74C365] focus-within:bg-white dark:focus-within:bg-[#001F3F] rounded-full transition-all duration-200 shadow-inner group">
+        <div className="hidden sm:flex flex-1 max-w-3xl mx-1.5 sm:mx-3 items-center">
+          <form onSubmit={handleSearchSubmit} className="relative flex items-center flex-1 bg-white/20 dark:bg-white/10 border-2 border-transparent focus-within:border-white/50 focus-within:bg-white/30 rounded-full transition-all duration-200 shadow-inner group">
             <input
               type="text"
               placeholder="Tìm kiếm phòng chơi, sân bãi, giải đấu, đội nhóm..."
-              className="w-full bg-transparent pl-3.5 sm:pl-5 pr-11 sm:pr-14 py-1.5 sm:py-2.5 text-xs sm:text-base text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none truncate"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              aria-label="Tìm kiếm sân, phòng chơi, CLB và bài tìm người"
+              className="w-full bg-transparent pl-3.5 sm:pl-5 pr-11 sm:pr-14 py-1.5 sm:py-2.5 text-xs sm:text-base text-white placeholder-white/80 focus:outline-none truncate"
             />
             <button
-              className="absolute right-1 bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-90 text-white p-1.5 sm:p-2 rounded-full transition-transform active:scale-95 shadow-md flex items-center justify-center m-0.5 shrink-0"
+              type="submit"
+              disabled={isSearchLoading}
+              className="absolute right-1 bg-white hover:bg-gray-50 text-black p-1.5 sm:p-2 rounded-full transition-transform active:scale-95 shadow-sm border border-gray-200 dark:bg-[#0a1128] dark:border-gray-700 dark:text-white dark:hover:bg-[#111c43] flex items-center justify-center m-0.5 shrink-0"
               title="Tìm kiếm"
+              aria-label="Tìm kiếm"
             >
               <Search className="w-3.5 h-3.5 sm:w-5 sm:h-5 stroke-[2.5]" />
             </button>
-          </div>
+            <SearchResults results={searchResults} loading={isSearchLoading} error={searchError} hasSearched={hasSearched} onSelect={handleSearchResult} />
+          </form>
         </div>
 
-        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-1.5 shrink-0">
+          <button
+            onClick={() => setIsSearchOpen(true)}
+            className="sm:hidden w-8 h-8 p-0 bg-white hover:bg-gray-50 rounded-full text-black shadow-sm border border-gray-200 transition-colors flex items-center justify-center"
+            title="Tìm kiếm"
+            aria-label="Mở tìm kiếm"
+          >
+            <Search className="w-4 h-4 stroke-[2.5]" />
+          </button>
+
+          <button
+            onClick={handleChatToggle}
+            className={`inline-flex relative items-center justify-center gap-1.5 w-8 h-8 p-0 sm:w-auto sm:h-auto sm:px-3.5 sm:py-2 rounded-full sm:rounded-2xl text-xs sm:text-sm font-bold shadow-md transition-all shrink-0 ${
+              isChatOpen
+                ? 'bg-white text-[#589470] scale-105'
+                : 'bg-white/20 hover:bg-white/30 text-white border border-white/20'
+            }`}
+            title="Chat"
+            aria-label="Mở chat"
+          >
+            <MessageSquare className="w-4 h-4 shrink-0" />
+            <span className="hidden sm:inline">Chat</span>
+            {chatUnreadCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-black text-white ring-2 ring-[#589470] sm:-right-1.5 sm:-top-1.5 sm:h-[18px] sm:min-w-[18px] sm:text-[10px]">
+                {chatUnreadCount > 99 ? '99+' : chatUnreadCount}
+              </span>
+            )}
+          </button>
+
           <button
             onClick={() => setIsPremiumOpen(true)}
-            className="inline-flex items-center gap-1 sm:gap-1.5 bg-gradient-to-r from-yellow-400 via-yellow-500 to-orange-500 text-white font-bold px-2.5 py-1 sm:px-4 sm:py-2 rounded-xl sm:rounded-2xl text-[11px] sm:text-sm shadow-[0_0_15px_rgba(234,179,8,0.35)] hover:scale-[1.02] active:scale-95 transition-transform overflow-hidden group relative shrink-0"
+            className="inline-flex items-center justify-center gap-1 sm:gap-1.5 h-8 bg-gradient-to-r from-yellow-400 via-yellow-500 to-orange-500 text-white font-bold px-2 sm:px-4 sm:py-2 rounded-xl sm:rounded-2xl text-[11px] sm:text-sm shadow-[0_0_15px_rgba(234,179,8,0.35)] hover:scale-[1.02] active:scale-95 transition-transform overflow-hidden group relative shrink-0"
             title="Premium"
           >
             <Crown className="w-3.5 h-3.5 sm:w-5 sm:h-5 shrink-0" />
@@ -147,85 +332,26 @@ export default function Navbar() {
             <div className="absolute inset-0 w-[200%] -translate-x-full bg-gradient-to-r from-transparent via-white/40 to-transparent animate-pulse pointer-events-none" />
           </button>
 
-          <button className="p-1.5 sm:p-2.5 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full transition-colors text-gray-700 dark:text-gray-200 relative group" title="Thông báo">
-            <Bell className="w-4 h-4 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
-            <span className="absolute top-1 right-1 sm:top-2 sm:right-2 w-2 h-2 bg-[#589470] dark:bg-[#74C365] rounded-full ring-2 ring-white dark:ring-[#001F3F]" />
-          </button>
+          <NotificationBell className="w-8 h-8 p-0 sm:w-auto sm:h-auto sm:p-2.5 inline-flex items-center justify-center hover:bg-white/20 rounded-full transition-colors text-white relative group" />
 
           <button
             onClick={toggleTheme}
-            className="p-1.5 sm:p-2.5 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full transition-colors relative group"
+            className="w-8 h-8 p-0 sm:w-auto sm:h-auto sm:p-2.5 inline-flex items-center justify-center hover:bg-white/20 rounded-full transition-colors relative group ml-0 sm:ml-1 text-white"
             title="Chuyển chế độ Sáng / Tối"
           >
             {isDark ? (
               <Sun className="w-4 h-4 sm:w-6 sm:h-6 text-[#DBE64C] group-hover:rotate-45 transition-transform duration-300" />
             ) : (
-              <Moon className="w-4 h-4 sm:w-6 sm:h-6 text-gray-700 group-hover:-rotate-12 transition-transform duration-300" />
+              <Moon className="w-4 h-4 sm:w-6 sm:h-6 group-hover:-rotate-12 transition-transform duration-300" />
             )}
           </button>
-
-          <div className="relative" ref={profileRef}>
-            <button
-              onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-              className="flex items-center gap-1 p-1 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full transition-colors pl-1 sm:pl-1.5 pr-1 sm:pr-2 group ml-0.5 sm:ml-1"
-              title="Tài khoản cá nhân"
-            >
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-tr from-[#589470] to-[#74C365] flex items-center justify-center text-white font-bold text-xs sm:text-sm shadow-sm ring-2 ring-transparent group-hover:ring-[#589470]/30 transition-all">
-                {getAvatarLetter()}
-              </div>
-              <ChevronDown className={`w-3.5 h-3.5 text-gray-500 group-hover:text-gray-800 dark:group-hover:text-gray-200 transition-transform hidden sm:block ${showProfileDropdown ? 'rotate-180' : ''}`} />
-            </button>
-
-            {showProfileDropdown && (
-              <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-[#001F3F] border border-gray-200 dark:border-white/10 rounded-2xl shadow-xl z-50 p-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                <div className="flex items-center gap-3 pb-3 mb-3 border-b border-gray-100 dark:border-white/10">
-                  <div className="w-11 h-11 rounded-full bg-gradient-to-tr from-[#589470] to-[#74C365] flex items-center justify-center shrink-0 text-white text-base font-bold shadow-sm">
-                    {getAvatarLetter()}
-                  </div>
-                  <div className="overflow-hidden">
-                    <h4 className="font-bold text-gray-900 dark:text-white leading-tight truncate text-sm">
-                      {user?.profile?.full_name || 'Người dùng SportGo'}
-                    </h4>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
-                      {user?.email || 'user@sportgo.vn'}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <button
-                    onClick={() => {
-                      setShowProfileDropdown(false);
-                      setIsEditProfileOpen(true);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 font-medium rounded-xl hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
-                  >
-                    <User className="w-4 h-4 text-[#589470] dark:text-[#74C365]" />
-                    <span>Chỉnh sửa hồ sơ</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setShowProfileDropdown(false);
-                      logout();
-                      navigate('/login');
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-600 dark:text-red-400 font-bold rounded-xl hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    <span>Đăng xuất</span>
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
         </div>
       </div>
 
-      <div className="w-full max-w-7xl mx-auto px-2 sm:px-6 border-t border-gray-100 dark:border-white/5 py-1 sm:py-0 flex items-center justify-between relative">
-        <nav ref={navContainerRef} className="flex items-center justify-start md:justify-center gap-1 sm:gap-10 overflow-x-auto no-scrollbar relative flex-1 pr-2 md:pr-0">
+      <div className={`w-full max-w-7xl mx-auto px-2 sm:px-6 border-t border-white/20 dark:border-white/5 py-1 sm:py-0 flex items-center justify-between relative overflow-hidden transition-[max-height,opacity,transform] duration-300 ease-out ${isSubNavVisible ? 'max-h-16 opacity-100 translate-y-0' : 'max-h-0 opacity-0 -translate-y-2 pointer-events-none'}`}>
+        <nav ref={navContainerRef} className="grid grid-cols-5 md:flex items-center justify-center gap-0 md:gap-10 overflow-x-auto no-scrollbar relative flex-1">
           <div
-            className={`absolute bottom-0 h-0.5 sm:h-1 bg-gradient-to-r from-[#74C365] to-[#589470] rounded-t-full ${
+            className={`absolute bottom-0 h-0.5 sm:h-1 bg-white rounded-t-full ${
               isInitialRender ? 'transition-none' : 'transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]'
             } z-10`}
             style={{ left: indicator.left, width: indicator.width }}
@@ -238,47 +364,81 @@ export default function Navbar() {
                 key={item.path}
                 to={item.path}
                 ref={el => (navRefs.current[i] = el)}
-                className={`relative z-10 py-2 sm:py-3 px-2.5 sm:px-4 text-xs sm:text-sm font-semibold whitespace-nowrap transition-colors duration-200 flex items-center gap-1 sm:gap-1.5 shrink-0 ${
+                className={`relative z-10 py-2 sm:py-3 px-0 sm:px-4 text-xs sm:text-sm font-bold whitespace-nowrap transition-colors duration-200 flex items-center justify-center gap-1 sm:gap-1.5 shrink-0 ${
                   isActive
-                    ? 'text-[#589470] dark:text-[#74C365]'
-                    : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
+                    ? 'text-white'
+                    : 'text-white/80 hover:text-white'
                 }`}
+                title={item.label}
+                onClick={closeChat}
               >
-                {item.label}
+                {item.isAvatar ? (
+                  <div className={`h-7 w-7 rounded-full flex items-center justify-center font-black text-xs transition-colors shadow-sm ${user?.isCourtOwner ? 'owner-avatar-ring-active p-[2px]' : isActive ? 'bg-white p-px' : 'bg-white/80 p-px group-hover:bg-white'}`}>
+                    <span className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-white text-[#589470]">
+                      {avatarUrl ? (
+                        <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        getAvatarLetter()
+                      )}
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    {item.mobileIcon ? (
+                      <img src={item.mobileIcon} alt="" className="mobile-nav-icon h-6 w-6 object-contain sm:hidden" />
+                    ) : (
+                      item.icon && <item.icon className="h-5 w-5 stroke-[2.5] sm:hidden" />
+                    )}
+                    <span className={item.icon ? "hidden sm:inline" : ""}>{item.label}</span>
+                  </>
+                )}
               </Link>
             );
           })}
         </nav>
 
-        <div className="flex md:absolute right-4 sm:right-6 md:top-1/2 md:-translate-y-1/2 z-20 items-center gap-1.5 sm:gap-2 shrink-0 pl-1.5 md:pl-0 border-l border-gray-200 dark:border-white/10 md:border-l-0 ml-1">
-          <button
-            onClick={toggleChat}
-            className={`inline-flex items-center justify-center gap-1.5 p-2 sm:px-3.5 sm:py-2 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-bold shadow-md transition-all shrink-0 ${
-              isChatOpen 
-                ? 'bg-[#74C365] text-white shadow-[0_0_15px_rgba(116,195,101,0.5)] scale-105' 
-                : 'bg-white/50 dark:bg-white/10 hover:bg-[#74C365]/10 dark:hover:bg-[#74C365]/20 text-slate-700 dark:text-gray-200 hover:text-[#74C365] dark:hover:text-[#74C365] border border-gray-200/80 dark:border-white/10'
-            }`}
-            title="Chat"
-          >
-            <MessageSquare className="w-4 h-4 sm:w-4 sm:h-4 shrink-0" />
-            <span className="hidden sm:inline">Chat</span>
-          </button>
-        </div>
       </div>
 
-      <CreateTeamModal
+      {isSearchOpen && (
+        <div
+          className="fixed inset-0 z-[1000] overflow-y-auto bg-black/35 backdrop-blur-sm sm:hidden"
+          onClick={() => setIsSearchOpen(false)}
+          role="presentation"
+        >
+          <form
+            onSubmit={handleSearchSubmit}
+            className="relative mx-3 mt-2 flex items-center rounded-full bg-white/95 p-1.5 shadow-2xl dark:bg-[#0a1128]/95"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <Search className="ml-3 h-4 w-4 shrink-0 text-slate-500 dark:text-slate-300" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              placeholder="Tìm kiếm phòng chơi, sân bãi, giải đấu..."
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-white"
+              aria-label="Tìm kiếm"
+            />
+            <button type="submit" disabled={isSearchLoading} className="rounded-full p-2 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/10" aria-label="Tìm kiếm">
+              <Search className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsSearchOpen(false)}
+              className="rounded-full p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/10"
+              aria-label="Đóng tìm kiếm"
+            >
+              ×
+            </button>
+            <SearchResults results={searchResults} loading={isSearchLoading} error={searchError} hasSearched={hasSearched} onSelect={handleSearchResult} />
+          </form>
+        </div>
+      )}
+
+      <PremiumInfoModal
         isOpen={isPremiumOpen}
         onClose={() => setIsPremiumOpen(false)}
-        initialView="info"
-      />
-
-      <EditProfileModal
-        isOpen={isEditProfileOpen}
-        onClose={() => setIsEditProfileOpen(false)}
-        user={user}
-        onSave={(data) => {
-          updateProfile(data);
-        }}
       />
     </header>
   );

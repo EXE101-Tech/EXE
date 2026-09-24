@@ -1,14 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, Gamepad2, Trophy, MapPin, Calendar, Clock, Users, DollarSign, AlignLeft, Sparkles, AlertCircle } from 'lucide-react';
+import { sportService } from '../../../shared/services/api';
+import { parseCostInputToVnd } from '../../../shared/utils/price';
 
-const SPORTS_LIST = [
-  { id: 1, name: 'Cầu lông', emoji: '🏸' },
-  { id: 2, name: 'Bóng đá', emoji: '⚽' },
-  { id: 3, name: 'Pickleball', emoji: '🏓' },
-  { id: 4, name: 'Tennis', emoji: '🎾' },
-  { id: 5, name: 'Bóng rổ', emoji: '🏀' },
-  { id: 6, name: 'Bóng bàn', emoji: '🏓' },
-];
+const SPORT_EMOJI = { badminton: '🏸', football: '⚽', pickleball: '🏓', tennis: '🎾', basketball: '🏀', volleyball: '🏐' };
 
 const LEVELS = [
   { value: 'Beginner', label: 'Mới tập / Vui là chính' },
@@ -21,18 +16,32 @@ function CreateRoomModal({ isOpen, onClose, onSubmit, isLoading = false }) {
   const [formData, setFormData] = useState({
     title: '',
     sportName: 'Cầu lông',
-    sport_id: 1,
+    sport_id: '',
     required_level: 'Intermediate',
     location: '',
     date: new Date().toISOString().split('T')[0],
     start_time: '19:00',
     end_time: '21:00',
     max_players: 6,
-    price_info: '~50.000đ / người (Chia đều)',
+    price_info: '',
     description: '',
   });
 
   const [error, setError] = useState('');
+  const [sports, setSports] = useState([]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    sportService.getAll().then((items) => {
+      const available = items.filter((item) => item.id != null);
+      setSports(available);
+      setFormData((current) => {
+        if (available.some((item) => item.id === Number(current.sport_id))) return current;
+        const first = available[0];
+        return first ? { ...current, sport_id: first.id, sportName: first.name } : current;
+      });
+    }).catch((err) => setError(err.message || 'Không tải được danh sách môn thể thao'));
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -46,7 +55,7 @@ function CreateRoomModal({ isOpen, onClose, onSubmit, isLoading = false }) {
     setFormData((prev) => ({
       ...prev,
       sportName: sport.name,
-      sport_id: sport.id,
+      sport_id: Number(sport.id),
       max_players: sport.name === 'Bóng đá' ? 14 : sport.name === 'Cầu lông' ? 6 : 4,
     }));
   };
@@ -61,25 +70,30 @@ function CreateRoomModal({ isOpen, onClose, onSubmit, isLoading = false }) {
       setError('Vui lòng nhập tên sân hoặc địa điểm thi đấu');
       return;
     }
+    const priceVnd = parseCostInputToVnd(formData.price_info);
+    if (priceVnd === null) {
+      setError('Chi phí là bắt buộc. Nhập số nguyên theo nghìn đồng, ví dụ 50 hoặc 50.000; không nhập số thập phân.');
+      return;
+    }
 
     // Prepare ISO datetimes for start and end
     try {
       const startIso = new Date(`${formData.date}T${formData.start_time}:00`).toISOString();
       const endIso = new Date(`${formData.date}T${formData.end_time}:00`).toISOString();
+      if (new Date(endIso) <= new Date(startIso)) {
+        setError('Giờ kết thúc phải sau giờ bắt đầu');
+        return;
+      }
       
       onSubmit({
         ...formData,
         start_time: startIso,
         end_time: endIso,
         max_players: Number(formData.max_players),
+        price_info: String(priceVnd / 1000),
       });
     } catch (err) {
-      onSubmit({
-        ...formData,
-        start_time: new Date().toISOString(),
-        end_time: new Date(Date.now() + 2 * 3600 * 1000).toISOString(),
-        max_players: Number(formData.max_players),
-      });
+      setError('Ngày hoặc giờ không hợp lệ, vui lòng kiểm tra lại');
     }
   };
 
@@ -124,7 +138,7 @@ function CreateRoomModal({ isOpen, onClose, onSubmit, isLoading = false }) {
               Chọn môn thể thao <span className="text-rose-500">*</span>
             </label>
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-              {SPORTS_LIST.map((sport) => {
+              {sports.map((sport) => {
                 const isSelected = formData.sportName === sport.name;
                 return (
                   <button
@@ -137,7 +151,7 @@ function CreateRoomModal({ isOpen, onClose, onSubmit, isLoading = false }) {
                         : 'border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 font-medium'
                     }`}
                   >
-                    <span className="text-xl">{sport.emoji}</span>
+                    <span className="text-xl">{SPORT_EMOJI[sport.key] || '🏅'}</span>
                     <span className="text-[11px] truncate w-full">{sport.name}</span>
                   </button>
                 );
@@ -259,16 +273,22 @@ function CreateRoomModal({ isOpen, onClose, onSubmit, isLoading = false }) {
 
             <div className="flex flex-col justify-end">
               <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5 min-h-[36px]">
-                <DollarSign className="w-3.5 h-3.5 text-emerald-500" /> Chi phí dự kiến
+                <DollarSign className="w-3.5 h-3.5 text-emerald-500" /> Chi phí/người (nghìn đồng) <span className="text-rose-500">*</span>
               </label>
               <input
                 type="text"
                 name="price_info"
+                required
+                maxLength={20}
+                inputMode="numeric"
+                pattern="[0-9]+|[0-9]{1,3}([.][0-9]{3})+"
                 value={formData.price_info}
                 onChange={handleChange}
-                placeholder="VD: ~50k/người, Chia đều theo giờ..."
+                placeholder="VD: 50 hoặc 50.000"
+                aria-describedby="gameroom-price-hint"
                 className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-sm font-medium text-slate-900 dark:text-white focus:outline-none"
               />
+              <p id="gameroom-price-hint" className="mt-1 text-xs text-slate-500">Nhập 50 = 50.000đ; có thể nhập 50.000. Không nhập số thập phân.</p>
             </div>
           </div>
 

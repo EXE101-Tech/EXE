@@ -1,8 +1,23 @@
-import React from 'react';
-import { X, CheckCircle, AlertCircle, MapPin, Calendar, Users, DollarSign, Award, ShieldAlert } from 'lucide-react';
+import { useState } from 'react';
+import { X, CheckCircle, MapPin, Calendar, Users, ShieldAlert } from 'lucide-react';
+import { formatStoredCost } from '../../../shared/utils/price';
 
 export default function JoinModal({ isOpen, onClose, post, onConfirm }) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
   if (!isOpen || !post) return null;
+
+  const confirmJoin = async () => {
+    setIsSubmitting(true);
+    setError('');
+    try {
+      await onConfirm(post);
+    } catch (err) {
+      setError(err.message || 'Không thể tham gia bài đăng này');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -33,6 +48,7 @@ export default function JoinModal({ isOpen, onClose, post, onConfirm }) {
 
         {/* Content Body */}
         <div className="p-6 space-y-5">
+          {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-700 dark:bg-red-950/30 dark:text-red-300">{error}</p>}
           
           {/* Author info */}
           <div className="flex items-center gap-3 p-3.5 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/10">
@@ -66,7 +82,7 @@ export default function JoinModal({ isOpen, onClose, post, onConfirm }) {
               </div>
 
               <div className="flex items-center gap-2.5 p-2.5 bg-slate-50/80 dark:bg-white/5 rounded-xl">
-                <span className="text-slate-700 dark:text-slate-200 font-bold">Chi phí: <strong className="text-[#589470] dark:text-[#74C365] font-black">{post.price}</strong></span>
+                <span className="text-slate-700 dark:text-slate-200 font-bold">Chi phí/người: <strong className="text-[#589470] dark:text-[#74C365] font-black">{formatStoredCost(post.price)}</strong></span>
               </div>
             </div>
           </div>
@@ -77,7 +93,7 @@ export default function JoinModal({ isOpen, onClose, post, onConfirm }) {
             <div className="space-y-1">
               <p className="font-bold">Lưu ý trước khi tham gia:</p>
               <p className="opacity-90 leading-relaxed">
-                Vui lòng đến đúng giờ, mang theo trang bị phù hợp và tuân thủ nội quy của nhóm chơi. Bấm xác nhận sẽ gửi thông báo đến chủ bài đăng để ghép kèo cho bạn!
+                Vui lòng đến đúng giờ, mang theo trang bị phù hợp và tuân thủ nội quy của nhóm chơi. Xác nhận sẽ gửi yêu cầu đến chủ bài đăng; bạn chỉ được tính là đã tham gia sau khi chủ bài chấp nhận.
               </p>
             </div>
           </div>
@@ -94,14 +110,12 @@ export default function JoinModal({ isOpen, onClose, post, onConfirm }) {
           </button>
           
           <button
-            onClick={() => {
-              onConfirm(post);
-              onClose();
-            }}
+            onClick={confirmJoin}
+            disabled={isSubmitting}
             className="px-6 py-2.5 rounded-2xl font-bold text-sm bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-95 text-white shadow-lg shadow-[#589470]/30 flex items-center gap-2 transition-transform active:scale-95"
           >
             <CheckCircle className="w-4 h-4 stroke-[2.5]" />
-            <span>Xác nhận tham gia kèo</span>
+            <span>{isSubmitting ? 'Đang gửi…' : 'Gửi yêu cầu tham gia'}</span>
           </button>
         </div>
 
