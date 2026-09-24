@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, or_
@@ -36,13 +37,14 @@ def _friendship_payload(friendship: models.Friendship, current_user_id: int):
     }
 
 
-def _conversation_payload(db: Session, conversation: models.Conversation, user_id: int):
+def _conversation_payload(db: Session, conversation: models.Conversation, user_id: int, unread_count: Optional[int] = None):
     other = _other_user(conversation, user_id)
-    unread_count = db.query(models.Message).filter(
-        models.Message.conversation_id == conversation.id,
-        models.Message.sender_id != user_id,
-        models.Message.is_read == 0,
-    ).count()
+    if unread_count is None:
+        unread_count = db.query(models.Message).filter(
+            models.Message.conversation_id == conversation.id,
+            models.Message.sender_id != user_id,
+            models.Message.is_read == 0,
+        ).count()
     return {
         "id": conversation.id,
         "other_user": _user_payload(other),
@@ -76,7 +78,33 @@ def list_conversations(
     ).filter(
         or_(models.Conversation.user1_id == current_user.id, models.Conversation.user2_id == current_user.id),
     ).order_by(models.Conversation.updated_at.desc()).all()
-    return [_conversation_payload(db, item, current_user.id) for item in conversations]
+
+    if not conversations:
+        return []
+
+    convo_ids = [c.id for c in conversations]
+    unread_counts = dict(
+        db.query(models.Message.conversation_id, func.count(models.Message.id))
+        .filter(
+            models.Message.conversation_id.in_(convo_ids),
+            models.Message.sender_id != current_user.id,
+            models.Message.is_read == 0,
+        )
+        .group_by(models.Message.conversation_id)
+        .all()
+    )
+
+    result = []
+    for item in conversations:
+        other = _other_user(item, current_user.id)
+        result.append({
+            "id": item.id,
+            "other_user": _user_payload(other),
+            "last_message": item.last_message,
+            "updated_at": item.updated_at,
+            "unread_count": unread_counts.get(item.id, 0),
+        })
+    return result
 
 
 @router.get("/unread-count")
@@ -138,23 +166,24 @@ def get_messages(
     db: Session = Depends(database.get_db),
 ):
     conversation = _get_conversation(db, conversation_id, current_user.id)
-    db.query(models.Message).filter(
+    unread_updated = db.query(models.Message).filter(
         models.Message.conversation_id == conversation.id,
         models.Message.sender_id != current_user.id,
         models.Message.is_read == 0,
     ).update({models.Message.is_read: 1}, synchronize_session=False)
-    db.query(models.Notification).filter(
-        models.Notification.recipient_id == current_user.id,
-        models.Notification.type == "chat_message",
-        models.Notification.entity_type == "conversation",
-        models.Notification.entity_id == conversation.id,
-        models.Notification.is_read.is_(False),
-    ).update({models.Notification.is_read: True}, synchronize_session=False)
-    db.commit()
+    if unread_updated > 0:
+        db.query(models.Notification).filter(
+            models.Notification.recipient_id == current_user.id,
+            models.Notification.type == "chat_message",
+            models.Notification.entity_type == "conversation",
+            models.Notification.entity_id == conversation.id,
+            models.Notification.is_read.is_(False),
+        ).update({models.Notification.is_read: True}, synchronize_session=False)
+        db.commit()
     messages = db.query(models.Message).filter_by(conversation_id=conversation.id).order_by(
         models.Message.created_at.asc(), models.Message.id.asc()
     ).all()
-    payload = _conversation_payload(db, conversation, current_user.id)
+    payload = _conversation_payload(db, conversation, current_user.id, unread_count=0)
     payload["messages"] = [
         {
             "id": message.id,
