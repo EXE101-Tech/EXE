@@ -575,6 +575,7 @@ class LfgPostResponse(BaseModel):
     author_id: int
     author_name: str
     author_avatar_url: Optional[str] = None
+    author_owner_status: str = "none"
     sport_id: str
     sport_name: str
     title: str

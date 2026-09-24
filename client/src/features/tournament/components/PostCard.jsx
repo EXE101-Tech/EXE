@@ -89,13 +89,13 @@ export default function PostCard({ post, onJoin, onChat, onCancel, onEdit, onMan
             {/* Top Row: Avatar + Name + Status Badge on 1 line */}
             <div className="flex items-center justify-between gap-2 mb-1 sm:mb-1.5">
               <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-tr from-[#589470] to-[#74C365] p-[2px] shadow-sm shrink-0 flex items-center justify-center aspect-square overflow-hidden">
+                <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full ${post.authorIsCourtOwner ? 'owner-avatar-ring-active' : 'bg-gradient-to-tr from-[#589470] to-[#74C365]'} p-[2px] shadow-sm shrink-0 flex items-center justify-center aspect-square overflow-hidden`}>
                   <div className="w-full h-full rounded-full bg-white dark:bg-[#001F3F] flex items-center justify-center font-black text-xs sm:text-sm text-[#589470] dark:text-[#74C365] overflow-hidden">
                     {post.authorAvatar ? <img src={post.authorAvatar} alt="" className="h-full w-full object-cover" /> : post.authorName.charAt(0).toUpperCase()}
                   </div>
                 </div>
                 <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
-                  <h4 className="font-bold text-slate-900 dark:text-white text-sm sm:text-base leading-tight break-words">
+                  <h4 className={`font-bold ${post.authorIsCourtOwner ? 'owner-water-text' : 'text-slate-900 dark:text-white'} text-sm sm:text-base leading-tight break-words`}>
                     {post.authorName}
                   </h4>
                   {post.isVerified && (

@@ -56,6 +56,7 @@ export default function Tournament() {
         image: resolveMediaUrl(post.image_url) || images[post.sport_id] || badmintonImg,
         authorName: post.author_name || 'Người chơi',
         authorAvatar: resolveMediaUrl(post.author_avatar_url),
+        authorIsCourtOwner: post.author_owner_status === 'registered',
         teamName: '',
         timeAgo: new Date(post.created_at).toLocaleString('vi-VN'),
         timeSlot: post.time_slot,

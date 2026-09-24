@@ -20,6 +20,7 @@ def _post_payload(post: models.LfgPost, user_id: Optional[int] = None):
         "author_id": post.author_id,
         "author_name": author_name or (post.author.email if post.author else ""),
         "author_avatar_url": post.author.profile.avatar_url if post.author and post.author.profile else None,
+        "author_owner_status": post.author.owner_status if post.author else "none",
         "sport_id": post.sport_id,
         "sport_name": post.sport_name,
         "title": post.title,
