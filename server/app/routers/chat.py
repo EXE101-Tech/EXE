@@ -76,7 +76,33 @@ def list_conversations(
     ).filter(
         or_(models.Conversation.user1_id == current_user.id, models.Conversation.user2_id == current_user.id),
     ).order_by(models.Conversation.updated_at.desc()).all()
-    return [_conversation_payload(db, item, current_user.id) for item in conversations]
+
+    if not conversations:
+        return []
+
+    convo_ids = [c.id for c in conversations]
+    unread_counts = dict(
+        db.query(models.Message.conversation_id, func.count(models.Message.id))
+        .filter(
+            models.Message.conversation_id.in_(convo_ids),
+            models.Message.sender_id != current_user.id,
+            models.Message.is_read == 0,
+        )
+        .group_by(models.Message.conversation_id)
+        .all()
+    )
+
+    result = []
+    for item in conversations:
+        other = _other_user(item, current_user.id)
+        result.append({
+            "id": item.id,
+            "other_user": _user_payload(other),
+            "last_message": item.last_message,
+            "updated_at": item.updated_at,
+            "unread_count": unread_counts.get(item.id, 0),
+        })
+    return result
 
 
 @router.get("/unread-count")
