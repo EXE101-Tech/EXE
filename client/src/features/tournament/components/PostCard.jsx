@@ -40,7 +40,7 @@ export default function PostCard({ post, onJoin, onChat, onCancel, onEdit, onMan
 
   return (
     <>
-    <div className="group relative bg-white dark:bg-[#001F3F]/80 border border-gray-100 dark:border-white/10 rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 shadow-[0_10px_35px_rgba(0,0,0,0.03)] dark:shadow-[0_10px_35px_rgba(0,0,0,0.3)] hover:shadow-[0_15px_45px_rgba(88,148,112,0.12)] dark:hover:shadow-[0_15px_45px_rgba(116,195,101,0.15)] transition-all duration-300 hover:-translate-y-1 flex flex-col md:flex-row gap-4 sm:gap-6 overflow-hidden">
+    <div className="member-content-card group relative rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 flex flex-col md:flex-row gap-4 sm:gap-6 overflow-hidden">
       
       {/* Decorative subtle background aura like landing page */}
       <div className="absolute -right-20 -bottom-20 w-60 h-60 bg-gradient-to-br from-[#74C365]/10 to-transparent rounded-full blur-2xl pointer-events-none group-hover:scale-125 transition-transform duration-500" />

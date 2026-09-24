@@ -31,7 +31,7 @@ function GlobalWrapper({ children }) {
 function MainLayout({ children }) {
     const { isChatOpen } = useChat();
     return (
-        <div className="flex h-screen overflow-hidden bg-white dark:bg-black page-fade-in">
+        <div className="member-app-shell flex h-screen overflow-hidden page-fade-in">
             {/* Sidebar (Desktop) */}
             <Sidebar />
 

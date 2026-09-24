@@ -16,7 +16,7 @@ function CourtInfo({ court }) {
   const { openChat } = useChat();
 
   return (
-    <div className="p-6 bg-white dark:bg-[#001F3F]/80 border border-gray-200 dark:border-white/10 rounded-3xl shadow-xl mt-6 backdrop-blur-md">
+    <div className="member-content-card rounded-3xl p-6 mt-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           {/* Badge & Rating */}

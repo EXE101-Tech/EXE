@@ -17,7 +17,7 @@ export default function VenueCard({ venue, onChat, onEdit, onDelete, onSchedule 
   };
 
   return (
-    <div className="group relative rounded-2xl sm:rounded-3xl bg-white dark:bg-[#001F3F]/80 border border-gray-200 dark:border-white/10 p-3.5 sm:p-6 shadow-xl hover:shadow-2xl hover:shadow-[#589470]/15 transition-all duration-300 flex flex-col justify-between overflow-hidden backdrop-blur-md">
+    <div className="member-content-card group relative rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 flex flex-col justify-between overflow-hidden">
       {/* Glow Aura */}
       <div className="absolute -top-24 -right-24 w-48 h-48 bg-gradient-to-br from-[#74C365]/20 to-[#589470]/0 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-500 pointer-events-none" />
 

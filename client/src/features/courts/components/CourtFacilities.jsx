@@ -11,7 +11,7 @@ const FACILITY_LIST = [
 
 function CourtFacilities({ facilities }) {
   return (
-    <div className="p-6 bg-white dark:bg-[#001F3F]/80 border border-gray-200 dark:border-white/10 rounded-3xl shadow-xl mt-6 backdrop-blur-md">
+    <div className="member-content-card rounded-3xl p-6 mt-6">
       <h2 className="text-base font-black text-slate-900 dark:text-white uppercase tracking-wider mb-4 flex items-center gap-2">
         <span>✨ Dịch Vụ & Tiện Ích Đi Kèm</span>
       </h2>

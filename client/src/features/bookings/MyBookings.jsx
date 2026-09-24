@@ -73,7 +73,7 @@ export default function MyBookings() {
             const venue = booking.court?.venue;
             const isUpcoming = booking.status?.toLowerCase() !== 'cancelled' && new Date(/(?:Z|[+-]\d{2}:?\d{2})$/i.test(booking.start_time) ? booking.start_time : `${booking.start_time}Z`) > new Date();
             return (
-              <article key={booking.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#001F3F]/70">
+              <article key={booking.id} className="member-content-card rounded-2xl p-5">
                 <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">

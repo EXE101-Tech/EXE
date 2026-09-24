@@ -110,7 +110,7 @@ function RoomCard({ room, currentUserId = 1, onJoin, onChat, onManage }) {
   });
 
   return (
-    <div className="group relative bg-white dark:bg-[#001F3F]/80 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-white/10 p-3.5 sm:p-6 shadow-xl hover:shadow-2xl hover:shadow-[#589470]/15 transition-all duration-300 flex flex-col justify-between overflow-hidden backdrop-blur-md">
+    <div className="member-content-card group relative rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 flex flex-col justify-between overflow-hidden">
       <div>
         {/* Top Header: Author + Sport + Status Badge */}
         <div className="mb-2 sm:mb-3">

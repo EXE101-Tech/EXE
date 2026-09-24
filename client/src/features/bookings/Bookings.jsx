@@ -138,17 +138,12 @@ export default function Bookings() {
 
   return (
     <div className="min-h-screen bg-transparent text-slate-900 dark:text-white pb-24 font-sans animate-in fade-in duration-300">
-      <div className="mx-auto flex max-w-[1600px] justify-end px-4 pt-3 sm:px-6">
-        <button type="button" onClick={() => navigate('/my-bookings')} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-white">
-          <Calendar className="h-4 w-4 text-emerald-600" /> Lịch đặt của tôi
-        </button>
-      </div>
       {/* Hero Banner Section */}
 
 
       {/* ── Filter Bar Section ── */}
       <div className="navbar-filter-bar pb-4 pt-2 px-4 sm:px-6 sticky top-[112px] sm:top-[132px] z-40 transition-all duration-300">
-        <div className="max-w-[1600px] mx-auto bg-white/35 dark:bg-white/[0.08] backdrop-blur-2xl backdrop-saturate-[180%] border border-white/60 dark:border-white/15 rounded-xl sm:rounded-2xl p-1.5 sm:p-2.5 shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_1px_0_rgba(255,255,255,0.8),inset_0_0_16px_rgba(255,255,255,0.4)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3),inset_0_1px_1px_0_rgba(255,255,255,0.25),inset_0_0_16px_rgba(255,255,255,0.05)] flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-2 xl:gap-3 transition-all duration-300">
+        <div className="member-filter-panel max-w-[1600px] mx-auto rounded-xl sm:rounded-2xl p-1.5 sm:p-2.5 flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-2 xl:gap-3 transition-all duration-300">
           
           {/* Mobile Header (Toggle + Action Button) */}
           <div className="flex xl:hidden items-center justify-between gap-2 w-full">
@@ -159,6 +154,15 @@ export default function Bookings() {
               <Filter className="w-4 h-4" />
               <span>Bộ lọc</span>
               <ChevronDown className={`w-4 h-4 transition-transform ${isMobileFilterOpen ? 'rotate-180' : ''}`} />
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/my-bookings')}
+              aria-label="Lịch đặt của tôi"
+              title="Lịch đặt của tôi"
+              className="inline-flex shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-slate-700 shadow-sm dark:border-white/10 dark:bg-white/10 dark:text-slate-200"
+            >
+              <Calendar className="h-4 w-4 text-emerald-600" />
             </button>
             <button
               onClick={openOwnerFlow}
@@ -218,15 +222,24 @@ export default function Bookings() {
             </FilterSelect>
           </div>
 
-          {/* Right action: Create Button */}
-          <button
-            onClick={openOwnerFlow}
-            className="hidden xl:flex px-3.5 py-2 xl:px-5 xl:py-2.5 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-95 text-white shadow-md hover:shadow-lg items-center justify-center gap-1.5 sm:gap-2 transition-all duration-200 active:scale-95 group shrink-0 whitespace-nowrap"
-          >
-            <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 group-hover:rotate-90 transition-transform duration-300 shrink-0" />
-            <span className="sm:hidden">Đăng ký sân</span>
-            <span className="hidden sm:inline">{user?.ownerStatus === 'registered' ? 'Thêm sân' : 'Đăng ký làm chủ sân'}</span>
-          </button>
+          {/* Right actions: My bookings and create venue */}
+          <div className="hidden xl:flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => navigate('/my-bookings')}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-white"
+            >
+              <Calendar className="h-4 w-4 text-emerald-600" /> Lịch đặt của tôi
+            </button>
+            <button
+              onClick={openOwnerFlow}
+              className="flex px-3.5 py-2 xl:px-5 xl:py-2.5 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-95 text-white shadow-md hover:shadow-lg items-center justify-center gap-1.5 sm:gap-2 transition-all duration-200 active:scale-95 group whitespace-nowrap"
+            >
+              <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 group-hover:rotate-90 transition-transform duration-300 shrink-0" />
+              <span className="sm:hidden">Đăng ký sân</span>
+              <span className="hidden sm:inline">{user?.ownerStatus === 'registered' ? 'Thêm sân' : 'Đăng ký làm chủ sân'}</span>
+            </button>
+          </div>
 
         </div>
       </div>

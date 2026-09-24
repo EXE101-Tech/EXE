@@ -128,14 +128,14 @@ function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0B1220] text-slate-900 dark:text-[#EAF2FF] font-sans transition-colors duration-500 px-4 sm:px-6 lg:px-8 py-7 sm:py-10 pb-16">
+    <div className="min-h-screen bg-transparent text-slate-900 dark:text-[#EAF2FF] font-sans transition-colors duration-500 px-4 sm:px-6 lg:px-8 py-7 sm:py-10 pb-16">
       <div className="max-w-6xl mx-auto">
         <div className="mb-6 sm:mb-8">
           <p className="text-base sm:text-lg font-semibold text-slate-500 dark:text-slate-400 mb-1">Xin chào</p>
           <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white break-words">{displayName}</h1>
         </div>
 
-        <section className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl rounded-3xl border border-slate-200/60 dark:border-slate-700/60 shadow-xl shadow-slate-200/30 dark:shadow-black/30 overflow-hidden">
+        <section className="member-content-surface rounded-3xl overflow-hidden">
           {/* Cover and profile identity */}
           <div className="relative h-48 sm:h-64 overflow-hidden group/cover">
             <img src={coverImage} alt="Ảnh bìa hồ sơ" className="w-full h-full object-cover object-[50%_42%]" />
