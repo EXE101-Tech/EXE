@@ -105,15 +105,17 @@ class UserCreate(UserBase):
 class UserLogin(UserBase):
     password: str
 
-class UserResponse(BaseModel):
+class UserBasicResponse(BaseModel):
     id: int
     email: str
     status: str
     owner_status: str = "none"
     created_at: datetime
     profile: Optional[UserProfileResponse] = None
-    sports: List[UserSportResponse] = []
     model_config = ConfigDict(from_attributes=True)
+
+class UserResponse(UserBasicResponse):
+    sports: List[UserSportResponse] = []
 
 # Venue / Court Schemas
 class VenueBase(BaseModel):
@@ -289,7 +291,7 @@ class MatchParticipantResponse(BaseModel):
     status: str
     note: Optional[str] = None
     joined_at: datetime
-    user: UserResponse
+    user: UserBasicResponse
     model_config = ConfigDict(from_attributes=True)
 
 class MatchCreate(BaseModel):
@@ -335,13 +337,15 @@ class MatchResponse(BaseModel):
     court_id: Optional[int] = None
     title: str
     description: Optional[str] = None
+    location: Optional[str] = None
+    price_info: Optional[str] = None
     required_level: str
     start_time: datetime
     end_time: datetime
     max_players: int
     status: str
     created_at: datetime
-    host: UserResponse
+    host: UserBasicResponse
     sport: SportResponse
     court: Optional[CourtResponse] = None
     participants: List[MatchParticipantResponse] = []
