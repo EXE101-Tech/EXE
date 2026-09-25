@@ -7,8 +7,41 @@ const apiClient = axios.create({
   },
 });
 
+const getResponseCache = new Map();
+const pendingGetRequests = new Map();
+const GET_CACHE_TTL_MS = 15_000;
+let getCacheVersion = 0;
+
+function getCached(url, config = {}) {
+  const params = config.params || {};
+  const paramsKey = Object.keys(params).sort()
+    .map((key) => `${encodeURIComponent(key)}=${encodeURIComponent(JSON.stringify(params[key]))}`)
+    .join('&');
+  const token = localStorage.getItem('token') || '';
+  const version = getCacheVersion;
+  const key = `${version}:${token}:${url}?${paramsKey}`;
+  const cached = getResponseCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return Promise.resolve(cached.data);
+
+  const pending = pendingGetRequests.get(key);
+  if (pending) return pending;
+
+  const request = apiClient.get(url, config).then((data) => {
+    if (version === getCacheVersion) {
+      getResponseCache.set(key, { data, expiresAt: Date.now() + GET_CACHE_TTL_MS });
+    }
+    return data;
+  }).finally(() => pendingGetRequests.delete(key));
+  pendingGetRequests.set(key, request);
+  return request;
+}
+
 apiClient.interceptors.request.use(
   (config) => {
+    if (config.method && config.method.toLowerCase() !== 'get') {
+      getCacheVersion += 1;
+      getResponseCache.clear();
+    }
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -29,6 +62,9 @@ apiClient.interceptors.response.use(
 
 export const authService = {
   login: (data) => apiClient.post('/auth/login', data),
+  loginWithGoogle: (code) => apiClient.post('/auth/google', { code }, {
+    headers: { 'X-Requested-With': 'XmlHttpRequest' },
+  }),
   register: (data) => apiClient.post('/auth/register', data),
   logout: (token) => apiClient.post('/auth/logout', null, { headers: { Authorization: `Bearer ${token}` } }),
   getProfile: () => apiClient.get('/auth/me'),
@@ -54,7 +90,7 @@ export const storageService = {
 };
 
 export const sportService = {
-  getAll: () => apiClient.get('/courts/sports'),
+  getAll: () => getCached('/courts/sports'),
 };
 
 export const searchService = {
@@ -66,7 +102,7 @@ export const courtService = {
   getById: (id) => apiClient.get(`/courts/${id}`),
   getNearby: (lat, lng, radius) =>
     apiClient.get('/courts/nearby', { params: { lat, lng, radius } }),
-  getVenues: () => apiClient.get('/courts/venues'),
+  getVenues: () => getCached('/courts/venues'),
   getVenueById: (id) => apiClient.get(`/courts/venues/${id}`),
 };
 
@@ -84,7 +120,7 @@ export const ownerService = {
 };
 
 export const gameRoomService = {
-  getAll: (filters = {}) => apiClient.get('/gamerooms', { params: filters }),
+  getAll: (filters = {}) => getCached('/gamerooms', { params: filters }),
   getById: (id) => apiClient.get(`/gamerooms/${id}`),
   join: (roomId, note = '') => apiClient.post(`/gamerooms/${roomId}/join`, { note }),
   leave: (roomId) => apiClient.post(`/gamerooms/${roomId}/leave`),
@@ -94,7 +130,7 @@ export const gameRoomService = {
 };
 
 export const teamService = {
-  getAll: (filters = {}) => apiClient.get('/teams', { params: filters }),
+  getAll: (filters = {}) => getCached('/teams', { params: filters }),
   create: (data) => apiClient.post('/teams', data),
   update: (id, data) => apiClient.patch(`/teams/${id}`, data),
   remove: (id) => apiClient.delete(`/teams/${id}`),
@@ -107,7 +143,7 @@ export const teamService = {
 };
 
 export const lfgService = {
-  getAll: (filters = {}) => apiClient.get('/lfg/posts', { params: filters }),
+  getAll: (filters = {}) => getCached('/lfg/posts', { params: filters }),
   create: (data) => apiClient.post('/lfg/posts', data),
   update: (id, data) => apiClient.put(`/lfg/posts/${id}`, data),
   join: (id) => apiClient.post(`/lfg/posts/${id}/join`),
