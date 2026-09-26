@@ -17,3 +17,10 @@ export function useVenueQuery(id: number) {
     enabled: Number.isFinite(id),
   });
 }
+
+export function useSportsQuery() {
+  return useQuery({
+    queryKey: queryKeys.courts.sports(),
+    queryFn: courtsApi.getSports,
+  });
+}

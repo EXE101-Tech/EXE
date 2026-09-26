@@ -335,6 +335,8 @@ class MatchResponse(BaseModel):
     court_id: Optional[int] = None
     title: str
     description: Optional[str] = None
+    location: Optional[str] = None
+    price_info: Optional[str] = None
     required_level: str
     start_time: datetime
     end_time: datetime
