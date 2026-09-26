@@ -118,6 +118,12 @@ export function BottomTabBar() {
     transform: [{ rotate: `${progress.value * 45}deg` }],
   }));
 
+  // The owner venue setup screens and the venue detail/booking screen render as their own
+  // full-screen flow (gradient header + fixed footer, like the create-post modals), so the
+  // tab bar shouldn't float on top of them. Matches "/bookings/owner/…" and "/bookings/<id>",
+  // but not the "/bookings" or "/bookings/my" list screens.
+  if (/^\/bookings\/(owner\/|\d)/.test(pathname)) return null;
+
   const renderItem = (item: BarItem) => {
     const active = activeName === item.routeName;
     const Icon = item.icon;

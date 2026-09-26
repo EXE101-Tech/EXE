@@ -1,20 +1,27 @@
 import * as ImagePicker from 'expo-image-picker';
-import { CalendarDays, Eye, ImagePlus, LogOut, Star, Trophy, Users } from 'lucide-react-native';
+import { CalendarDays, Eye, ImagePlus, LogOut, Pencil, Star, Trophy, Users } from 'lucide-react-native';
 import { useState } from 'react';
 import { Alert, Image, Text, TouchableOpacity, View } from 'react-native';
 
 import { storageApi } from '@/api/storage';
 import { Avatar } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
-import { GradientButton } from '@/components/brand/gradient-button';
 import { LoadingState } from '@/components/brand/loading-state';
 import { ScreenContainer } from '@/components/brand/screen-container';
 import { StatCard } from '@/components/brand/stat-card';
 import { TopNavbar } from '@/components/navigation/top-navbar';
 import { EditProfileModal } from '@/components/profile/edit-profile-modal';
 import { ImageLightbox } from '@/components/profile/image-lightbox';
-import { useMeStatsQuery, useUpdateProfileMutation } from '@/hooks/queries/use-auth';
+import { OwnerCancellationModal } from '@/components/profile/owner-cancellation-modal';
+import { OwnerRegistrationModal } from '@/components/profile/owner-registration-modal';
+import {
+  useMeStatsQuery,
+  useOwnerCancellationMutation,
+  useOwnerRegistrationMutation,
+  useOwnerStatusQuery,
+  useUpdateProfileMutation,
+} from '@/hooks/queries/use-auth';
 import { LEVEL_META, SPORT_KEY_BY_NAME, SPORTS, type SkillLevel } from '@/lib/constants';
+import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth-store';
 
 export default function ProfileScreen() {
@@ -22,10 +29,16 @@ export default function ProfileScreen() {
   const logout = useAuthStore((s) => s.logout);
   const { data: stats, isLoading: statsLoading } = useMeStatsQuery();
   const updateProfile = useUpdateProfileMutation();
+  const { data: ownerStatus } = useOwnerStatusQuery();
+  const registerOwnership = useOwnerRegistrationMutation();
+  const cancelOwnership = useOwnerCancellationMutation();
+  const isOwner = ownerStatus?.owner_status === 'registered';
 
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isCoverPreviewOpen, setIsCoverPreviewOpen] = useState(false);
   const [isUploadingCover, setIsUploadingCover] = useState(false);
+  const [isRegisterOpen, setIsRegisterOpen] = useState(false);
+  const [isCancelOpen, setIsCancelOpen] = useState(false);
 
   if (!user) return <LoadingState />;
 
@@ -46,6 +59,29 @@ export default function ProfileScreen() {
       Alert.alert('Lỗi', error instanceof Error ? error.message : 'Không tải được ảnh bìa');
     } finally {
       setIsUploadingCover(false);
+    }
+  };
+
+  const handleToggleOwnership = () => {
+    if (isOwner) setIsCancelOpen(true);
+    else setIsRegisterOpen(true);
+  };
+
+  const handleConfirmRegister = async () => {
+    try {
+      await registerOwnership.mutateAsync();
+      setIsRegisterOpen(false);
+    } catch (error) {
+      Alert.alert('Lỗi', error instanceof Error ? error.message : 'Không thể đăng ký chủ sân');
+    }
+  };
+
+  const handleConfirmCancel = async () => {
+    try {
+      await cancelOwnership.mutateAsync();
+      setIsCancelOpen(false);
+    } catch (error) {
+      Alert.alert('Lỗi', error instanceof Error ? error.message : 'Không thể hủy đăng ký chủ sân');
     }
   };
 
@@ -124,11 +160,42 @@ export default function ProfileScreen() {
             </View>
           </View>
 
-          <View className="flex-row gap-3">
-            <GradientButton label="Chỉnh sửa hồ sơ" className="flex-1" onPress={() => setIsEditOpen(true)} />
-            <Button variant="outline" size="icon" className="h-12 w-12" onPress={logout}>
-              <LogOut size={18} color="#DC2626" />
-            </Button>
+          <View className="flex-row gap-2">
+            <TouchableOpacity
+              onPress={() => setIsEditOpen(true)}
+              className="flex-1 flex-row items-center justify-center gap-1 rounded-xl bg-brand px-2 py-3 dark:bg-brand-dark"
+            >
+              <Pencil size={13} color="#fff" />
+              <Text className="text-center text-[11px] font-bold text-white" numberOfLines={2}>
+                Chỉnh sửa hồ sơ
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={handleToggleOwnership}
+              disabled={registerOwnership.isPending || cancelOwnership.isPending}
+              className={cn(
+                'flex-1 items-center justify-center rounded-xl px-2 py-3',
+                isOwner ? 'bg-slate-800 dark:bg-white/10' : 'bg-teal-950 dark:bg-teal-500/10',
+              )}
+            >
+              <Text
+                className={cn('text-center text-[11px] font-bold', isOwner ? 'text-white' : 'text-cyan-400')}
+                numberOfLines={2}
+              >
+                {isOwner ? 'Hủy đăng ký chủ sân' : 'Đăng ký làm chủ sân'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={logout}
+              className="flex-1 flex-row items-center justify-center gap-1 rounded-xl border border-rose-500/40 px-2 py-3"
+            >
+              <LogOut size={13} color="#DC2626" />
+              <Text className="text-center text-[11px] font-bold text-rose-600 dark:text-rose-400" numberOfLines={1}>
+                Đăng xuất
+              </Text>
+            </TouchableOpacity>
           </View>
 
           {statsLoading ? (
@@ -181,6 +248,18 @@ export default function ProfileScreen() {
           onClose={() => setIsCoverPreviewOpen(false)}
         />
       ) : null}
+      <OwnerRegistrationModal
+        visible={isRegisterOpen}
+        onClose={() => setIsRegisterOpen(false)}
+        onConfirm={handleConfirmRegister}
+        isSubmitting={registerOwnership.isPending}
+      />
+      <OwnerCancellationModal
+        visible={isCancelOpen}
+        onClose={() => setIsCancelOpen(false)}
+        onConfirm={handleConfirmCancel}
+        isSubmitting={cancelOwnership.isPending}
+      />
     </ScreenContainer>
   );
 }

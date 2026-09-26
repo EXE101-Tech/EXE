@@ -58,7 +58,9 @@ export const Button = React.forwardRef<React.ElementRef<typeof Pressable>, Butto
       {loading ? (
         <ActivityIndicator color={variant === 'outline' || variant === 'ghost' ? '#0EA5E9' : '#fff'} />
       ) : label ? (
-        <Text className={cn(buttonTextVariants({ variant, size }), textClassName)}>{label}</Text>
+        <Text className={cn(buttonTextVariants({ variant, size }), textClassName)} numberOfLines={1}>
+          {label}
+        </Text>
       ) : (
         children
       )}

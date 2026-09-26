@@ -38,7 +38,7 @@ export default function ChatThreadScreen() {
   return (
     <SafeAreaView className="flex-1 bg-bg dark:bg-bg-dark" edges={['top', 'left', 'right']}>
       <View className="flex-row items-center gap-3 border-b border-border px-4 py-3 dark:border-border-dark">
-        <Pressable onPress={() => router.back()} hitSlop={8}>
+        <Pressable onPress={() => router.replace('/chat')} hitSlop={8}>
           <ArrowLeft size={22} color="#94A3B8" />
         </Pressable>
         {data ? (

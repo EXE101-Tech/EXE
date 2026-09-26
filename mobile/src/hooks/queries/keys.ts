@@ -13,9 +13,13 @@ export const queryKeys = {
     venues: () => ['courts', 'venues'] as const,
     venue: (id: number) => ['courts', 'venue', id] as const,
     sports: () => ['courts', 'sports'] as const,
+    list: <T extends object>(filters?: T) => ['courts', 'list', filters ?? {}] as const,
+    detail: (id: number) => ['courts', 'detail', id] as const,
+    nearby: (lat: number, lng: number, radius: number) => ['courts', 'nearby', lat, lng, radius] as const,
   },
   bookings: {
     list: () => ['bookings', 'list'] as const,
+    detail: (id: number) => ['bookings', 'detail', id] as const,
     availability: (venueId: number, date: string) => ['bookings', 'availability', venueId, date] as const,
   },
   search: {

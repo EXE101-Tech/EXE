@@ -7,20 +7,19 @@ import { resolveMediaUrl } from '@/api/resolve-media-url';
 import { EmptyState } from '@/components/brand/empty-state';
 import { LoadingState } from '@/components/brand/loading-state';
 import { ScreenContainer } from '@/components/brand/screen-container';
-import { TopNavbar } from '@/components/navigation/top-navbar';
 import { Avatar } from '@/components/ui/avatar';
 import {
   useAcceptFriendRequestMutation,
   useConversationsQuery,
   useFriendRequestsQuery,
   useFriendsQuery,
+  useRemoveFriendshipMutation,
   useSearchChatUsersQuery,
   useSendFriendRequestMutation,
   useStartConversationMutation,
 } from '@/hooks/queries/use-chat';
 import type { ChatConversationResponse, ChatUserSearchResponse, FriendshipResponse } from '@/schemas/chat';
-
-type Tab = 'messages' | 'friends';
+import { useChatUiStore } from '@/stores/chat-ui-store';
 
 const formatUpdatedAt = (value?: string | null) => {
   if (!value) return '';
@@ -31,7 +30,8 @@ const formatUpdatedAt = (value?: string | null) => {
 };
 
 export default function ChatListScreen() {
-  const [tab, setTab] = useState<Tab>('messages');
+  const tab = useChatUiStore((s) => s.activeTab);
+  const setTab = useChatUiStore((s) => s.setActiveTab);
   const [query, setQuery] = useState('');
 
   const { data: conversations, isLoading: isLoadingConversations } = useConversationsQuery();
@@ -42,6 +42,18 @@ export default function ChatListScreen() {
   const startConversation = useStartConversationMutation();
   const acceptRequest = useAcceptFriendRequestMutation();
   const sendRequest = useSendFriendRequestMutation();
+  const removeFriendship = useRemoveFriendshipMutation();
+
+  const handleRemoveFriend = (friend: FriendshipResponse) => {
+    Alert.alert('Xóa bạn bè', `Bạn có chắc muốn xóa kết bạn với ${friend.user.name}?`, [
+      { text: 'Không', style: 'cancel' },
+      {
+        text: 'Xóa',
+        style: 'destructive',
+        onPress: () => removeFriendship.mutate(friend.id, { onError: (e) => Alert.alert('Lỗi', e.message) }),
+      },
+    ]);
+  };
 
   const openConversation = async (recipientId: number) => {
     try {
@@ -162,6 +174,7 @@ export default function ChatListScreen() {
     <TouchableOpacity
       key={`friend-${friend.id}`}
       onPress={() => openConversation(friend.user.id)}
+      onLongPress={() => handleRemoveFriend(friend)}
       className="flex-row items-center gap-3 px-1 py-3"
     >
       <Avatar uri={resolveMediaUrl(friend.user.avatar_url)} fallback={friend.user.name} size={44} />
@@ -169,7 +182,7 @@ export default function ChatListScreen() {
         <Text className="text-sm font-bold text-slate-900 dark:text-white" numberOfLines={1}>
           {friend.user.name}
         </Text>
-        <Text className="text-xs text-slate-500 dark:text-slate-400">Bạn bè · Nhấn để nhắn tin</Text>
+        <Text className="text-xs text-slate-500 dark:text-slate-400">Bạn bè · Nhấn để nhắn tin, giữ để xóa</Text>
       </View>
       <MessageCircle size={16} color="#059669" />
     </TouchableOpacity>
@@ -177,18 +190,24 @@ export default function ChatListScreen() {
 
   return (
     <ScreenContainer scroll={false} className="px-4">
-      <TopNavbar />
-      <Text className="mb-3 text-xl font-black text-slate-900 dark:text-white">Chat</Text>
+      <View className="mb-3 mt-2 flex-row items-center gap-3">
+        <View className="flex-row items-center gap-2">
+          <View className="h-9 w-9 items-center justify-center rounded-xl bg-brand dark:bg-brand-dark">
+            <MessageSquare size={18} color="#fff" />
+          </View>
+          <Text className="text-lg font-black text-slate-900 dark:text-white">Nhắn tin</Text>
+        </View>
 
-      <View className="mb-3 flex-row items-center gap-2 rounded-xl border border-border bg-slate-50 px-3 dark:border-border-dark dark:bg-white/5">
-        <Search size={14} color="#94A3B8" />
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Tìm kiếm..."
-          placeholderTextColor="#94A3B8"
-          className="h-10 flex-1 text-sm text-slate-900 dark:text-white"
-        />
+        <View className="flex-1 flex-row items-center gap-2 rounded-xl border border-border bg-slate-50 px-3 dark:border-border-dark dark:bg-white/5">
+          <Search size={14} color="#94A3B8" />
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Tìm kiếm..."
+            placeholderTextColor="#94A3B8"
+            className="h-10 flex-1 text-sm text-slate-900 dark:text-white"
+          />
+        </View>
       </View>
 
       <View className="mb-3 flex-row rounded-xl bg-slate-100 p-1 dark:bg-white/10">

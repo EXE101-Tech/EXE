@@ -22,6 +22,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="teams" />
       <Tabs.Screen name="search" />
       <Tabs.Screen name="notifications" />
+      <Tabs.Screen name="map" />
     </Tabs>
   );
 }
