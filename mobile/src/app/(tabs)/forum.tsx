@@ -22,6 +22,7 @@ import {
 } from '@/hooks/queries/use-lfg';
 import { SPORTS } from '@/lib/constants';
 import { parseStoredCostToVnd } from '@/lib/price';
+import type { LfgPostResponse } from '@/schemas/lfg';
 import { useAuthStore } from '@/stores/auth-store';
 
 const SPORT_OPTIONS: SelectOption[] = [
@@ -76,6 +77,7 @@ export default function ForumScreen() {
   const startConversation = useStartConversationMutation();
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingPost, setEditingPost] = useState<LfgPostResponse | null>(null);
   const [managingPostId, setManagingPostId] = useState<number | null>(null);
 
   const [sportFilter, setSportFilter] = useState('all');
@@ -156,9 +158,10 @@ export default function ForumScreen() {
         <Text className="text-xl font-black text-slate-900 dark:text-white">Diễn đàn tìm đối</Text>
         <TouchableOpacity
           onPress={() => setIsCreateOpen(true)}
-          className="h-9 w-9 items-center justify-center rounded-full bg-brand dark:bg-brand-dark"
+          className="flex-row items-center gap-1 rounded-full bg-brand px-3 py-2 dark:bg-brand-dark"
         >
-          <Plus size={18} color="#fff" />
+          <Plus size={16} color="#fff" />
+          <Text className="text-xs font-bold text-white">Đăng bài</Text>
         </TouchableOpacity>
       </View>
 
@@ -195,6 +198,7 @@ export default function ForumScreen() {
               onJoin={() => joinPost.mutate(item.id, { onError: (e) => Alert.alert('Lỗi', e.message) })}
               onLeave={() => leavePost.mutate(item.id, { onError: (e) => Alert.alert('Lỗi', e.message) })}
               onManage={() => setManagingPostId(item.id)}
+              onEdit={() => setEditingPost(item)}
               onCancel={() => handleCancel(item.id)}
               onChat={() => handleChat(item.author_id)}
             />
@@ -217,6 +221,9 @@ export default function ForumScreen() {
       )}
 
       <CreateLfgPostModal visible={isCreateOpen} onClose={() => setIsCreateOpen(false)} />
+      {editingPost ? (
+        <CreateLfgPostModal visible post={editingPost} onClose={() => setEditingPost(null)} />
+      ) : null}
       {managingPostId != null ? (
         <LfgParticipantsModal
           visible

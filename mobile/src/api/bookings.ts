@@ -3,6 +3,9 @@ import { bookingAvailabilityItemSchema, bookingResponseSchema, type BookingCreat
 
 export const bookingsApi = {
   getAll: async () => bookingResponseSchema.array().parse(await apiClient.get('/bookings')),
+  getById: async (id: number) => bookingResponseSchema.parse(await apiClient.get(`/bookings/${id}`)),
+  create: async (data: BookingCreateInput) =>
+    bookingResponseSchema.parse(await apiClient.post('/bookings', data)),
   createBatch: async (bookings: BookingCreateInput[]) =>
     bookingResponseSchema.array().parse(await apiClient.post('/bookings/batch', { bookings })),
   cancel: async (id: number) => bookingResponseSchema.parse(await apiClient.patch(`/bookings/${id}/cancel`)),

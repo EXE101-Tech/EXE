@@ -1,4 +1,4 @@
-import { Award, Banknote, CalendarClock, MapPin, MessageCircle, Settings2, Sparkles, Users } from 'lucide-react-native';
+import { Award, Banknote, CalendarClock, MapPin, MessageCircle, Pencil, Settings2, Sparkles, Users } from 'lucide-react-native';
 import { Image, Text, View } from 'react-native';
 
 import { resolveMediaUrl } from '@/api/resolve-media-url';
@@ -16,6 +16,7 @@ interface LfgPostCardProps {
   onJoin: () => void;
   onLeave: () => void;
   onManage: () => void;
+  onEdit: () => void;
   onCancel: () => void;
   onChat: () => void;
   isJoining?: boolean;
@@ -31,6 +32,7 @@ export function LfgPostCard({
   onJoin,
   onLeave,
   onManage,
+  onEdit,
   onCancel,
   onChat,
   isJoining,
@@ -57,10 +59,8 @@ export function LfgPostCard({
                 <Text className="text-4xl">{sport?.emoji ?? '🏅'}</Text>
               </View>
             )}
-            <View className="absolute left-1.5 top-1.5 flex-row items-center gap-1 rounded-full bg-black/55 px-1.5 py-0.5">
-              <Text className="text-[10px] font-bold text-white" numberOfLines={1}>
-                {sport?.emoji ?? '🏅'} {sport?.name}
-              </Text>
+            <View className="absolute left-1.5 top-1.5 h-5 w-5 items-center justify-center rounded-full bg-black/55">
+              <Text className="text-xs">{sport?.emoji ?? '🏅'}</Text>
             </View>
             <View className="absolute bottom-1.5 left-1.5 flex-row items-center gap-1 rounded-full bg-black/55 px-1.5 py-0.5">
               <Award size={9} color="#74C365" />
@@ -129,6 +129,9 @@ export function LfgPostCard({
         <View className="flex-row items-center justify-end gap-2 border-t border-border pt-3 dark:border-border-dark">
           {isOwner ? (
             <>
+              <Button variant="outline" size="icon" onPress={onEdit}>
+                <Pencil size={14} color="#0EA5E9" />
+              </Button>
               <Button variant="outline" size="sm" onPress={onManage}>
                 <Settings2 size={14} color="#0EA5E9" />
                 <Text className="text-xs font-bold text-brand dark:text-brand-dark">

@@ -30,7 +30,7 @@ export default function MyBookingsScreen() {
   return (
     <ScreenContainer scroll={false} className="pt-3">
       <View className="mb-4 flex-row items-center gap-3">
-        <Pressable onPress={() => router.back()} hitSlop={8}>
+        <Pressable onPress={() => router.replace('/bookings')} hitSlop={8}>
           <ArrowLeft size={22} color="#94A3B8" />
         </Pressable>
         <Text className="text-2xl font-black text-slate-900 dark:text-white">Lịch đặt của tôi</Text>

@@ -24,3 +24,26 @@ export function useSportsQuery() {
     queryFn: courtsApi.getSports,
   });
 }
+
+export function useCourtsQuery(filters: { venue_id?: number; sport_id?: number } = {}) {
+  return useQuery({
+    queryKey: queryKeys.courts.list(filters),
+    queryFn: () => courtsApi.getAll(filters),
+  });
+}
+
+export function useCourtQuery(id: number) {
+  return useQuery({
+    queryKey: queryKeys.courts.detail(id),
+    queryFn: () => courtsApi.getById(id),
+    enabled: Number.isFinite(id),
+  });
+}
+
+export function useNearbyVenuesQuery(lat: number, lng: number, radius = 5) {
+  return useQuery({
+    queryKey: queryKeys.courts.nearby(lat, lng, radius),
+    queryFn: () => courtsApi.getNearby(lat, lng, radius),
+    enabled: Number.isFinite(lat) && Number.isFinite(lng),
+  });
+}

@@ -164,9 +164,10 @@ export default function GameroomsScreen() {
         <Text className="text-xl font-black text-slate-900 dark:text-white">Phòng chờ thi đấu</Text>
         <TouchableOpacity
           onPress={() => setIsCreateOpen(true)}
-          className="h-9 w-9 items-center justify-center rounded-full bg-brand dark:bg-brand-dark"
+          className="flex-row items-center gap-1 rounded-full bg-brand px-3 py-2 dark:bg-brand-dark"
         >
-          <Plus size={18} color="#fff" />
+          <Plus size={16} color="#fff" />
+          <Text className="text-xs font-bold text-white">Mở phòng</Text>
         </TouchableOpacity>
       </View>
 

@@ -14,11 +14,31 @@ export function useBookingsQuery() {
   });
 }
 
+export function useBookingQuery(id: number) {
+  return useQuery({
+    queryKey: queryKeys.bookings.detail(id),
+    queryFn: () => bookingsApi.getById(id),
+    enabled: Number.isFinite(id),
+  });
+}
+
 export function useAvailabilityQuery(venueId: number, date: string) {
   return useQuery({
     queryKey: queryKeys.bookings.availability(venueId, date),
     queryFn: () => bookingsApi.getAvailability(venueId, date),
     enabled: Number.isFinite(venueId) && !!date,
+  });
+}
+
+export function useCreateBookingMutation(venueId: number, date: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: BookingCreateInput) => bookingsApi.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.list() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.availability(venueId, date) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.auth.stats() });
+    },
   });
 }
 
