@@ -43,5 +43,13 @@ export const LEVEL_META: Record<SkillLevel, { label: string; percentage: number 
   Expert: { label: 'Chuyên nghiệp', percentage: 95 },
 };
 
+/** Shared with LFG posts' free-text `skill_level` and gamerooms' enum-validated `required_level`. */
+export const SKILL_REQUIREMENT_OPTIONS: { value: string; label: string }[] = [
+  { value: 'Beginner', label: 'Mới chơi' },
+  { value: 'Intermediate', label: 'Trung bình' },
+  { value: 'Advanced', label: 'Khá / Giỏi' },
+  { value: 'Expert', label: 'Chuyên nghiệp' },
+];
+
 export const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL?.trim() || 'http://127.0.0.1:8000/api';
