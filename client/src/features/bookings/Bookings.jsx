@@ -142,7 +142,7 @@ export default function Bookings() {
 
 
       {/* ── Filter Bar Section ── */}
-      <div className="navbar-filter-bar pb-4 pt-2 px-4 sm:px-6 sticky top-[112px] sm:top-[132px] z-40 transition-all duration-300">
+      <div className="navbar-filter-bar pb-4 pt-0 px-4 sm:px-6 sticky top-[112px] sm:top-[132px] z-40 transition-all duration-300">
         <div className="member-filter-panel max-w-[1600px] mx-auto rounded-xl sm:rounded-2xl p-1.5 sm:p-2.5 flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-2 xl:gap-3 transition-all duration-300">
           
           {/* Mobile Header (Toggle + Action Button) */}

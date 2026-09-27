@@ -27,6 +27,7 @@ export const teamsApi = {
     teamMemberResponseSchema.array().parse(await apiClient.get(`/teams/${id}/members`, { params: status ? { status } : {} })),
   setMemberStatus: async (id: number, userId: number, status: 'APPROVED' | 'REJECTED') =>
     teamMemberResponseSchema.parse(await apiClient.patch(`/teams/${id}/members/${userId}`, { status })),
+  removeMember: async (id: number, userId: number) => apiClient.delete(`/teams/${id}/members/${userId}`),
   getReviews: async (id: number) =>
     teamReviewResponseSchema.array().parse(await apiClient.get(`/teams/${id}/reviews`)),
   review: async (id: number, data: TeamReviewCreateInput) =>

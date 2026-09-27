@@ -9,12 +9,9 @@ import { searchService } from '../services/api';
 import { SearchResults } from './Navbar';
 
 const CATEGORIES = [
-  { id: 'badminton', name: 'Badminton', emoji: '🏸' },
-  { id: 'football', name: 'Football', emoji: '⚽' },
+  { id: 'badminton', name: 'Cầu lông', emoji: '🏸' },
   { id: 'pickleball', name: 'Pickleball', emoji: '🏓' },
-  { id: 'tennis', name: 'Tennis', emoji: '🎾' },
-  { id: 'basketball', name: 'Basketball', emoji: '🏀' },
-  { id: 'volleyball', name: 'Volleyball', emoji: '🏐' },
+  { id: 'football', name: 'Bóng đá', emoji: '⚽' },
 ];
 
 export default function TopNavbar() {
@@ -72,7 +69,8 @@ export default function TopNavbar() {
     setSearchError('');
     setHasSearched(true);
     try {
-      setSearchResults(await searchService.search(query));
+      const results = await searchService.search(query);
+      setSearchResults(results.filter((result) => result.kind !== 'venue'));
     } catch (error) {
       setSearchResults([]);
       setSearchError(error.message || 'Không thể tìm kiếm lúc này.');

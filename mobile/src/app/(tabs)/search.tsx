@@ -58,7 +58,7 @@ export default function SearchScreen() {
       ) : (
         <FlatList
           className="flex-1"
-          data={results ?? []}
+          data={(results ?? []).filter((item) => item.kind !== 'venue')}
           keyExtractor={(item) => `${item.kind}-${item.id}`}
           contentContainerClassName="gap-2 pb-8"
           renderItem={({ item }) => {

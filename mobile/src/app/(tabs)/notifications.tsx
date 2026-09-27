@@ -21,6 +21,7 @@ export default function NotificationsScreen() {
 
   const handlePress = (item: NotificationResponse) => {
     if (!item.is_read) markRead.mutate(item.id);
+    if (item.type.startsWith('team_')) router.push('/(tabs)/teams');
   };
 
   return (

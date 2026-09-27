@@ -11,7 +11,7 @@ import { LoadingState } from '@/components/brand/loading-state';
 import { SelectDropdown, type SelectOption } from '@/components/ui/select-dropdown';
 import { useCreateGameroomMutation } from '@/hooks/queries/use-gamerooms';
 import { useCourtsQuery, useSportsQuery } from '@/hooks/queries/use-courts';
-import { SKILL_REQUIREMENT_OPTIONS, SPORTS, SPORT_KEY_BY_NAME } from '@/lib/constants';
+import { isActiveSportName, SKILL_REQUIREMENT_OPTIONS, SPORTS, SPORT_KEY_BY_NAME } from '@/lib/constants';
 import { parseCostInputToVnd } from '@/lib/price';
 import { getVietnamDate, slotStart } from '@/lib/slots';
 import { ctaGradient } from '@/theme/colors';
@@ -83,7 +83,7 @@ function FieldLabel({
 export function CreateGameroomModal({ visible, onClose }: CreateGameroomModalProps) {
   const { data: sports, isLoading: isLoadingSports } = useSportsQuery();
   const createRoom = useCreateGameroomMutation();
-  const availableSports = (sports ?? []).filter((s) => s.id != null);
+  const availableSports = (sports ?? []).filter((s) => s.id != null && isActiveSportName(s.name));
 
   const {
     control,

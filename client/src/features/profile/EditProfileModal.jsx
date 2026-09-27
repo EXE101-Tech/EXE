@@ -4,12 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { storageService } from '../../shared/services/api';
 
 const ALL_SPORTS = [
-  { key: 'badminton', label: 'Badminton' },
-  { key: 'tennis', label: 'Tennis' },
-  { key: 'football', label: 'Football' },
+  { key: 'badminton', label: 'Cầu lông' },
   { key: 'pickleball', label: 'Pickleball' },
-  { key: 'basketball', label: 'Basketball' },
-  { key: 'volleyball', label: 'Volleyball' },
+  { key: 'football', label: 'Bóng đá' },
 ];
 const SPORT_KEY_BY_NAME = {
   badminton: 'badminton', 'cầu lông': 'badminton', tennis: 'tennis', football: 'football', 'bóng đá': 'football',
@@ -44,9 +41,12 @@ function EditProfileModal({ isOpen, onClose, user, onSave }) {
       // Do not override if we are in the middle of a success animation
       if (!isSuccess) {
         const initialSports = {};
+        (user?.sports || []).forEach((item) => {
+          const key = SPORT_KEY_BY_NAME[item.sport?.name?.toLowerCase()];
+          if (key) initialSports[key] = item.skill_level;
+        });
         ALL_SPORTS.forEach(({ key }) => {
-          const userSport = user?.sports?.find((item) => SPORT_KEY_BY_NAME[item.sport?.name?.toLowerCase()] === key);
-          initialSports[key] = userSport ? userSport.skill_level : 'Chưa biết';
+          if (!initialSports[key]) initialSports[key] = 'Chưa biết';
         });
 
         setFormData({

@@ -12,14 +12,13 @@ import FilterSelect from '../../shared/components/FilterSelect';
 import { useSearchParams } from 'react-router-dom';
 import { createSportExperienceMap, sortBySportExperience } from '../../shared/utils/sportExperienceSort';
 import { parseStoredCostToVnd } from '../../shared/utils/price';
+import { isActiveSport } from '../../shared/constants/sports';
 
 const SPORTS_TABS = [
   { id: 'all', name: 'Tất cả môn', emoji: '🌟' },
   { id: 'badminton', name: 'Cầu lông', emoji: '🏸' },
-  { id: 'football', name: 'Bóng đá', emoji: '⚽' },
   { id: 'pickleball', name: 'Pickleball', emoji: '🏓' },
-  { id: 'tennis', name: 'Tennis', emoji: '🎾' },
-  { id: 'basketball', name: 'Bóng rổ', emoji: '🏀' },
+  { id: 'football', name: 'Bóng đá', emoji: '⚽' },
 ];
 
 const LEVEL_TABS = [
@@ -57,7 +56,8 @@ function GameRoom() {
     setIsLoading(true);
     try {
       const [data, sports] = await Promise.all([gameRoomService.getAll(), sportService.getAll()]);
-      const keyById = Object.fromEntries(sports.filter((sport) => sport.id != null).map((sport) => [sport.id, sport.key]));
+      const activeSports = sports.filter((sport) => sport.id != null && isActiveSport(sport));
+      const keyById = Object.fromEntries(activeSports.map((sport) => [sport.id, sport.key]));
       const mapped = data.map((match) => ({
         ...match,
         sportId: keyById[match.sport_id] || '',
@@ -82,7 +82,7 @@ function GameRoom() {
         })),
         isMyRoom: match.host_id === user?.id,
       }));
-      setRooms(mapped.filter((room) => !['CANCELLED', 'FINISHED'].includes(room.status)));
+      setRooms(mapped.filter((room) => isActiveSport(room.sportId) && !['CANCELLED', 'FINISHED'].includes(room.status)));
       setError('');
       return mapped;
     } catch (err) {
@@ -115,10 +115,7 @@ function GameRoom() {
         const matchSport = room.sportId === s ||
           (s === 'badminton' && room.sportName?.toLowerCase().includes('cầu lông')) ||
           (s === 'football' && room.sportName?.toLowerCase().includes('bóng đá')) ||
-          (s === 'pickleball' && room.sportName?.toLowerCase().includes('pickleball')) ||
-          (s === 'tennis' && room.sportName?.toLowerCase().includes('tennis')) ||
-          (s === 'basketball' && room.sportName?.toLowerCase().includes('bóng rổ')) ||
-          (s === 'volleyball' && room.sportName?.toLowerCase().includes('bóng chuyền'));
+          (s === 'pickleball' && room.sportName?.toLowerCase().includes('pickleball'));
         if (!matchSport) return false;
       }
       // Filter by Level
@@ -218,7 +215,7 @@ function GameRoom() {
 
 
       {/* ── Filter Bar Section ── */}
-      <div className="navbar-filter-bar pb-4 pt-2 px-4 sm:px-6 sticky top-[112px] sm:top-[132px] z-40 transition-all duration-300">
+      <div className="navbar-filter-bar pb-4 pt-0 px-4 sm:px-6 sticky top-[112px] sm:top-[132px] z-40 transition-all duration-300">
         <div className="member-filter-panel max-w-[1600px] mx-auto rounded-xl sm:rounded-2xl p-1.5 sm:p-2.5 flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-2 xl:gap-3 transition-all duration-300">
           
           {/* Mobile Header (Toggle + Action Button) */}
@@ -251,12 +248,9 @@ function GameRoom() {
               onChange={(e) => setSelectedSport(e.target.value === 'all' ? null : e.target.value)}
             >
               <option value="all">Tất cả môn</option>
-              <option value="football">⚽ Bóng đá</option>
               <option value="badminton">🏸 Cầu lông</option>
               <option value="pickleball">🏓 Pickleball</option>
-              <option value="tennis">🎾 Tennis</option>
-              <option value="basketball">🏀 Bóng rổ</option>
-              <option value="volleyball">🏐 Bóng chuyền</option>
+              <option value="football">⚽ Bóng đá</option>
             </FilterSelect>
 
             <FilterSelect

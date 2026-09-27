@@ -39,7 +39,7 @@ export default function NotificationBell({ className = '' }) {
       }
     };
     load();
-    const timer = window.setInterval(load, 15000);
+    const timer = window.setInterval(load, 2000);
     return () => { active = false; window.clearInterval(timer); };
   }, [user?.id]);
 

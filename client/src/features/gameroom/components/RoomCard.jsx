@@ -90,7 +90,6 @@ function RoomCard({ room, currentUserId = 1, onJoin, onChat, onManage }) {
         type: 'host',
         name: host.name || 'Trưởng phòng',
         avatar: host.avatar,
-        isCourtOwner: host.ownerStatus === 'registered',
         initials: (host.name || 'H').charAt(0).toUpperCase(),
       };
     }
@@ -101,7 +100,6 @@ function RoomCard({ room, currentUserId = 1, onJoin, onChat, onManage }) {
         type: 'player',
         name: name,
         avatar: participant.user?.avatar || participant.avatar || '',
-        isCourtOwner: participant.user?.ownerStatus === 'registered',
         status: participant.status || 'APPROVED',
         initials: name.charAt(0).toUpperCase(),
       };
@@ -118,7 +116,7 @@ function RoomCard({ room, currentUserId = 1, onJoin, onChat, onManage }) {
           <div className="flex items-start justify-between gap-2 mb-1.5 sm:mb-2">
             <div className="flex items-start gap-2 sm:gap-2.5 min-w-0 flex-1">
               {/* Host Avatar Circle */}
-              <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full ${host.ownerStatus === 'registered' ? 'owner-avatar-ring-active' : 'bg-gradient-to-tr from-[#589470] to-[#74C365]'} p-[2px] shadow-sm shrink-0 flex items-center justify-center aspect-square mt-0.5`}>
+              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gradient-to-tr from-[#589470] to-[#74C365] p-[2px] shadow-sm shrink-0 flex items-center justify-center aspect-square mt-0.5">
                 <div className="w-full h-full rounded-full bg-white dark:bg-[#001F3F] flex items-center justify-center font-black text-sm sm:text-base text-[#589470] dark:text-[#74C365] overflow-hidden">
                   {host.avatar ? <img src={host.avatar} alt="" className="w-full h-full object-cover" /> : (host.name || 'H').charAt(0).toUpperCase()}
                 </div>
@@ -127,7 +125,7 @@ function RoomCard({ room, currentUserId = 1, onJoin, onChat, onManage }) {
               {/* Author Info Column: Name on Top, Sport Badge directly Underneath (như Hình 2) */}
               <div className="flex flex-col items-start gap-1 min-w-0 flex-1">
                 <div className="flex items-center flex-wrap gap-1.5 max-w-full">
-                  <h4 className={`font-bold ${host.ownerStatus === 'registered' ? 'owner-water-text' : 'text-slate-900 dark:text-white'} text-sm sm:text-base leading-tight break-words`}>
+                  <h4 className="font-bold text-slate-900 dark:text-white text-sm sm:text-base leading-tight break-words">
                     {host.name || 'Trưởng phòng'}
                   </h4>
                   {isHost && (
@@ -242,7 +240,7 @@ function RoomCard({ room, currentUserId = 1, onJoin, onChat, onManage }) {
               if (slot.type === 'host') {
                 return (
                   <div key={idx} className="flex flex-col items-center group/slot relative" title={`Trưởng phòng: ${slot.name}`}>
-                    <div className={`w-10 h-10 rounded-2xl ${slot.isCourtOwner ? 'owner-avatar-ring-active p-[2px]' : 'bg-gradient-to-br from-amber-500 to-orange-600 border-2 border-amber-300 dark:border-amber-400'} text-white font-bold flex items-center justify-center shadow-md relative`}>
+                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 border-2 border-amber-300 dark:border-amber-400 text-white font-bold flex items-center justify-center shadow-md relative">
                       <div className="w-full h-full rounded-[0.65rem] overflow-hidden flex items-center justify-center bg-white dark:bg-[#001F3F] text-[#589470] dark:text-[#74C365]">
                         {slot.avatar ? <img src={slot.avatar} alt="" className="w-full h-full object-cover" /> : <span>{slot.initials}</span>}
                       </div>
@@ -261,12 +259,8 @@ function RoomCard({ room, currentUserId = 1, onJoin, onChat, onManage }) {
                 const colorClass = AVATAR_COLORS[(idx + 1) % AVATAR_COLORS.length];
                 return (
                   <div key={idx} className="flex flex-col items-center group/slot relative" title={`Thành viên: ${slot.name}`}>
-                    <div className={`w-10 h-10 rounded-2xl ${slot.isCourtOwner ? 'owner-avatar-ring-active p-[2px]' : slot.avatar ? 'border border-white/20' : `${colorClass} border border-white/20`} text-white font-bold flex items-center justify-center shadow-md relative overflow-hidden`}>
-                      {slot.isCourtOwner ? (
-                        <div className="w-full h-full rounded-[0.65rem] overflow-hidden flex items-center justify-center bg-white dark:bg-[#001F3F] text-[#589470] dark:text-[#74C365]">
-                          {slot.avatar ? <img src={slot.avatar} alt="" className="w-full h-full object-cover" /> : <span>{slot.initials}</span>}
-                        </div>
-                      ) : slot.avatar ? (
+                    <div className={`w-10 h-10 rounded-2xl ${slot.avatar ? 'border border-white/20' : `${colorClass} border border-white/20`} text-white font-bold flex items-center justify-center shadow-md relative overflow-hidden`}>
+                      {slot.avatar ? (
                         <img src={slot.avatar} alt="" className="w-full h-full object-cover" />
                       ) : <span>{slot.initials}</span>}
                       {slot.status === 'PENDING' && (

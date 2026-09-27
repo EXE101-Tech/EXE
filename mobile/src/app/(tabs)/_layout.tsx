@@ -14,7 +14,7 @@ export default function TabsLayout() {
       tabBar={() => <BottomTabBar />}
     >
       <Tabs.Screen name="forum" />
-      <Tabs.Screen name="bookings" />
+      <Tabs.Screen name="bookings" options={{ href: null }} />
       <Tabs.Screen name="gamerooms" />
       <Tabs.Screen name="profile" />
       <Tabs.Screen name="chat" />
@@ -22,7 +22,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="teams" />
       <Tabs.Screen name="search" />
       <Tabs.Screen name="notifications" />
-      <Tabs.Screen name="map" />
+      <Tabs.Screen name="map" options={{ href: null }} />
     </Tabs>
   );
 }

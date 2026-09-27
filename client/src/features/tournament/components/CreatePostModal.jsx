@@ -5,11 +5,8 @@ import { parseCostInputToVnd, storedCostToInput } from '../../../shared/utils/pr
 
 const SPORTS = [
   { id: 'badminton', name: 'Cầu lông', emoji: '🏸' },
-  { id: 'football', name: 'Bóng đá', emoji: '⚽' },
   { id: 'pickleball', name: 'Pickleball', emoji: '🏓' },
-  { id: 'tennis', name: 'Tennis', emoji: '🎾' },
-  { id: 'basketball', name: 'Bóng rổ', emoji: '🏀' },
-  { id: 'volleyball', name: 'Bóng chuyền', emoji: '🏐' },
+  { id: 'football', name: 'Bóng đá', emoji: '⚽' },
 ];
 const todayLocal = () => {
   const now = new Date();

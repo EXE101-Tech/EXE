@@ -1,20 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Activity, CalendarDays, Eye, ImagePlus, LogOut, Pencil, Star, Trophy, Users, X } from 'lucide-react';
+import { Activity, Eye, ImagePlus, LogOut, Pencil, Trophy, Users, X } from 'lucide-react';
 import heroBgImg from '../../assets/sports/badminton.avif';
 import EditProfileModal from '../profile/EditProfileModal';
 import { useAuth } from '../../shared/context/AuthContext';
-import OwnerRegistrationModal from '../bookings/components/OwnerRegistrationModal';
-import OwnerCancellationModal from '../bookings/components/OwnerCancellationModal';
 import MySocialPosts from '../profile/MySocialPosts';
-import { authService, ownerService, storageService } from '../../shared/services/api';
+import { authService, storageService } from '../../shared/services/api';
+import { isActiveSport } from '../../shared/constants/sports';
 
 const LEVEL_META = {
-  'Chưa biết': { label: 'Chưa biết', percentage: 10 },
-  Beginner: { label: 'Mới chơi', percentage: 25 },
-  Intermediate: { label: 'Trung bình', percentage: 50 },
-  Advanced: { label: 'Khá', percentage: 75 },
-  Expert: { label: 'Chuyên nghiệp', percentage: 95 },
+  'Chưa biết': 'Chưa biết',
+  Beginner: 'Mới chơi',
+  Intermediate: 'Trung bình',
+  Advanced: 'Khá',
+  Expert: 'Chuyên nghiệp',
 };
 
 const SKILL_STYLE = {
@@ -29,17 +28,12 @@ const SPORT_KEY_BY_NAME = { badminton: 'badminton', 'cầu lông': 'badminton', 
 
 function Home() {
   const navigate = useNavigate();
-  const { user, logout, updateProfile, applyOwnerRegistration, cancelOwnerRegistration } = useAuth();
+  const { user, logout, updateProfile } = useAuth();
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isCoverPreviewOpen, setIsCoverPreviewOpen] = useState(false);
-  const [isOwnerTermsOpen, setIsOwnerTermsOpen] = useState(false);
-  const [isOwnerCancellationOpen, setIsOwnerCancellationOpen] = useState(false);
-  const [ownedVenueCount, setOwnedVenueCount] = useState(0);
-  const [isCancelSubmitting, setIsCancelSubmitting] = useState(false);
-  const [ownerError, setOwnerError] = useState('');
   const [coverError, setCoverError] = useState('');
   const [isUploadingCover, setIsUploadingCover] = useState(false);
-  const [stats, setStats] = useState({ games_played: 0, teams_joined: 0, bookings_count: 0, average_skill_rating: null });
+  const [stats, setStats] = useState({ games_played: 0, teams_joined: 0 });
 
   const displayName = user?.profile?.full_name || user?.email?.split('@')[0] || 'Người dùng';
   const email = user?.email || '';
@@ -64,69 +58,30 @@ function Home() {
 
   useEffect(() => {
     let active = true;
-    Promise.all([authService.getStats(), ownerService.getStatus()]).then(([nextStats, owner]) => {
+    authService.getStats().then((nextStats) => {
       if (!active) return;
       setStats(nextStats);
-      setOwnedVenueCount(owner.owned_venues_count);
-    }).catch((error) => {
-      if (active) setOwnerError(error.message || 'Không tải được thống kê tài khoản');
-    });
+    }).catch(() => {});
     return () => { active = false; };
   }, [user?.id]);
 
-  const skills = useMemo(() => (user?.sports || []).map((item) => {
+  const skills = useMemo(() => (user?.sports || []).filter((item) => isActiveSport(item.sport?.name)).map((item) => {
     const sportName = item.sport?.name || 'Môn thể thao';
-    const key = SPORT_KEY_BY_NAME[sportName.toLowerCase()] || sportName.toLowerCase();
-    const level = LEVEL_META[item.skill_level] || { label: item.skill_level, percentage: 0 };
+    const key = SPORT_KEY_BY_NAME[sportName.trim().toLowerCase()] || sportName.toLowerCase();
     return {
       key: item.id,
       sport: sportName,
       emoji: SKILL_STYLE[key]?.emoji || '🏅',
       color: SKILL_STYLE[key]?.color || 'from-slate-400 to-slate-600',
-      level: level.label,
-      percentage: level.percentage,
+      level: LEVEL_META[item.skill_level] || item.skill_level,
       games: item.games_played || 0,
-      rating: Number(item.rating || 0).toFixed(1),
     };
   }), [user?.sports]);
 
   const statsCards = [
     { label: 'Trận đã chơi', value: stats.games_played, icon: Trophy, color: 'text-amber-500 bg-amber-500/10' },
     { label: 'CLB tham gia', value: stats.teams_joined, icon: Users, color: 'text-blue-500 bg-blue-500/10' },
-    { label: 'Lần đặt sân', value: stats.bookings_count, icon: CalendarDays, color: 'text-emerald-500 bg-emerald-500/10' },
-    { label: 'Điểm kỹ năng TB', value: stats.average_skill_rating ?? '—', icon: Star, color: 'text-violet-500 bg-violet-500/10' },
   ];
-
-  const handleCancelOwnerRegistration = async () => {
-    setOwnerError('');
-    try {
-      const status = await ownerService.getStatus();
-      setOwnedVenueCount(status.owned_venues_count);
-    } catch (error) {
-      setOwnerError(error.message || 'Không tải được trạng thái chủ sân');
-    }
-    setIsOwnerCancellationOpen(true);
-  };
-
-  const handleCancelOwnerConfirm = async () => {
-    setIsCancelSubmitting(true);
-    setOwnerError('');
-    try {
-      await cancelOwnerRegistration();
-      setOwnedVenueCount(0);
-      setIsOwnerCancellationOpen(false);
-    } catch (error) {
-      setOwnerError(error.message || 'Không thể hủy đăng ký lúc này');
-      const status = await ownerService.getStatus().catch(() => null);
-      if (status) setOwnedVenueCount(status.owned_venues_count);
-    } finally { setIsCancelSubmitting(false); }
-  };
-
-  const handleOwnerRegistration = async () => {
-    await applyOwnerRegistration();
-    setIsOwnerTermsOpen(false);
-    navigate('/bookings');
-  };
 
   return (
     <div className="min-h-screen bg-transparent text-slate-900 dark:text-[#EAF2FF] font-sans transition-colors duration-500 px-4 sm:px-6 lg:px-8 py-7 sm:py-10 pb-16">
@@ -163,11 +118,11 @@ function Home() {
 
           <div className="relative px-5 sm:px-8 pb-6">
             <div className="-mt-12 sm:-mt-14 flex flex-col lg:flex-row lg:items-end gap-4 lg:gap-6">
-              <div className={`w-24 h-24 sm:w-28 sm:h-28 rounded-full p-1.5 shadow-xl shrink-0 ${user?.ownerStatus === 'registered' ? 'owner-avatar-ring-active' : 'bg-gradient-to-tr from-[#589470] to-[#74C365]'}`}>
+              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full p-1.5 shadow-xl shrink-0 bg-gradient-to-tr from-[#589470] to-[#74C365]">
                 <div className="w-full h-full overflow-hidden rounded-full bg-white dark:bg-[#001F3F] flex items-center justify-center font-black text-4xl sm:text-5xl text-[#589470] dark:text-[#74C365]">{user?.profile?.avatar_url ? <img src={user.profile.avatar_url} alt="Ảnh đại diện" className="h-full w-full object-cover" /> : avatarLetter}</div>
               </div>
               <div className="min-w-0 flex-1 lg:pb-1">
-                <h2 className={`${user?.ownerStatus === 'registered' ? 'owner-water-text' : 'text-slate-900 dark:text-white'} text-xl sm:text-2xl font-black leading-tight break-words`}>{displayName}</h2>
+                <h2 className="text-slate-900 dark:text-white text-xl sm:text-2xl font-black leading-tight break-words">{displayName}</h2>
                 <p className="text-sm text-slate-500 dark:text-slate-400 break-all mt-1">{email}</p>
               </div>
               <div className="flex flex-col sm:flex-row gap-3 lg:pb-1 shrink-0">
@@ -175,7 +130,6 @@ function Home() {
                   <Pencil className="w-4 h-4" />
                   Chỉnh sửa hồ sơ
                 </button>
-                <button onClick={() => user?.ownerStatus === 'registered' ? handleCancelOwnerRegistration() : setIsOwnerTermsOpen(true)} className={`px-5 py-3 font-bold rounded-xl transition-all flex items-center justify-center border ${user?.ownerStatus === 'registered' ? 'border-red-200 bg-red-50 text-red-600 hover:bg-red-100 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-200' : 'border-cyan-200 bg-cyan-50 text-cyan-700 hover:bg-cyan-100 dark:border-cyan-400/20 dark:bg-cyan-400/10 dark:text-cyan-200'}`}>{user?.ownerStatus === 'registered' ? 'Hủy đăng ký chủ sân' : 'Đăng ký làm chủ sân'}</button>
                 <button onClick={() => { logout(); navigate('/login'); }} className="px-5 py-3 bg-red-50 hover:bg-red-100 dark:bg-red-500/10 dark:hover:bg-red-500/20 text-red-600 dark:text-red-400 font-bold rounded-xl transition-all flex items-center justify-center gap-2 border border-red-100 dark:border-red-500/20 active:scale-95">
                   <LogOut className="w-4 h-4" />
                   Đăng xuất
@@ -185,7 +139,7 @@ function Home() {
           </div>
 
           {/* Quick stats */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 px-5 sm:px-8 pb-7">
+          <div className="grid grid-cols-2 gap-3 px-5 sm:px-8 pb-7">
             {statsCards.map(({ label, value, icon: Icon, color }) => (
               <div key={label} className="rounded-2xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/80 dark:bg-slate-900/30 p-3.5 sm:p-4">
                 <div className={`w-8 h-8 rounded-xl ${color} flex items-center justify-center mb-2`}><Icon className="w-4 h-4" /></div>
@@ -217,14 +171,8 @@ function Home() {
                         <h3 className="font-bold text-slate-800 dark:text-slate-100">{skill.sport}</h3>
                         <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700/70 px-2 py-1 rounded-lg whitespace-nowrap">{skill.level}</span>
                       </div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{skill.games} trận <span className="mx-1">·</span> {skill.rating} rating</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{skill.games} trận</p>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 bg-slate-100 dark:bg-slate-700/60 rounded-full h-2 overflow-hidden">
-                      <div className={`h-full rounded-full bg-gradient-to-r ${skill.color} transition-all duration-700`} style={{ width: `${skill.percentage}%` }} />
-                    </div>
-                    <span className="text-[11px] font-black text-slate-500 dark:text-slate-400 w-8 text-right">{skill.percentage}%</span>
                   </div>
                 </div>
               ))}
@@ -236,9 +184,6 @@ function Home() {
       </div>
 
       <EditProfileModal isOpen={isEditProfileOpen} onClose={() => setIsEditProfileOpen(false)} user={user} onSave={updateProfile} />
-      <OwnerRegistrationModal isOpen={isOwnerTermsOpen} onClose={() => setIsOwnerTermsOpen(false)} onAgree={handleOwnerRegistration} />
-      <OwnerCancellationModal isOpen={isOwnerCancellationOpen} ownedVenueCount={ownedVenueCount} isSubmitting={isCancelSubmitting} error={ownerError} onClose={() => setIsOwnerCancellationOpen(false)} onConfirm={handleCancelOwnerConfirm} />
-
       {isCoverPreviewOpen && (
         <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/80 p-4 sm:p-8 backdrop-blur-sm" onClick={() => setIsCoverPreviewOpen(false)} role="presentation">
           <button type="button" onClick={() => setIsCoverPreviewOpen(false)} className="absolute right-4 top-4 rounded-full bg-white/10 p-2.5 text-white hover:bg-white/20 transition-colors" aria-label="Đóng ảnh bìa">

@@ -109,6 +109,11 @@ export function CreateTeamModal({ visible, onClose, team }: CreateTeamModalProps
     }
   };
 
+  const handleRemoveImage = () => {
+    setImageUrl(undefined);
+    setImagePreview(undefined);
+  };
+
   const handleClose = () => {
     reset();
     setImageUrl(undefined);
@@ -129,7 +134,7 @@ export function CreateTeamModal({ visible, onClose, team }: CreateTeamModalProps
         .split(',')
         .map((tag) => tag.trim())
         .filter(Boolean),
-      image_url: imageUrl,
+      image_url: imageUrl ?? null,
     };
     try {
       if (isEditing) {
@@ -161,6 +166,7 @@ export function CreateTeamModal({ visible, onClose, team }: CreateTeamModalProps
         <ScrollView className="flex-1" contentContainerClassName="gap-4 p-4 pb-8">
           <Pressable
             onPress={handlePickImage}
+            disabled={isUploadingImage || mutation.isPending}
             className="h-32 items-center justify-center overflow-hidden rounded-2xl bg-slate-100 dark:bg-slate-800"
           >
             {imagePreview ? (
@@ -174,6 +180,15 @@ export function CreateTeamModal({ visible, onClose, team }: CreateTeamModalProps
               </View>
             )}
           </Pressable>
+          {imagePreview ? (
+            <TouchableOpacity
+              onPress={handleRemoveImage}
+              disabled={isUploadingImage || mutation.isPending}
+              className="self-end rounded-lg px-2 py-1 disabled:opacity-50"
+            >
+              <Text className="text-xs font-bold text-rose-600 dark:text-rose-400">Gỡ ảnh CLB</Text>
+            </TouchableOpacity>
+          ) : null}
 
           <View>
             <Text className="mb-2 text-xs font-extrabold uppercase tracking-wide text-slate-500 dark:text-slate-400">
@@ -320,7 +335,7 @@ export function CreateTeamModal({ visible, onClose, team }: CreateTeamModalProps
           </TouchableOpacity>
           <TouchableOpacity
             onPress={submit}
-            disabled={mutation.isPending}
+            disabled={mutation.isPending || isUploadingImage}
             className={cn('overflow-hidden rounded-xl', mutation.isPending && 'opacity-50')}
           >
             <LinearGradient
