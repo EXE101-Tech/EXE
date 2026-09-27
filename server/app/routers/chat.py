@@ -36,19 +36,42 @@ def _friendship_payload(friendship: models.Friendship, current_user_id: int):
     }
 
 
-def _conversation_payload(db: Session, conversation: models.Conversation, user_id: int):
+def _conversation_payload(
+    db: Session,
+    conversation: models.Conversation,
+    user_id: int,
+    unread_count: int | None = None,
+    friendship: models.Friendship | None = None,
+    friendship_loaded: bool = False,
+):
     other = _other_user(conversation, user_id)
-    unread_count = db.query(models.Message).filter(
-        models.Message.conversation_id == conversation.id,
-        models.Message.sender_id != user_id,
-        models.Message.is_read == 0,
-    ).count()
+    if unread_count is None:
+        unread_count = db.query(models.Message).filter(
+            models.Message.conversation_id == conversation.id,
+            models.Message.sender_id != user_id,
+            models.Message.is_read == 0,
+        ).count()
+    if not friendship_loaded:
+        friendship = db.query(models.Friendship).filter(
+            models.Friendship.user_low_id == min(user_id, other.id),
+            models.Friendship.user_high_id == max(user_id, other.id),
+        ).first()
+
+    friendship_status = "none"
+    friendship_id = None
+    if friendship:
+        friendship_id = friendship.id
+        friendship_status = "accepted" if friendship.status == "accepted" else (
+            "outgoing" if friendship.requester_id == user_id else "incoming"
+        )
     return {
         "id": conversation.id,
         "other_user": _user_payload(other),
         "last_message": conversation.last_message,
         "updated_at": conversation.updated_at,
         "unread_count": unread_count,
+        "friendship_status": friendship_status,
+        "friendship_id": friendship_id,
     }
 
 
@@ -76,7 +99,49 @@ def list_conversations(
     ).filter(
         or_(models.Conversation.user1_id == current_user.id, models.Conversation.user2_id == current_user.id),
     ).order_by(models.Conversation.updated_at.desc()).all()
-    return [_conversation_payload(db, item, current_user.id) for item in conversations]
+    if not conversations:
+        return []
+
+    conversation_ids = [item.id for item in conversations]
+    unread_counts = dict(db.query(
+        models.Message.conversation_id,
+        func.count(models.Message.id),
+    ).filter(
+        models.Message.conversation_id.in_(conversation_ids),
+        models.Message.sender_id != current_user.id,
+        models.Message.is_read == 0,
+    ).group_by(models.Message.conversation_id).all())
+
+    other_ids = [
+        item.user2_id if item.user1_id == current_user.id else item.user1_id
+        for item in conversations
+    ]
+    friendships = db.query(models.Friendship).filter(
+        or_(
+            (models.Friendship.user_low_id == current_user.id)
+            & models.Friendship.user_high_id.in_(other_ids),
+            (models.Friendship.user_high_id == current_user.id)
+            & models.Friendship.user_low_id.in_(other_ids),
+        )
+    ).all()
+    friendship_by_peer = {
+        item.user_high_id if item.user_low_id == current_user.id else item.user_low_id: item
+        for item in friendships
+    }
+
+    return [
+        _conversation_payload(
+            db,
+            item,
+            current_user.id,
+            unread_count=unread_counts.get(item.id, 0),
+            friendship=friendship_by_peer.get(
+                item.user2_id if item.user1_id == current_user.id else item.user1_id
+            ),
+            friendship_loaded=True,
+        )
+        for item in conversations
+    ]
 
 
 @router.get("/unread-count")
@@ -134,26 +199,47 @@ def start_conversation(
 @router.get("/conversations/{conversation_id}/messages", response_model=schemas.ChatConversationDetailResponse)
 def get_messages(
     conversation_id: int,
+    after_id: int | None = Query(None, ge=0),
+    before_id: int | None = Query(None, ge=0),
+    limit: int = Query(50, ge=1, le=100),
     current_user: models.User = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db),
 ):
+    if after_id is not None and before_id is not None:
+        raise HTTPException(status_code=400, detail="Chỉ được dùng after_id hoặc before_id")
+
     conversation = _get_conversation(db, conversation_id, current_user.id)
-    db.query(models.Message).filter(
+    marked_read = db.query(models.Message).filter(
         models.Message.conversation_id == conversation.id,
         models.Message.sender_id != current_user.id,
         models.Message.is_read == 0,
     ).update({models.Message.is_read: 1}, synchronize_session=False)
-    db.query(models.Notification).filter(
-        models.Notification.recipient_id == current_user.id,
-        models.Notification.type == "chat_message",
-        models.Notification.entity_type == "conversation",
-        models.Notification.entity_id == conversation.id,
-        models.Notification.is_read.is_(False),
-    ).update({models.Notification.is_read: True}, synchronize_session=False)
-    db.commit()
-    messages = db.query(models.Message).filter_by(conversation_id=conversation.id).order_by(
-        models.Message.created_at.asc(), models.Message.id.asc()
-    ).all()
+    if marked_read:
+        db.query(models.Notification).filter(
+            models.Notification.recipient_id == current_user.id,
+            models.Notification.type == "chat_message",
+            models.Notification.entity_type == "conversation",
+            models.Notification.entity_id == conversation.id,
+            models.Notification.is_read.is_(False),
+        ).update({models.Notification.is_read: True}, synchronize_session=False)
+        db.commit()
+
+    message_query = db.query(models.Message).filter_by(conversation_id=conversation.id)
+    if after_id is not None:
+        message_query = message_query.filter(models.Message.id > after_id)
+        messages = message_query.order_by(models.Message.id.asc()).limit(limit).all()
+        has_more = False
+    elif before_id is not None:
+        page = message_query.filter(models.Message.id < before_id).order_by(
+            models.Message.id.desc()
+        ).limit(limit + 1).all()
+        has_more = len(page) > limit
+        messages = list(reversed(page[:limit]))
+    else:
+        page = message_query.order_by(models.Message.id.desc()).limit(limit + 1).all()
+        has_more = len(page) > limit
+        messages = list(reversed(page[:limit]))
+
     payload = _conversation_payload(db, conversation, current_user.id)
     payload["messages"] = [
         {
@@ -166,6 +252,7 @@ def get_messages(
         }
         for message in messages
     ]
+    payload["has_more"] = has_more
     return payload
 
 

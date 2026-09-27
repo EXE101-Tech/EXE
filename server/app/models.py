@@ -348,11 +348,35 @@ class SocialPostComment(Base):
     id = Column(Integer, primary_key=True, index=True)
     post_id = Column(Integer, ForeignKey("social_posts.id", ondelete="CASCADE"), nullable=False, index=True)
     author_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    parent_id = Column(Integer, ForeignKey("social_post_comments.id", ondelete="CASCADE"), nullable=True, index=True)
     content = Column(Text, nullable=False)
     created_at = Column(DateTime, nullable=False, default=utc_now_naive, index=True)
 
     post = relationship("SocialPost", back_populates="comments")
     author = relationship("User", back_populates="social_post_comments")
+    parent = relationship("SocialPostComment", remote_side=[id], back_populates="replies")
+    replies = relationship("SocialPostComment", back_populates="parent", cascade="all, delete-orphan")
+    reactions = relationship("SocialPostCommentReaction", back_populates="comment", cascade="all, delete-orphan")
+
+
+class SocialPostCommentReaction(Base):
+    __tablename__ = "social_post_comment_reactions"
+    __table_args__ = (
+        UniqueConstraint("comment_id", "user_id", name="uq_social_post_comment_reaction"),
+        CheckConstraint(
+            "reaction IN ('like', 'love', 'laugh', 'wow', 'sad', 'angry')",
+            name="ck_social_post_comment_reaction_type",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    comment_id = Column(Integer, ForeignKey("social_post_comments.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    reaction = Column(String(16), nullable=False)
+    created_at = Column(DateTime, nullable=False, default=utc_now_naive)
+
+    comment = relationship("SocialPostComment", back_populates="reactions")
+    user = relationship("User")
 
 
 class Notification(Base):

@@ -171,15 +171,18 @@ export const socialPostService = {
   like: (id) => apiClient.put(`/social/posts/${id}/like`),
   unlike: (id) => apiClient.delete(`/social/posts/${id}/like`),
   getComments: (id) => apiClient.get(`/social/posts/${id}/comments`),
-  addComment: (id, content) => apiClient.post(`/social/posts/${id}/comments`, { content }),
+  addComment: (id, content, parentId = null) => apiClient.post(`/social/posts/${id}/comments`, { content, parent_id: parentId }),
+  updateComment: (postId, commentId, content) => apiClient.put(`/social/posts/${postId}/comments/${commentId}`, { content }),
   removeComment: (postId, commentId) => apiClient.delete(`/social/posts/${postId}/comments/${commentId}`),
+  setCommentReaction: (postId, commentId, reaction) => apiClient.put(`/social/posts/${postId}/comments/${commentId}/reaction`, { reaction }),
+  removeCommentReaction: (postId, commentId) => apiClient.delete(`/social/posts/${postId}/comments/${commentId}/reaction`),
 };
 
 export const chatService = {
   getConversations: () => apiClient.get('/chat/conversations'),
   getUnreadCount: () => apiClient.get('/chat/unread-count'),
   startConversation: (recipientId) => apiClient.post('/chat/conversations', { recipient_id: recipientId }),
-  getMessages: (conversationId) => apiClient.get(`/chat/conversations/${conversationId}/messages`),
+  getMessages: (conversationId, params = {}) => apiClient.get(`/chat/conversations/${conversationId}/messages`, { params }),
   sendMessage: (conversationId, text) => apiClient.post(`/chat/conversations/${conversationId}/messages`, { text }),
   searchUsers: (query) => apiClient.get('/chat/users', { params: { q: query, limit: 30 } }),
   getFriends: () => apiClient.get('/chat/friends'),

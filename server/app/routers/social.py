@@ -83,18 +83,85 @@ def _post_payloads(db: Session, posts: list[models.SocialPost], current_user_id:
     return payloads
 
 
-def _comment_payload(comment: models.SocialPostComment):
+def _comment_payload(
+    comment: models.SocialPostComment,
+    reply_count: int = 0,
+    reaction_counts: Optional[dict[str, int]] = None,
+    my_reaction: Optional[str] = None,
+):
     author = comment.author
     profile = author.profile if author else None
     return {
         "id": comment.id,
         "post_id": comment.post_id,
         "author_id": comment.author_id,
+        "parent_id": comment.parent_id,
         "author_name": display_name(author) if author else "Người dùng SportGo",
         "author_avatar_url": profile.avatar_url if profile else None,
         "content": comment.content,
         "created_at": comment.created_at,
+        "reply_count": reply_count,
+        "reaction_counts": reaction_counts or {},
+        "my_reaction": my_reaction,
     }
+
+
+def _comments_payload(
+    db: Session,
+    comments: list[models.SocialPostComment],
+    current_user_id: int,
+):
+    if not comments:
+        return []
+    comment_ids = [comment.id for comment in comments]
+    reply_counts = dict(db.query(
+        models.SocialPostComment.parent_id,
+        func.count(models.SocialPostComment.id),
+    ).filter(
+        models.SocialPostComment.parent_id.in_(comment_ids),
+    ).group_by(models.SocialPostComment.parent_id).all())
+    reaction_counts = {}
+    for comment_id, reaction, count in db.query(
+        models.SocialPostCommentReaction.comment_id,
+        models.SocialPostCommentReaction.reaction,
+        func.count(models.SocialPostCommentReaction.id),
+    ).filter(
+        models.SocialPostCommentReaction.comment_id.in_(comment_ids),
+    ).group_by(
+        models.SocialPostCommentReaction.comment_id,
+        models.SocialPostCommentReaction.reaction,
+    ).all():
+        reaction_counts.setdefault(comment_id, {})[reaction] = count
+    my_reactions = dict(db.query(
+        models.SocialPostCommentReaction.comment_id,
+        models.SocialPostCommentReaction.reaction,
+    ).filter(
+        models.SocialPostCommentReaction.comment_id.in_(comment_ids),
+        models.SocialPostCommentReaction.user_id == current_user_id,
+    ).all())
+    return [
+        _comment_payload(
+            comment,
+            reply_count=reply_counts.get(comment.id, 0),
+            reaction_counts=reaction_counts.get(comment.id, {}),
+            my_reaction=my_reactions.get(comment.id),
+        )
+        for comment in comments
+    ]
+
+
+def _comment_reaction_payload(db: Session, comment_id: int, user_id: int):
+    counts = dict(db.query(
+        models.SocialPostCommentReaction.reaction,
+        func.count(models.SocialPostCommentReaction.id),
+    ).filter_by(comment_id=comment_id).group_by(
+        models.SocialPostCommentReaction.reaction,
+    ).all())
+    my_reaction = db.query(models.SocialPostCommentReaction.reaction).filter_by(
+        comment_id=comment_id,
+        user_id=user_id,
+    ).scalar()
+    return {"comment_id": comment_id, "reaction_counts": counts, "my_reaction": my_reaction}
 
 
 @router.get("", response_model=list[schemas.SocialPostResponse])
@@ -230,7 +297,7 @@ def list_social_post_comments(
     ).filter(models.SocialPostComment.post_id == post_id).order_by(
         models.SocialPostComment.created_at.asc(), models.SocialPostComment.id.asc(),
     ).all()
-    return [_comment_payload(comment) for comment in comments]
+    return _comments_payload(db, comments, current_user.id)
 
 
 @router.post("/{post_id}/comments", response_model=schemas.SocialPostCommentResponse, status_code=status.HTTP_201_CREATED)
@@ -241,13 +308,108 @@ def create_social_post_comment(
     db: Session = Depends(database.get_db),
 ):
     _post_or_404(db, post_id)
-    comment = models.SocialPostComment(post_id=post_id, author_id=current_user.id, content=data.content)
+    parent_id = data.parent_id
+    if parent_id is not None:
+        parent = db.query(models.SocialPostComment).filter_by(id=parent_id, post_id=post_id).first()
+        if not parent:
+            raise HTTPException(status_code=404, detail="Không tìm thấy bình luận cần trả lời")
+        parent_id = parent.parent_id or parent.id
+    comment = models.SocialPostComment(
+        post_id=post_id,
+        author_id=current_user.id,
+        parent_id=parent_id,
+        content=data.content,
+    )
     db.add(comment)
     db.commit()
     comment = db.query(models.SocialPostComment).options(
         joinedload(models.SocialPostComment.author).joinedload(models.User.profile),
     ).filter(models.SocialPostComment.id == comment.id).first()
-    return _comment_payload(comment)
+    return _comments_payload(db, [comment], current_user.id)[0]
+
+
+@router.put("/{post_id}/comments/{comment_id}", response_model=schemas.SocialPostCommentResponse)
+def update_social_post_comment(
+    post_id: int,
+    comment_id: int,
+    data: schemas.SocialPostCommentUpdate,
+    current_user: models.User = Depends(auth_utils.get_current_user),
+    db: Session = Depends(database.get_db),
+):
+    comment = db.query(models.SocialPostComment).filter_by(id=comment_id, post_id=post_id).first()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Không tìm thấy bình luận")
+    if comment.author_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Chỉ chủ bình luận mới được chỉnh sửa")
+
+    comment.content = data.content
+    db.commit()
+    comment = db.query(models.SocialPostComment).options(
+        joinedload(models.SocialPostComment.author).joinedload(models.User.profile),
+    ).filter_by(id=comment_id, post_id=post_id).first()
+    return _comments_payload(db, [comment], current_user.id)[0]
+
+
+@router.put(
+    "/{post_id}/comments/{comment_id}/reaction",
+    response_model=schemas.SocialPostCommentReactionResponse,
+)
+def set_social_post_comment_reaction(
+    post_id: int,
+    comment_id: int,
+    data: schemas.SocialPostCommentReactionCreate,
+    current_user: models.User = Depends(auth_utils.get_current_user),
+    db: Session = Depends(database.get_db),
+):
+    comment = db.query(models.SocialPostComment).filter_by(id=comment_id, post_id=post_id).first()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Không tìm thấy bình luận")
+    reaction = db.query(models.SocialPostCommentReaction).filter_by(
+        comment_id=comment_id,
+        user_id=current_user.id,
+    ).first()
+    if reaction:
+        reaction.reaction = data.reaction
+    else:
+        db.add(models.SocialPostCommentReaction(
+            comment_id=comment_id,
+            user_id=current_user.id,
+            reaction=data.reaction,
+        ))
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        reaction = db.query(models.SocialPostCommentReaction).filter_by(
+            comment_id=comment_id,
+            user_id=current_user.id,
+        ).first()
+        if not reaction:
+            raise HTTPException(status_code=409, detail="Không thể cập nhật cảm xúc")
+        reaction.reaction = data.reaction
+        db.commit()
+    return _comment_reaction_payload(db, comment_id, current_user.id)
+
+
+@router.delete(
+    "/{post_id}/comments/{comment_id}/reaction",
+    response_model=schemas.SocialPostCommentReactionResponse,
+)
+def remove_social_post_comment_reaction(
+    post_id: int,
+    comment_id: int,
+    current_user: models.User = Depends(auth_utils.get_current_user),
+    db: Session = Depends(database.get_db),
+):
+    comment = db.query(models.SocialPostComment).filter_by(id=comment_id, post_id=post_id).first()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Không tìm thấy bình luận")
+    db.query(models.SocialPostCommentReaction).filter_by(
+        comment_id=comment_id,
+        user_id=current_user.id,
+    ).delete(synchronize_session=False)
+    db.commit()
+    return _comment_reaction_payload(db, comment_id, current_user.id)
 
 
 @router.delete("/{post_id}/comments/{comment_id}", status_code=status.HTTP_204_NO_CONTENT)

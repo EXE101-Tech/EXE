@@ -421,10 +421,13 @@ class ChatConversationResponse(BaseModel):
     last_message: Optional[str] = None
     updated_at: Optional[datetime] = None
     unread_count: int = 0
+    friendship_status: str = "none"
+    friendship_id: Optional[int] = None
 
 
 class ChatConversationDetailResponse(ChatConversationResponse):
     messages: List[ChatMessageResponse] = Field(default_factory=list)
+    has_more: bool = False
 
 
 class NotificationResponse(BaseModel):
@@ -656,7 +659,7 @@ class SocialPostLikeResponse(BaseModel):
     like_count: int
 
 
-class SocialPostCommentCreate(BaseModel):
+class SocialPostCommentContent(BaseModel):
     content: str = Field(..., min_length=1, max_length=1000)
 
     @field_validator("content")
@@ -668,14 +671,43 @@ class SocialPostCommentCreate(BaseModel):
         return cleaned
 
 
+class SocialPostCommentCreate(SocialPostCommentContent):
+    parent_id: Optional[int] = None
+
+
+class SocialPostCommentUpdate(SocialPostCommentContent):
+    pass
+
+
+class SocialPostCommentReactionCreate(BaseModel):
+    reaction: str
+
+    @field_validator("reaction")
+    @classmethod
+    def validate_reaction(cls, value: str) -> str:
+        if value not in {"like", "love", "laugh", "wow", "sad", "angry"}:
+            raise ValueError("Cảm xúc bình luận không hợp lệ")
+        return value
+
+
 class SocialPostCommentResponse(BaseModel):
     id: int
     post_id: int
     author_id: int
+    parent_id: Optional[int] = None
     author_name: str
     author_avatar_url: Optional[str] = None
     content: str
     created_at: datetime
+    reply_count: int = 0
+    reaction_counts: Dict[str, int] = Field(default_factory=dict)
+    my_reaction: Optional[str] = None
+
+
+class SocialPostCommentReactionResponse(BaseModel):
+    comment_id: int
+    reaction_counts: Dict[str, int] = Field(default_factory=dict)
+    my_reaction: Optional[str] = None
 
 
 class LfgParticipantStatusUpdate(BaseModel):
