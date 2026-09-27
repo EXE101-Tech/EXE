@@ -11,6 +11,7 @@ export function useTeamsQuery(filters: TeamFilters = {}) {
     queryKey: queryKeys.teams.list(filters),
     queryFn: () => teamsApi.getAll(filters),
     enabled: isAuthenticated,
+    refetchInterval: isAuthenticated ? 2_000 : false,
   });
 }
 
@@ -76,6 +77,18 @@ export function useSetTeamMemberStatusMutation(id: number) {
   return useMutation({
     mutationFn: ({ userId, status }: { userId: number; status: 'APPROVED' | 'REJECTED' }) =>
       teamsApi.setMemberStatus(id, userId, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['teams', 'members', id] });
+      invalidate(id);
+    },
+  });
+}
+
+export function useRemoveTeamMemberMutation(id: number) {
+  const queryClient = useQueryClient();
+  const invalidate = useInvalidateTeamLists();
+  return useMutation({
+    mutationFn: (userId: number) => teamsApi.removeMember(id, userId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['teams', 'members', id] });
       invalidate(id);

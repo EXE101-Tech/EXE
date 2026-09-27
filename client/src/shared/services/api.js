@@ -139,7 +139,7 @@ export const gameRoomService = {
 };
 
 export const teamService = {
-  getAll: (filters = {}) => getCached('/teams', { params: filters }),
+  getAll: (filters = {}) => apiClient.get('/teams', { params: filters }),
   create: (data) => apiClient.post('/teams', data),
   update: (id, data) => apiClient.patch(`/teams/${id}`, data),
   remove: (id) => apiClient.delete(`/teams/${id}`),
@@ -147,6 +147,7 @@ export const teamService = {
   leave: (id) => apiClient.delete(`/teams/${id}/membership`),
   getMembers: (id, status) => apiClient.get(`/teams/${id}/members`, { params: status ? { status } : {} }),
   setMemberStatus: (id, userId, status) => apiClient.patch(`/teams/${id}/members/${userId}`, { status }),
+  removeMember: (id, userId) => apiClient.delete(`/teams/${id}/members/${userId}`),
   getReviews: (id) => apiClient.get(`/teams/${id}/reviews`),
   review: (id, data) => apiClient.post(`/teams/${id}/reviews`, data),
 };

@@ -504,6 +504,7 @@ class TeamMemberResponse(BaseModel):
     team_id: int
     user_id: int
     full_name: Optional[str] = None
+    avatar_url: Optional[str] = None
     email: Optional[str] = None
     status: str
     joined_at: datetime

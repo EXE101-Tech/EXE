@@ -27,6 +27,7 @@ export const teamMemberResponseSchema = z.object({
   team_id: z.number(),
   user_id: z.number(),
   full_name: z.string().nullable().optional(),
+  avatar_url: z.string().nullable().optional(),
   email: z.string().nullable().optional(),
   status: z.string(),
   joined_at: z.string(),

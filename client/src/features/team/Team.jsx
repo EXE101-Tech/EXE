@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Users, PlusCircle, Sparkles, SlidersHorizontal, Crown, Shield, UserCheck, Trophy, Filter, ChevronDown } from 'lucide-react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { Users, PlusCircle, Sparkles, SlidersHorizontal, Crown, Shield, UserCheck, Trophy, Filter, ChevronDown, Trash2 } from 'lucide-react';
 import { useSportFilter } from '../../shared/context/SportFilterContext';
 import TeamCard from './components/TeamCard';
 import CreateTeamModal from './components/CreateTeamModal';
@@ -29,6 +29,7 @@ export default function Team() {
   const { openChat } = useChat();
   const { user } = useAuth();
   const sportExperience = useMemo(() => createSportExperienceMap(user?.sports), [user?.sports]);
+  const isLoadingTeamsRef = useRef(false);
   const [teams, setTeams] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -41,8 +42,10 @@ export default function Team() {
   const [members, setMembers] = useState([]);
   const [alertMessage, setAlertMessage] = useState('');
 
-  const loadTeams = useCallback(async () => {
-    setIsLoading(true);
+  const loadTeams = useCallback(async (silent = false) => {
+    if (isLoadingTeamsRef.current) return;
+    isLoadingTeamsRef.current = true;
+    if (!silent) setIsLoading(true);
     try {
       const items = await teamService.getAll({ scope: 'all', sport_id: selectedSport || undefined });
       const emojis = { badminton: '🏸', football: '⚽', pickleball: '🏓' };
@@ -64,13 +67,26 @@ export default function Team() {
       })));
       setError('');
     } catch (err) {
-      setError(err.message || 'Không tải được danh sách CLB');
+      if (!silent) setError(err.message || 'Không tải được danh sách CLB');
     } finally {
-      setIsLoading(false);
+      isLoadingTeamsRef.current = false;
+      if (!silent) setIsLoading(false);
     }
   }, [selectedSport]);
 
   useEffect(() => { loadTeams(); }, [loadTeams]);
+
+  useEffect(() => {
+    const refreshWhileVisible = () => {
+      if (document.visibilityState === 'visible') loadTeams(true);
+    };
+    const interval = window.setInterval(refreshWhileVisible, 2_000);
+    window.addEventListener('focus', refreshWhileVisible);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refreshWhileVisible);
+    };
+  }, [loadTeams]);
 
   // Filter by tab (captain / member / discover) + sport from navbar
   const filteredTeams = useMemo(() => {
@@ -150,6 +166,17 @@ export default function Team() {
       setMembers((current) => current.filter((item) => item.user_id !== member.user_id));
       await loadTeams();
     } catch (err) { showToast(err.message || 'Không cập nhật được thành viên'); }
+  };
+
+  const removeMember = async (member) => {
+    const memberName = member.full_name || 'thành viên này';
+    if (!window.confirm(`Xóa ${memberName} khỏi CLB?`)) return;
+    try {
+      await teamService.removeMember(memberDialog.id, member.user_id);
+      setMembers((current) => current.filter((item) => item.user_id !== member.user_id));
+      await loadTeams(true);
+      showToast(`Đã xóa ${memberName} khỏi CLB.`);
+    } catch (err) { showToast(err.message || 'Không xóa được thành viên'); }
   };
 
   return (
@@ -307,14 +334,22 @@ export default function Team() {
         <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/60 p-4" role="presentation" onClick={() => setMemberDialog(null)}>
           <section className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl dark:bg-slate-900" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
             <div className="mb-4 flex items-center justify-between gap-3">
-              <h2 className="text-lg font-black">{memberDialog.isCaptain ? 'Yêu cầu tham gia' : 'Thành viên CLB'} · {memberDialog.name}</h2>
+              <h2 className="text-lg font-black">{memberDialog.isCaptain ? 'Quản lý thành viên' : 'Thành viên CLB'} · {memberDialog.name}</h2>
               <button onClick={() => setMemberDialog(null)} aria-label="Đóng" className="rounded-lg px-3 py-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10">×</button>
             </div>
             {members.length === 0 ? <p className="py-6 text-center text-sm text-slate-500">{memberDialog.isCaptain ? 'Không có yêu cầu đang chờ.' : 'CLB chưa có thành viên được hiển thị.'}</p> : (
               <ul className="max-h-[60vh] space-y-2 overflow-y-auto">
                 {members.map((member) => <li key={member.id} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 p-3 dark:bg-white/5">
-                  <div className="min-w-0"><p className="truncate text-sm font-bold">{member.full_name || member.email}</p><p className="text-xs text-slate-500">{member.status}</p></div>
-                  {memberDialog.isCaptain && member.status === 'PENDING' && <div className="flex gap-2"><button onClick={() => updateMember(member, 'REJECTED')} className="rounded-lg border px-3 py-1.5 text-xs font-bold">Từ chối</button><button onClick={() => updateMember(member, 'APPROVED')} className="rounded-lg bg-[#589470] px-3 py-1.5 text-xs font-bold text-white">Duyệt</button></div>}
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#589470]/15 text-sm font-black text-[#589470]">
+                      {member.avatar_url
+                        ? <img src={resolveMediaUrl(member.avatar_url)} alt="" className="h-full w-full object-cover" />
+                        : (member.full_name || 'Người chơi').charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0"><p className="truncate text-sm font-bold">{member.full_name || member.email || 'Người chơi'}</p><p className="text-xs text-slate-500">{member.status === 'APPROVED' ? 'Đã duyệt' : member.status === 'PENDING' ? 'Đang chờ duyệt' : member.status}</p></div>
+                  </div>
+                  {memberDialog.isCaptain && member.status === 'PENDING' && <div className="flex shrink-0 gap-2"><button onClick={() => updateMember(member, 'REJECTED')} className="rounded-lg border px-3 py-1.5 text-xs font-bold">Từ chối</button><button onClick={() => updateMember(member, 'APPROVED')} className="rounded-lg bg-[#589470] px-3 py-1.5 text-xs font-bold text-white">Duyệt</button></div>}
+                  {memberDialog.isCaptain && member.status === 'APPROVED' && member.user_id !== user?.id && <button onClick={() => removeMember(member)} className="flex shrink-0 items-center gap-1.5 rounded-lg border border-rose-300 px-2.5 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-50 dark:border-rose-500/30 dark:hover:bg-rose-500/10"><Trash2 className="h-3.5 w-3.5" /><span>Xóa</span></button>}
                 </li>)}
               </ul>
             )}
