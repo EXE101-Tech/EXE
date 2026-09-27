@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, or_
@@ -240,7 +241,7 @@ def get_messages(
         has_more = len(page) > limit
         messages = list(reversed(page[:limit]))
 
-    payload = _conversation_payload(db, conversation, current_user.id)
+    payload = _conversation_payload(db, conversation, current_user.id, unread_count=0)
     payload["messages"] = [
         {
             "id": message.id,

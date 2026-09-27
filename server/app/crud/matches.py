@@ -1,6 +1,15 @@
 from sqlalchemy.orm import Session, joinedload, selectinload
 from app import models, schemas
 
+def _match_eager_options():
+    return [
+        joinedload(models.Match.host).joinedload(models.User.profile),
+        joinedload(models.Match.sport),
+        joinedload(models.Match.court).joinedload(models.Court.venue),
+        joinedload(models.Match.court).joinedload(models.Court.sport),
+        selectinload(models.Match.participants).joinedload(models.MatchParticipant.user).joinedload(models.User.profile),
+    ]
+
 def create_match(db: Session, host_id: int, match: schemas.MatchCreate):
     db_match = models.Match(
         host_id=host_id,
@@ -33,23 +42,15 @@ def create_match(db: Session, host_id: int, match: schemas.MatchCreate):
     return db_match
 
 def get_matches(db: Session, sport_id: int = None, status: str = None):
-    query = db.query(models.Match).options(
-        joinedload(models.Match.host).joinedload(models.User.profile),
-        joinedload(models.Match.host).selectinload(models.User.sports).joinedload(models.UserSport.sport),
-        joinedload(models.Match.sport),
-        joinedload(models.Match.court).joinedload(models.Court.sport),
-        joinedload(models.Match.court).joinedload(models.Court.venue),
-        selectinload(models.Match.participants).joinedload(models.MatchParticipant.user).joinedload(models.User.profile),
-        selectinload(models.Match.participants).joinedload(models.MatchParticipant.user).selectinload(models.User.sports).joinedload(models.UserSport.sport),
-    )
+    query = db.query(models.Match).options(*_match_eager_options())
     if sport_id:
         query = query.filter(models.Match.sport_id == sport_id)
     if status:
         query = query.filter(models.Match.status == status)
-    return query.all()
+    return query.order_by(models.Match.created_at.desc()).all()
 
 def get_match_by_id(db: Session, match_id: int):
-    return db.query(models.Match).filter(models.Match.id == match_id).first()
+    return db.query(models.Match).options(*_match_eager_options()).filter(models.Match.id == match_id).first()
 
 def join_match(db: Session, match_id: int, user_id: int, note: str = None):
     exists = db.query(models.MatchParticipant).filter(
