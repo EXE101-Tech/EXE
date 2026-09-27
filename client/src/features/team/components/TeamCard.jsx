@@ -18,7 +18,7 @@ const getSportBadgeColors = (sportId) => {
   }
 };
 
-export default function TeamCard({ team, activeTab, onReview, onJoin, onManageMembers, onEdit, onChat }) {
+export default function TeamCard({ team, onReview, onJoin, onManageMembers, onEdit, onChat }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const isFull = team.members >= team.totalSlots;
   const available = team.totalSlots - team.members;
@@ -97,7 +97,7 @@ export default function TeamCard({ team, activeTab, onReview, onJoin, onManageMe
                   )}
                 </div>
                 <div className="flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400">
-                  <span>Trưởng CLB</span>
+                  <span>Người mở CLB</span>
                   <span>•</span>
                   <span>{team.createdAt}</span>
                 </div>
@@ -173,7 +173,7 @@ export default function TeamCard({ team, activeTab, onReview, onJoin, onManageMe
 
         {/* Action Buttons – context-aware based on tab */}
         <div className="flex items-center gap-2 sm:gap-3 mt-auto pt-3 border-t border-slate-100 dark:border-white/5">
-          {activeTab === 'captain' ? (
+          {team.isCaptain ? (
             /* Captain actions */
             <>
               <button
@@ -193,7 +193,7 @@ export default function TeamCard({ team, activeTab, onReview, onJoin, onManageMe
                 <span className="sm:hidden">Sửa</span>
               </button>
             </>
-          ) : activeTab === 'member' ? (
+          ) : team.isMember ? (
             /* Member actions – only view members, no rating */
             <>
               <button
@@ -205,8 +205,10 @@ export default function TeamCard({ team, activeTab, onReview, onJoin, onManageMe
               </button>
               <button
                 onClick={() => onChat?.(team)}
-                className="p-2.5 rounded-xl sm:rounded-2xl bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/15 transition-all flex items-center justify-center shrink-0"
-                title="Nhắn tin với Trưởng CLB"
+                disabled={!team.owner_id}
+                className="p-2.5 rounded-xl sm:rounded-2xl bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/15 transition-all flex items-center justify-center shrink-0 disabled:cursor-not-allowed disabled:opacity-40"
+                title={team.owner_id ? 'Nhắn tin với người mở CLB' : 'CLB này chưa có tài khoản người mở để nhắn tin'}
+                aria-label="Nhắn tin với người mở CLB"
               >
                 <MessageSquare className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
               </button>
@@ -233,8 +235,10 @@ export default function TeamCard({ team, activeTab, onReview, onJoin, onManageMe
               </button>
               <button
                 onClick={() => onChat?.(team)}
-                className="p-2.5 rounded-xl sm:rounded-2xl bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/15 transition-all flex items-center justify-center shrink-0"
-                title="Nhắn tin với Trưởng CLB"
+                disabled={!team.owner_id}
+                className="p-2.5 rounded-xl sm:rounded-2xl bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/15 transition-all flex items-center justify-center shrink-0 disabled:cursor-not-allowed disabled:opacity-40"
+                title={team.owner_id ? 'Nhắn tin với người mở CLB' : 'CLB này chưa có tài khoản người mở để nhắn tin'}
+                aria-label="Nhắn tin với người mở CLB"
               >
                 <MessageSquare className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
               </button>

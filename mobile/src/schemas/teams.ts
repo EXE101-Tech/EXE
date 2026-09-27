@@ -51,7 +51,7 @@ export interface TeamCreateInput {
   description?: string;
   location: string;
   total_slots?: number;
-  image_url?: string;
+  image_url?: string | null;
   tags?: string[];
 }
 

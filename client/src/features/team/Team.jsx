@@ -6,7 +6,7 @@ import CreateTeamModal from './components/CreateTeamModal';
 import ReviewTeamModal from './components/ReviewTeamModal';
 import FilterSelect from '../../shared/components/FilterSelect';
 import { useSearchParams } from 'react-router-dom';
-import { teamService } from '../../shared/services/api';
+import { resolveMediaUrl, teamService } from '../../shared/services/api';
 import { useChat } from '../../shared/context/ChatContext';
 import { useAuth } from '../../shared/context/AuthContext';
 import { createSportExperienceMap, sortBySportExperience } from '../../shared/utils/sportExperienceSort';
@@ -51,7 +51,7 @@ export default function Team() {
         ...team,
         sportId: team.sport_id,
         sportEmoji: emojis[team.sport_id] || '🏅',
-        image: team.image_url || images[team.sport_id] || badmintonImg,
+        image: resolveMediaUrl(team.image_url) || images[team.sport_id] || badmintonImg,
         captain: team.owner_name,
         members: team.member_count,
         totalSlots: team.total_slots,
@@ -93,6 +93,15 @@ export default function Team() {
   const showToast = (msg) => {
     setAlertMessage(msg);
     setTimeout(() => setAlertMessage(''), 4500);
+  };
+
+  const handleChatWithOpener = (team) => {
+    const ownerId = Number(team.owner_id);
+    if (!Number.isInteger(ownerId) || ownerId <= 0) {
+      showToast('CLB này không còn tài khoản người mở để nhắn tin.');
+      return;
+    }
+    openChat({ id: ownerId, name: team.captain });
   };
 
   const handleSaveTeam = async (data) => {
@@ -265,12 +274,11 @@ export default function Team() {
               <TeamCard
                 key={team.id}
                 team={team}
-                activeTab={activeTab}
                 onReview={() => setReviewTeam(team)}
                 onJoin={handleJoinTeam}
                 onManageMembers={openMembers}
                 onEdit={(item) => { setEditingTeam(item); setIsCreateModalOpen(true); }}
-                onChat={(item) => openChat({ id: item.owner_id, name: item.captain })}
+                onChat={handleChatWithOpener}
               />
             ))}
           </div>

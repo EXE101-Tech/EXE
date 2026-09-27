@@ -31,7 +31,7 @@ def _team_payload(db: Session, team: models.Team, user_id: Optional[int] = None)
     return {
         "id": team.id,
         "owner_id": team.owner_id,
-        "owner_name": owner_name or (team.owner.email if team.owner else "Trưởng CLB chưa cập nhật"),
+        "owner_name": owner_name or (team.owner.email if team.owner else "Người mở CLB chưa cập nhật"),
         "name": team.name,
         "sport_id": sport_key,
         "sport_name": team.sport_name or (sport.name if sport else "Môn thể thao"),
@@ -105,7 +105,7 @@ def _team_payloads(db: Session, teams: List[models.Team], user_id: int):
         payloads.append({
             "id": team.id,
             "owner_id": team.owner_id,
-            "owner_name": owner.profile.full_name if owner and owner.profile and owner.profile.full_name else (owner.email if owner else "Trưởng CLB chưa cập nhật"),
+            "owner_name": owner.profile.full_name if owner and owner.profile and owner.profile.full_name else (owner.email if owner else "Người mở CLB chưa cập nhật"),
             "name": team.name,
             "sport_id": sport_key,
             "sport_name": team.sport_name or (sport.name if sport else "Môn thể thao"),
@@ -281,7 +281,7 @@ def leave_team(
 ):
     team = _get_team_or_404(db, team_id)
     if team.owner_id == current_user.id:
-        raise HTTPException(status_code=409, detail="Trưởng CLB cần xóa CLB hoặc chuyển quyền trước")
+        raise HTTPException(status_code=409, detail="Người mở CLB cần xóa CLB hoặc chuyển quyền trước")
     membership = db.query(models.TeamMembership).filter_by(team_id=team.id, user_id=current_user.id).first()
     if not membership:
         raise HTTPException(status_code=404, detail="Bạn chưa tham gia CLB")

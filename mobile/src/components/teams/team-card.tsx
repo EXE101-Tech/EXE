@@ -61,7 +61,7 @@ export function TeamCard({ team, onJoin, onLeave, onManage, onEdit, onReview, on
               <Badge variant={full ? 'neutral' : 'success'} label={full ? 'Đã đầy' : `Còn ${available} slot`} />
             </View>
             <Text className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-              Trưởng CLB • {createdAt}
+              Người mở CLB • {createdAt}
             </Text>
             <Text className="text-sm font-black leading-tight text-slate-900 dark:text-white" numberOfLines={2}>
               {team.name}
@@ -115,7 +115,7 @@ export function TeamCard({ team, onJoin, onLeave, onManage, onEdit, onReview, on
             </>
           ) : team.is_member ? (
             <>
-              <Button variant="outline" size="icon" onPress={onChat}>
+              <Button variant="outline" size="icon" disabled={!team.owner_id} onPress={onChat}>
                 <MessageCircle size={15} color="#0EA5E9" />
               </Button>
               <Button variant="outline" size="sm" className="flex-1" onPress={onManage}>
@@ -142,7 +142,7 @@ export function TeamCard({ team, onJoin, onLeave, onManage, onEdit, onReview, on
                 <UserPlus size={14} color="#fff" />
                 <Text className="text-xs font-bold text-white">{pending ? 'Đang chờ duyệt' : 'Xin gia nhập CLB'}</Text>
               </Button>
-              <Button variant="outline" size="icon" onPress={onChat}>
+              <Button variant="outline" size="icon" disabled={!team.owner_id} onPress={onChat}>
                 <MessageCircle size={15} color="#0EA5E9" />
               </Button>
             </>

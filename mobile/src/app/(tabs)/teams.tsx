@@ -56,7 +56,10 @@ export default function TeamsScreen() {
   }, [teams, sportFilter, scope]);
 
   const handleChat = async (ownerId: number | null | undefined) => {
-    if (!ownerId) return;
+    if (!ownerId || !Number.isInteger(ownerId) || ownerId <= 0) {
+      Alert.alert('Không thể mở chat', 'CLB này không còn tài khoản người mở để nhắn tin.');
+      return;
+    }
     try {
       const conversation = await startConversation.mutateAsync(ownerId);
       router.push({ pathname: '/chat/[id]', params: { id: String(conversation.id) } });
@@ -143,7 +146,7 @@ export default function TeamsScreen() {
 
       <CreateTeamModal visible={isCreateOpen} onClose={() => setIsCreateOpen(false)} />
       {editingTeam ? (
-        <CreateTeamModal visible team={editingTeam} onClose={() => setEditingTeam(null)} />
+        <CreateTeamModal key={editingTeam.id} visible team={editingTeam} onClose={() => setEditingTeam(null)} />
       ) : null}
       {managingTeam ? (
         <TeamMembersModal
