@@ -15,7 +15,7 @@ import { FilterGrid } from '@/components/ui/filter-grid';
 import type { SelectOption } from '@/components/ui/select-dropdown';
 import { useStartConversationMutation } from '@/hooks/queries/use-chat';
 import { useJoinTeamMutation, useLeaveTeamMutation, useTeamsQuery } from '@/hooks/queries/use-teams';
-import { SPORTS } from '@/lib/constants';
+import { isActiveSportName, SPORTS } from '@/lib/constants';
 import type { TeamResponse } from '@/schemas/teams';
 
 const SPORT_OPTIONS: SelectOption[] = [
@@ -47,6 +47,7 @@ export default function TeamsScreen() {
 
   const filteredTeams = useMemo(() => {
     return (teams ?? []).filter((team) => {
+      if (!isActiveSportName(team.sport_name)) return false;
       if (sportFilter !== 'all' && team.sport_id !== sportFilter) return false;
       if (scope === 'captain') return team.is_captain;
       if (scope === 'member') return team.is_member;

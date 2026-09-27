@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { X, Gamepad2, Trophy, MapPin, Calendar, Clock, Users, DollarSign, AlignLeft, Sparkles, AlertCircle } from 'lucide-react';
 import { sportService } from '../../../shared/services/api';
 import { parseCostInputToVnd } from '../../../shared/utils/price';
+import { isActiveSport } from '../../../shared/constants/sports';
 
-const SPORT_EMOJI = { badminton: '🏸', football: '⚽', pickleball: '🏓', tennis: '🎾', basketball: '🏀', volleyball: '🏐' };
+const SPORT_EMOJI = { badminton: '🏸', football: '⚽', pickleball: '🏓' };
 
 const LEVELS = [
   { value: 'Beginner', label: 'Mới tập / Vui là chính' },
@@ -33,7 +34,7 @@ function CreateRoomModal({ isOpen, onClose, onSubmit, isLoading = false }) {
   useEffect(() => {
     if (!isOpen) return;
     sportService.getAll().then((items) => {
-      const available = items.filter((item) => item.id != null);
+      const available = items.filter((item) => item.id != null && isActiveSport(item));
       setSports(available);
       setFormData((current) => {
         if (available.some((item) => item.id === Number(current.sport_id))) return current;

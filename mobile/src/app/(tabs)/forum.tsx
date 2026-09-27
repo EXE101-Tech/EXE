@@ -20,7 +20,7 @@ import {
   useLeaveLfgPostMutation,
   useLfgPostsQuery,
 } from '@/hooks/queries/use-lfg';
-import { SPORTS } from '@/lib/constants';
+import { isActiveSportName, SPORTS } from '@/lib/constants';
 import { parseStoredCostToVnd } from '@/lib/price';
 import type { LfgPostResponse } from '@/schemas/lfg';
 import { useAuthStore } from '@/stores/auth-store';
@@ -106,6 +106,7 @@ export default function ForumScreen() {
 
   const filteredPosts = useMemo(() => {
     return (posts ?? []).filter((post) => {
+      if (!isActiveSportName(post.sport_name)) return false;
       if (sportFilter !== 'all' && post.sport_id !== sportFilter) return false;
       if (scopeFilter === 'mine' && post.author_id !== currentUserId) return false;
       if (locationFilter !== 'all' && !post.location.toLowerCase().includes(locationFilter.toLowerCase())) {

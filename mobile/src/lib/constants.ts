@@ -9,13 +9,13 @@ export type SportKey =
   | 'basketball'
   | 'volleyball';
 
+/** Sports currently exposed by the app. Other keys remain recognized for existing records. */
+export const ACTIVE_SPORT_KEYS: readonly SportKey[] = ['badminton', 'pickleball', 'football'];
+
 export const SPORTS: { key: SportKey; name: string; emoji: string }[] = [
   { key: 'badminton', name: 'Cầu lông', emoji: '🏸' },
-  { key: 'football', name: 'Bóng đá', emoji: '⚽' },
   { key: 'pickleball', name: 'Pickleball', emoji: '🏓' },
-  { key: 'tennis', name: 'Tennis', emoji: '🎾' },
-  { key: 'basketball', name: 'Bóng rổ', emoji: '🏀' },
-  { key: 'volleyball', name: 'Bóng chuyền', emoji: '🏐' },
+  { key: 'football', name: 'Bóng đá', emoji: '⚽' },
 ];
 
 export const SPORT_KEY_BY_NAME: Record<string, SportKey> = {
@@ -23,6 +23,7 @@ export const SPORT_KEY_BY_NAME: Record<string, SportKey> = {
   'cầu lông': 'badminton',
   football: 'football',
   'bóng đá': 'football',
+  'đá banh': 'football',
   pickleball: 'pickleball',
   tennis: 'tennis',
   basketball: 'basketball',
@@ -30,6 +31,13 @@ export const SPORT_KEY_BY_NAME: Record<string, SportKey> = {
   volleyball: 'volleyball',
   'bóng chuyền': 'volleyball',
 };
+
+export function isActiveSportName(name?: string | null): boolean {
+  if (!name) return false;
+  const normalized = name.trim().toLowerCase();
+  const key = SPORT_KEY_BY_NAME[normalized] ?? normalized as SportKey;
+  return ACTIVE_SPORT_KEYS.includes(key);
+}
 
 export type SkillLevel = 'Chưa biết' | 'Beginner' | 'Intermediate' | 'Advanced' | 'Expert';
 

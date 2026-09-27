@@ -10,13 +10,11 @@ import { teamService } from '../../shared/services/api';
 import { useChat } from '../../shared/context/ChatContext';
 import { useAuth } from '../../shared/context/AuthContext';
 import { createSportExperienceMap, sortBySportExperience } from '../../shared/utils/sportExperienceSort';
+import { isActiveSport } from '../../shared/constants/sports';
 
 import badmintonImg from '../../assets/sports/badminton.avif';
 import footballImg from '../../assets/sports/foodball.avif';
 import pickleballImg from '../../assets/sports/pickleball.jpg';
-import tennisImg from '../../assets/sports/tennis.jpg';
-import basketballImg from '../../assets/sports/bong_ro.jpg';
-import volleyballImg from '../../assets/sports/volleyball.jpg';
 
 const TABS = [
   { id: 'captain', label: 'CLB tôi làm chủ', icon: Crown, emoji: '👑' },
@@ -47,9 +45,9 @@ export default function Team() {
     setIsLoading(true);
     try {
       const items = await teamService.getAll({ scope: 'all', sport_id: selectedSport || undefined });
-      const emojis = { badminton: '🏸', football: '⚽', pickleball: '🏓', tennis: '🎾', basketball: '🏀', volleyball: '🏐' };
-      const images = { badminton: badmintonImg, football: footballImg, pickleball: pickleballImg, tennis: tennisImg, basketball: basketballImg, volleyball: volleyballImg };
-      setTeams(items.map((team) => ({
+      const emojis = { badminton: '🏸', football: '⚽', pickleball: '🏓' };
+      const images = { badminton: badmintonImg, football: footballImg, pickleball: pickleballImg };
+      setTeams(items.filter((team) => isActiveSport(team.sport_id)).map((team) => ({
         ...team,
         sportId: team.sport_id,
         sportEmoji: emojis[team.sport_id] || '🏅',
@@ -159,7 +157,7 @@ export default function Team() {
 
 
       {/* ── Filter Bar Section ── */}
-      <div className="navbar-filter-bar pb-4 pt-2 px-4 sm:px-6 sticky top-[112px] sm:top-[132px] z-40 transition-all duration-300">
+      <div className="navbar-filter-bar pb-4 pt-0 px-4 sm:px-6 sticky top-[112px] sm:top-[132px] z-40 transition-all duration-300">
         <div className="member-filter-panel max-w-[1600px] mx-auto rounded-xl sm:rounded-2xl p-1.5 sm:p-2.5 flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-2 xl:gap-3 transition-all duration-300">
           
           {/* Mobile Header (Toggle + Action Button) */}
@@ -191,12 +189,9 @@ export default function Team() {
               onChange={(e) => setSelectedSport(e.target.value === 'all' ? null : e.target.value)}
             >
               <option value="all">Tất cả môn</option>
-              <option value="football">⚽ Bóng đá</option>
               <option value="badminton">🏸 Cầu lông</option>
               <option value="pickleball">🏓 Pickleball</option>
-              <option value="tennis">🎾 Tennis</option>
-              <option value="basketball">🏀 Bóng rổ</option>
-              <option value="volleyball">🏐 Bóng chuyền</option>
+              <option value="football">⚽ Bóng đá</option>
             </FilterSelect>
 
             <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">

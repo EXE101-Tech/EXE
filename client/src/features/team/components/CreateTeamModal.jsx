@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Crown, MapPin, Users, X } from 'lucide-react';
 import { sportService } from '../../../shared/services/api';
+import { isActiveSport } from '../../../shared/constants/sports';
 
-const SPORT_EMOJI = { badminton: '🏸', football: '⚽', pickleball: '🏓', tennis: '🎾', basketball: '🏀', volleyball: '🏐' };
+const SPORT_EMOJI = { badminton: '🏸', football: '⚽', pickleball: '🏓' };
 
 export default function CreateTeamModal({ isOpen, onClose, onSubmit, initialTeam = null }) {
   const [sports, setSports] = useState([]);
@@ -12,7 +13,7 @@ export default function CreateTeamModal({ isOpen, onClose, onSubmit, initialTeam
 
   useEffect(() => {
     if (!isOpen) return;
-    sportService.getAll().then((items) => setSports(items.filter((item) => item.id != null)))
+    sportService.getAll().then((items) => setSports(items.filter((item) => item.id != null && isActiveSport(item))))
       .catch((err) => setError(err.message || 'Không tải được danh sách môn thể thao'));
     setForm(initialTeam ? {
       name: initialTeam.name || '',
