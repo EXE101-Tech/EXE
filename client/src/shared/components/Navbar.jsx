@@ -16,7 +16,7 @@ const SEARCH_KIND_LABELS = {
   venue: 'Sân',
   gameroom: 'Phòng chơi',
   team: 'CLB',
-  lfg: 'Tìm người chơi',
+  social_post: 'Bài viết',
 };
 
 export function SearchResults({ results, loading, error, hasSearched, onSelect }) {
@@ -58,7 +58,8 @@ export function SearchResults({ results, loading, error, hasSearched, onSelect }
 
 export default function Navbar() {
   const [isDark, setIsDark] = useState(() => {
-    return localStorage.getItem('theme') === 'dark' || document.documentElement.classList.contains('dark');
+    const savedTheme = localStorage.getItem('theme');
+    return savedTheme ? savedTheme === 'dark' : document.documentElement.classList.contains('dark');
   });
   const navigate = useNavigate();
   const location = useLocation();
@@ -172,7 +173,7 @@ export default function Navbar() {
         }
       }
     });
-  }, [activeIndex]);
+  }, [activeIndex, setIndicator, setIsInitialRender]);
 
   useEffect(() => {
     updateIndicator();
@@ -186,15 +187,8 @@ export default function Navbar() {
   }, [updateIndicator]);
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-      setIsDark(true);
-    } else {
-      document.documentElement.classList.remove('dark');
-      setIsDark(false);
-    }
-  }, []);
+    document.documentElement.classList.toggle('dark', isDark);
+  }, [isDark]);
 
   useEffect(() => {
     if (!isSearchOpen) return undefined;

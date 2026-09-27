@@ -17,7 +17,7 @@ const todayLocal = () => {
   return now.toISOString().slice(0, 10);
 };
 
-const blankForm = () => ({ sport_id: 'badminton', title: '', description: '', location: '', date: todayLocal(), time_slot: '19:00 - 21:00', total_members: 4, price: '', skill_level: 'Intermediate', image_url: null });
+const blankForm = () => ({ sport_id: 'badminton', description: '', location: '', date: todayLocal(), time_slot: '19:00 - 21:00', total_members: 4, price: '', skill_level: 'Intermediate', image_url: null });
 const asDateInput = (dateLabel) => {
   if (!dateLabel) return todayLocal();
   const match = dateLabel.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
@@ -25,8 +25,7 @@ const asDateInput = (dateLabel) => {
 };
 const formFromPost = (post) => post ? {
   sport_id: post.sport_id,
-  title: post.title,
-  description: post.description || '',
+  description: post.description || post.title || '',
   location: post.location,
   date: asDateInput(post.date_label || post.date),
   time_slot: post.time_slot || post.timeSlot,
@@ -66,7 +65,6 @@ export default function CreatePostModal({ isOpen, onClose, onCreate, initialPost
       await onCreate({
         sport_id: sport.id,
         sport_name: sport.name,
-        title: form.title.trim(),
         description: form.description.trim() || null,
         location: form.location.trim(),
         time_slot: form.time_slot.trim(),
@@ -101,7 +99,6 @@ export default function CreatePostModal({ isOpen, onClose, onCreate, initialPost
           <div className="space-y-5 overflow-y-auto p-5 sm:p-7">
             {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-700 dark:bg-red-950/30 dark:text-red-300">{error}</p>}
             <fieldset><legend className="mb-2 text-xs font-bold uppercase text-slate-500">Môn thể thao *</legend><div className="grid grid-cols-3 gap-2 sm:grid-cols-6">{SPORTS.map((sport) => <button key={sport.id} type="button" onClick={() => setForm((current) => ({ ...current, sport_id: sport.id }))} className={`rounded-xl border p-2 text-center text-xs font-bold ${form.sport_id === sport.id ? 'border-[#589470] bg-[#589470]/10 text-[#589470]' : 'border-slate-200 dark:border-white/10'}`}><span className="mb-1 block text-xl">{sport.emoji}</span>{sport.name}</button>)}</div></fieldset>
-            <label className="block text-xs font-bold text-slate-600 dark:text-slate-300">Tiêu đề *<input required minLength={3} maxLength={200} value={form.title} onChange={update('title')} className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-[#589470] dark:border-white/10 dark:bg-white/5 dark:text-white" /></label>
             <label className="block text-xs font-bold text-slate-600 dark:text-slate-300"><span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> Địa điểm *</span><input required minLength={2} maxLength={255} value={form.location} onChange={update('location')} className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-[#589470] dark:border-white/10 dark:bg-white/5 dark:text-white" /></label>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block text-xs font-bold text-slate-600 dark:text-slate-300"><span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> Ngày chơi *</span><input required type="date" min={todayLocal()} value={form.date} onChange={update('date')} className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-[#589470] dark:border-white/10 dark:bg-white/5 dark:text-white" /></label>
@@ -112,7 +109,7 @@ export default function CreatePostModal({ isOpen, onClose, onCreate, initialPost
               <label className="block text-xs font-bold text-slate-600 dark:text-slate-300">Trình độ<select value={form.skill_level} onChange={update('skill_level')} className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"><option value="Beginner">Mới chơi</option><option value="Intermediate">Trung bình</option><option value="Advanced">Khá / Giỏi</option><option value="Expert">Chuyên nghiệp</option></select></label>
               <label className="block text-xs font-bold text-slate-600 dark:text-slate-300">Chi phí / người (nghìn đồng) *<input required maxLength={20} inputMode="numeric" pattern="[0-9]+|[0-9]{1,3}([.][0-9]{3})+" value={form.price} onChange={update('price')} placeholder="50 hoặc 50.000" aria-describedby="lfg-price-hint" className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-[#589470] dark:border-white/10 dark:bg-white/5 dark:text-white" /><span id="lfg-price-hint" className="mt-1 block font-normal text-slate-500">Nhập 50 = 50.000đ; có thể nhập 50.000. Không nhập số thập phân.</span></label>
             </div>
-            <label className="block text-xs font-bold text-slate-600 dark:text-slate-300">Mô tả<textarea rows={3} maxLength={4000} value={form.description} onChange={update('description')} className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-[#589470] dark:border-white/10 dark:bg-white/5 dark:text-white" /></label>
+            <label className="block text-xs font-bold text-slate-600 dark:text-slate-300">Mô tả (không bắt buộc)<textarea rows={3} maxLength={4000} value={form.description} onChange={update('description')} className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-[#589470] dark:border-white/10 dark:bg-white/5 dark:text-white" /></label>
             <div>
               <label className="mb-1.5 block text-xs font-bold text-slate-600 dark:text-slate-300">Ảnh bài đăng (tối đa 8 MB)</label>
               <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 px-4 py-3 text-sm font-semibold text-slate-600 hover:border-[#589470] dark:border-white/15 dark:text-slate-300">

@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, selectinload
 from app import models, schemas
 
 def create_match(db: Session, host_id: int, match: schemas.MatchCreate):
@@ -33,7 +33,15 @@ def create_match(db: Session, host_id: int, match: schemas.MatchCreate):
     return db_match
 
 def get_matches(db: Session, sport_id: int = None, status: str = None):
-    query = db.query(models.Match)
+    query = db.query(models.Match).options(
+        joinedload(models.Match.host).joinedload(models.User.profile),
+        joinedload(models.Match.host).selectinload(models.User.sports).joinedload(models.UserSport.sport),
+        joinedload(models.Match.sport),
+        joinedload(models.Match.court).joinedload(models.Court.sport),
+        joinedload(models.Match.court).joinedload(models.Court.venue),
+        selectinload(models.Match.participants).joinedload(models.MatchParticipant.user).joinedload(models.User.profile),
+        selectinload(models.Match.participants).joinedload(models.MatchParticipant.user).selectinload(models.User.sports).joinedload(models.UserSport.sport),
+    )
     if sport_id:
         query = query.filter(models.Match.sport_id == sport_id)
     if status:

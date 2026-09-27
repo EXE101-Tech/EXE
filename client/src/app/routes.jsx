@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '../shared/context/AuthContext';
 import Login from '../features/auth/Login.jsx';
 import Home from '../features/home/Home.jsx';
-import Tournament from '../features/tournament/Tournament.jsx';
+import SocialFeed from '../features/tournament/SocialFeed.jsx';
 import GameRoom from '../features/gameroom/GameRoom.jsx';
 import Bookings from '../features/bookings/Bookings.jsx';
 import MyBookings from '../features/bookings/MyBookings.jsx';
@@ -83,7 +83,7 @@ function AppRoutes() {
                             </Route>
                             <Route element={<ProtectedRoute><NavbarLayout /></ProtectedRoute>}>
                                 <Route path="/home" element={<Home />} />
-                                <Route path="/tournaments" element={<Tournament />} />
+                                <Route path="/tournaments" element={<SocialFeed />} />
                                 <Route path="/matches" element={<GameRoom />} />
                                 <Route path="/bookings" element={<Bookings />} />
                                 <Route path="/my-bookings" element={<MyBookings />} />

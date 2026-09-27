@@ -2,7 +2,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app import auth_utils, database, models, schemas
 from app.sport_catalog import SPORTS, resolve_sport, sport_key_for
@@ -50,6 +50,81 @@ def _team_payload(db: Session, team: models.Team, user_id: Optional[int] = None)
     }
 
 
+def _team_payloads(db: Session, teams: List[models.Team], user_id: int):
+    if not teams:
+        return []
+
+    team_ids = [team.id for team in teams]
+    owner_ids = {team.owner_id for team in teams if team.owner_id is not None}
+    sport_ids = {team.sport_id for team in teams if team.sport_id is not None}
+
+    approved_counts = dict(db.query(
+        models.TeamMembership.team_id,
+        func.count(models.TeamMembership.id),
+    ).filter(
+        models.TeamMembership.team_id.in_(team_ids),
+        models.TeamMembership.status == "APPROVED",
+    ).group_by(models.TeamMembership.team_id).all())
+
+    review_stats = {
+        team_id: (average, count)
+        for team_id, average, count in db.query(
+            models.TeamReview.team_id,
+            func.avg(models.TeamReview.rating),
+            func.count(models.TeamReview.id),
+        ).filter(models.TeamReview.team_id.in_(team_ids)).group_by(models.TeamReview.team_id).all()
+    }
+    memberships = {
+        membership.team_id: membership
+        for membership in db.query(models.TeamMembership).filter(
+            models.TeamMembership.team_id.in_(team_ids),
+            models.TeamMembership.user_id == user_id,
+        ).all()
+    }
+    owners = {
+        owner.id: owner
+        for owner in db.query(models.User).options(
+            joinedload(models.User.profile)
+        ).filter(models.User.id.in_(owner_ids)).all()
+    } if owner_ids else {}
+    sports = {
+        sport.id: sport
+        for sport in db.query(models.Sport).filter(models.Sport.id.in_(sport_ids)).all()
+    } if sport_ids else {}
+
+    payloads = []
+    for team in teams:
+        approved_count = int(approved_counts.get(team.id, 0))
+        average, rating_count = review_stats.get(team.id, (None, 0))
+        membership = memberships.get(team.id)
+        owner = owners.get(team.owner_id)
+        sport = sports.get(team.sport_id)
+        sport_key = team.sport_key or sport_key_for(sport.name if sport else "")
+        review_average = round(float(average), 1) if rating_count else round(float(team.rating or 0), 1)
+
+        payloads.append({
+            "id": team.id,
+            "owner_id": team.owner_id,
+            "owner_name": owner.profile.full_name if owner and owner.profile and owner.profile.full_name else (owner.email if owner else "Trưởng CLB chưa cập nhật"),
+            "name": team.name,
+            "sport_id": sport_key,
+            "sport_name": team.sport_name or (sport.name if sport else "Môn thể thao"),
+            "description": team.description,
+            "location": team.location or "Chưa cập nhật",
+            "total_slots": team.total_slots,
+            "member_count": max(approved_count, 1),
+            "rating": review_average,
+            "rating_count": int(rating_count or team.rating_count or 0),
+            "image_url": team.image_url,
+            "tags": team.tags or [],
+            "membership_status": membership.status if membership else None,
+            "is_captain": team.owner_id == user_id,
+            "is_member": bool(membership and membership.status == "APPROVED"),
+            "created_at": team.created_at,
+        })
+    return payloads
+
+
 def _get_team_or_404(db: Session, team_id: int):
     team = db.query(models.Team).filter(models.Team.id == team_id).first()
     if not team:
@@ -84,7 +159,7 @@ def list_teams(
             models.TeamMembership.status == "APPROVED",
         )
     teams = query.order_by(models.Team.created_at.desc()).all()
-    return [_team_payload(db, team, current_user.id) for team in teams]
+    return _team_payloads(db, teams, current_user.id)
 
 
 @router.post("", response_model=schemas.TeamResponse, status_code=status.HTTP_201_CREATED)

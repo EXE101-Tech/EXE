@@ -57,8 +57,7 @@ export const AuthProvider = ({ children }) => {
     return () => { active = false; };
   }, [token]);
 
-  const login = async (credentials) => {
-    const response = await authService.login(credentials);
+  const completeLogin = async (response) => {
     if (!response?.access_token) throw new Error('Máy chủ không trả về token đăng nhập');
     localStorage.setItem('token', response.access_token);
     setToken(response.access_token);
@@ -73,6 +72,9 @@ export const AuthProvider = ({ children }) => {
       throw error;
     }
   };
+
+  const login = async (credentials) => completeLogin(await authService.login(credentials));
+  const loginWithGoogle = async (code) => completeLogin(await authService.loginWithGoogle(code));
 
   const register = (data) => authService.register(data);
 
@@ -111,6 +113,7 @@ export const AuthProvider = ({ children }) => {
     user,
     token,
     login,
+    loginWithGoogle,
     register,
     logout,
     updateProfile,
