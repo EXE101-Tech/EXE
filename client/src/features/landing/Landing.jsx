@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Trophy, ArrowRight, Gamepad2, Calendar, Users, Zap, Sparkles, MapPin, Shield, ArrowUpRight, Menu, X } from 'lucide-react';
+import { Trophy, ArrowRight, Gamepad2, Users, Zap, Sparkles, MapPin, Shield, ArrowUpRight, Menu, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 function LandingPage() {
@@ -179,7 +179,7 @@ function LandingPage() {
             {t('landing.hero.ctaStart')} <ArrowRight className="w-5 h-5" />
           </a>
           <a href="#features" className="px-8 py-3.5 rounded-full font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors w-full sm:w-auto flex items-center justify-center gap-2">
-            {t('landing.hero.ctaDemo')} <Calendar className="w-4 h-4 text-brand-primary" />
+            {t('landing.hero.ctaDemo')} <Sparkles className="w-4 h-4 text-brand-primary" />
           </a>
         </div>
       </main>
@@ -191,20 +191,13 @@ function LandingPage() {
           <p className="text-slate-500 dark:text-gray-400 max-w-2xl mx-auto">{t('landing.features.headerSubtitle')}</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
           <div className="glass-panel p-8 rounded-3xl hover:border-brand-primary/40 transition-all group duration-300 hover:-translate-y-1">
             <div className="w-14 h-14 rounded-2xl bg-brand-primary/20 flex items-center justify-center mb-6 text-brand-primary group-hover:scale-110 transition-transform duration-300 shadow-sm">
               <Gamepad2 className="w-7 h-7" />
             </div>
             <h3 className="text-xl font-bold mb-3 text-slate-900 dark:text-white">{t('landing.features.f1Title')}</h3>
             <p className="text-slate-500 dark:text-gray-400 text-sm leading-relaxed">{t('landing.features.f1Desc')}</p>
-          </div>
-          <div className="glass-panel p-8 rounded-3xl hover:border-blue-500/40 transition-all group duration-300 hover:-translate-y-1">
-            <div className="w-14 h-14 rounded-2xl bg-blue-500/20 flex items-center justify-center mb-6 text-blue-500 group-hover:scale-110 transition-transform duration-300 shadow-sm">
-              <Calendar className="w-7 h-7" />
-            </div>
-            <h3 className="text-xl font-bold mb-3 text-slate-900 dark:text-white">{t('landing.features.f2Title')}</h3>
-            <p className="text-slate-500 dark:text-gray-400 text-sm leading-relaxed">{t('landing.features.f2Desc')}</p>
           </div>
           <div className="glass-panel p-8 rounded-3xl hover:border-amber-500/40 transition-all group duration-300 hover:-translate-y-1">
             <div className="w-14 h-14 rounded-2xl bg-amber-500/20 flex items-center justify-center mb-6 text-amber-500 group-hover:scale-110 transition-transform duration-300 shadow-sm">

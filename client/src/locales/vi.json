@@ -176,17 +176,15 @@
     },
     "hero": {
       "heroTitle": "Chơi đúng người - Ghép đúng trình độ",
-      "subtitle": "Tìm đối thủ ngang tài, tham gia các giải đấu sôi động và đặt sân nhanh chóng chỉ với vài cú nhấp chuột. Cầu lông, Bóng đá, Pickleball, Tennis và nhiều hơn thế nữa!",
+      "subtitle": "Tìm người chơi cùng trình độ, kết nối với cộng đồng thể thao và tham gia những trận đấu sôi động. Hiện có Cầu lông, Pickleball và Bóng đá.",
       "ctaStart": "Tham gia ngay",
-      "ctaDemo": "Khám phá sân bãi"
+      "ctaDemo": "Khám phá tính năng"
     },
     "features": {
       "headerTitle": "Hệ sinh thái thể thao toàn diện",
       "headerSubtitle": "Tất cả những gì bạn cần để cháy hết mình cùng đam mê thể thao, được tích hợp thông minh trong một nền tảng.",
       "f1Title": "Ghép kèo & Tìm đồng đội",
       "f1Desc": "Tạo phòng hoặc tìm đối thủ cùng trình độ từ Cơ bản đến Chuyên nghiệp. Không còn nỗi lo thiếu chân hay chênh lệch kỹ năng!",
-      "f2Title": "Đặt sân trực tuyến 24/7",
-      "f2Desc": "Khám phá bản đồ sân bãi trực quan, kiểm tra lịch trống thời gian thực và đặt sân nhanh chóng kèm ưu đãi Flash Deals giờ vàng.",
       "f3Title": "Quản lý Giải đấu & Đội nhóm",
       "f3Desc": "Tạo lập câu lạc bộ, theo dõi đội hình, tham gia và tranh tài tại các giải đấu thể thao quanh khu vực của bạn dễ dàng hơn bao giờ hết."
     },
@@ -194,11 +192,11 @@
       "headerTitle": "Vì sao chọn SportGo?",
       "headerSubtitle": "Được thiết kế hiện đại, tối ưu cho cả người yêu thể thao cá nhân và các chủ sân vận động.",
       "r1Title": "Kết nối thần tốc",
-      "r1Desc": "Thuật toán thông minh gợi ý đối thủ và sân bãi phù hợp nhất dựa trên vị trí và trình độ của bạn.",
+      "r1Desc": "Thuật toán thông minh giúp bạn tìm người chơi phù hợp dựa trên vị trí và trình độ.",
       "r2Title": "Giao diện Nebula mượt mà",
       "r2Desc": "Thiết kế hiện đại, dark mode tinh tế cùng hiệu ứng chuyển động mượt mà trên mọi thiết bị máy tính và điện thoại.",
       "r3Title": "Cộng đồng sôi động",
-      "r3Desc": "Hàng ngàn người chơi tích cực cùng hàng trăm sân bãi được xác thực khắp cả nước đang chờ bạn kết nối."
+      "r3Desc": "Cộng đồng người chơi năng động luôn sẵn sàng kết nối, giao lưu và tìm đồng đội mới."
     },
     "testimonials": {
       "headerTitle": "Cộng đồng nói gì về SportGo?",

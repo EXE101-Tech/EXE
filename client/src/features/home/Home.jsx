@@ -121,7 +121,7 @@ function Home() {
               <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full p-1.5 shadow-xl shrink-0 bg-gradient-to-tr from-[#589470] to-[#74C365]">
                 <div className="w-full h-full overflow-hidden rounded-full bg-white dark:bg-[#001F3F] flex items-center justify-center font-black text-4xl sm:text-5xl text-[#589470] dark:text-[#74C365]">{user?.profile?.avatar_url ? <img src={user.profile.avatar_url} alt="Ảnh đại diện" className="h-full w-full object-cover" /> : avatarLetter}</div>
               </div>
-              <div className="min-w-0 flex-1 lg:pb-1">
+              <div className="min-w-0 flex-1 lg:pb-1 lg:translate-y-1.5">
                 <h2 className="text-slate-900 dark:text-white text-xl sm:text-2xl font-black leading-tight break-words">{displayName}</h2>
                 <p className="text-sm text-slate-500 dark:text-slate-400 break-all mt-1">{email}</p>
               </div>
