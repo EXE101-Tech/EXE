@@ -87,6 +87,15 @@ export const storageService = {
     });
     return result.url;
   },
+  uploadMedia: async (file) => {
+    const isVideo = file.type.startsWith('video/') || /\.(mp4|webm)$/i.test(file.name);
+    const formData = new FormData();
+    formData.append('file', file);
+    const result = await apiClient.post(isVideo ? '/storage/videos' : '/storage/images', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return { url: result.url, type: isVideo ? 'video' : 'image' };
+  },
 };
 
 export const sportService = {
@@ -151,6 +160,19 @@ export const lfgService = {
   cancel: (id) => apiClient.delete(`/lfg/posts/${id}`),
   getParticipants: (id, status = 'PENDING') => apiClient.get(`/lfg/posts/${id}/participants`, { params: { status } }),
   setParticipantStatus: (id, userId, status) => apiClient.patch(`/lfg/posts/${id}/participants/${userId}`, { status }),
+};
+
+export const socialPostService = {
+  getFeed: (params = {}) => getCached('/social/posts', { params }),
+  getMine: (params = {}) => getCached('/social/posts/mine', { params }),
+  create: (data) => apiClient.post('/social/posts', data),
+  update: (id, data) => apiClient.put(`/social/posts/${id}`, data),
+  remove: (id) => apiClient.delete(`/social/posts/${id}`),
+  like: (id) => apiClient.put(`/social/posts/${id}/like`),
+  unlike: (id) => apiClient.delete(`/social/posts/${id}/like`),
+  getComments: (id) => apiClient.get(`/social/posts/${id}/comments`),
+  addComment: (id, content) => apiClient.post(`/social/posts/${id}/comments`, { content }),
+  removeComment: (postId, commentId) => apiClient.delete(`/social/posts/${postId}/comments/${commentId}`),
 };
 
 export const chatService = {

@@ -28,6 +28,9 @@ class User(Base):
     team_reviews = relationship("TeamReview", back_populates="user", cascade="all, delete-orphan")
     lfg_posts = relationship("LfgPost", back_populates="author")
     lfg_participations = relationship("LfgPostParticipant", back_populates="user", cascade="all, delete-orphan")
+    social_posts = relationship("SocialPost", back_populates="author", cascade="all, delete-orphan")
+    social_post_likes = relationship("SocialPostLike", back_populates="user", cascade="all, delete-orphan")
+    social_post_comments = relationship("SocialPostComment", back_populates="author", cascade="all, delete-orphan")
     conversations_as_user1 = relationship("Conversation", foreign_keys="Conversation.user1_id", back_populates="user1")
     conversations_as_user2 = relationship("Conversation", foreign_keys="Conversation.user2_id", back_populates="user2")
     sent_messages = relationship("Message", back_populates="sender")
@@ -304,6 +307,52 @@ class LfgPostParticipant(Base):
 
     post = relationship("LfgPost", back_populates="participants")
     user = relationship("User", back_populates="lfg_participations")
+
+
+class SocialPost(Base):
+    __tablename__ = "social_posts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    author_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    content = Column(Text, nullable=True)
+    media_url = Column(Text, nullable=True)
+    media_type = Column(String(10), nullable=True)
+    created_at = Column(DateTime, nullable=False, default=utc_now_naive, index=True)
+    updated_at = Column(DateTime, nullable=False, default=utc_now_naive, onupdate=utc_now_naive)
+
+    author = relationship("User", back_populates="social_posts")
+    likes = relationship("SocialPostLike", back_populates="post", cascade="all, delete-orphan")
+    comments = relationship("SocialPostComment", back_populates="post", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        CheckConstraint("media_type IS NULL OR media_type IN ('image', 'video')", name="ck_social_posts_media_type"),
+    )
+
+
+class SocialPostLike(Base):
+    __tablename__ = "social_post_likes"
+    __table_args__ = (UniqueConstraint("post_id", "user_id", name="uq_social_post_like"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    post_id = Column(Integer, ForeignKey("social_posts.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at = Column(DateTime, nullable=False, default=utc_now_naive)
+
+    post = relationship("SocialPost", back_populates="likes")
+    user = relationship("User", back_populates="social_post_likes")
+
+
+class SocialPostComment(Base):
+    __tablename__ = "social_post_comments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    post_id = Column(Integer, ForeignKey("social_posts.id", ondelete="CASCADE"), nullable=False, index=True)
+    author_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=utc_now_naive, index=True)
+
+    post = relationship("SocialPost", back_populates="comments")
+    author = relationship("User", back_populates="social_post_comments")
 
 
 class Notification(Base):

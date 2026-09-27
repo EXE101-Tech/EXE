@@ -6,6 +6,7 @@ import EditProfileModal from '../profile/EditProfileModal';
 import { useAuth } from '../../shared/context/AuthContext';
 import OwnerRegistrationModal from '../bookings/components/OwnerRegistrationModal';
 import OwnerCancellationModal from '../bookings/components/OwnerCancellationModal';
+import MySocialPosts from '../profile/MySocialPosts';
 import { authService, ownerService, storageService } from '../../shared/services/api';
 
 const LEVEL_META = {
@@ -231,6 +232,7 @@ function Home() {
             {skills.length === 0 && <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700">Bạn chưa thêm môn thể thao hoặc trình độ. Hãy cập nhật hồ sơ để lưu kỹ năng của mình.</div>}
           </div>
         </section>
+        <MySocialPosts />
       </div>
 
       <EditProfileModal isOpen={isEditProfileOpen} onClose={() => setIsEditProfileOpen(false)} user={user} onSave={updateProfile} />

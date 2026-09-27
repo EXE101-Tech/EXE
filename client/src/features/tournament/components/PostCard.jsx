@@ -8,6 +8,7 @@ export default function PostCard({ post, onJoin, onChat, onCancel, onEdit, onMan
   const isFull = post.currentMembers >= post.totalMembers;
   const isPending = post.membership_status === 'PENDING';
   const needed = post.totalMembers - post.currentMembers;
+  const postDescription = post.description?.trim() || post.title?.trim() || '';
 
   React.useEffect(() => {
     if (!isImageOpen) return undefined;
@@ -50,11 +51,11 @@ export default function PostCard({ post, onJoin, onChat, onCancel, onEdit, onMan
         type="button"
         onClick={() => setIsImageOpen(true)}
         className="group/image w-full md:w-72 lg:w-80 aspect-[16/9] md:aspect-auto md:h-[260px] lg:h-[280px] rounded-xl sm:rounded-2xl overflow-hidden relative shrink-0 shadow-sm border border-gray-100 dark:border-white/5 cursor-zoom-in focus:outline-none focus:ring-2 focus:ring-[#589470]"
-        aria-label={`Xem ảnh đầy đủ: ${post.title}`}
+        aria-label={`Xem ảnh đầy đủ: ${postDescription || post.sportName}`}
       >
         <img 
           src={post.image} 
-          alt={post.title} 
+          alt={postDescription || post.sportName}
           className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
@@ -129,15 +130,12 @@ export default function PostCard({ post, onJoin, onChat, onCancel, onEdit, onMan
             </div>
           </div>
 
-          {/* Title & Description */}
-          <h3 className="text-base sm:text-xl font-black text-slate-900 dark:text-white mb-1.5 sm:mb-2 leading-snug group-hover:text-[#589470] dark:group-hover:text-[#74C365] transition-colors">
-            {post.title}
-          </h3>
-          <div className="mb-4 sm:mb-5">
-            <p className={`text-slate-800 dark:text-slate-100 font-medium text-xs sm:text-sm leading-relaxed ${isExpanded ? '' : 'line-clamp-2'}`}>
-              {post.description}
+          {/* Description is the only user-facing post text; title is a legacy API field. */}
+          {postDescription && <div className="mb-4 sm:mb-5">
+            <p className={`text-slate-800 dark:text-slate-100 font-semibold text-sm sm:text-base leading-relaxed ${isExpanded ? '' : 'line-clamp-2'}`}>
+              {postDescription}
             </p>
-            {post.description && post.description.length > 60 && (
+            {postDescription.length > 60 && (
               <button
                 type="button"
                 onClick={() => setIsExpanded(!isExpanded)}
@@ -146,7 +144,7 @@ export default function PostCard({ post, onJoin, onChat, onCancel, onEdit, onMan
                 {isExpanded ? 'Thu gọn ▲' : 'Xem thêm ▼'}
               </button>
             )}
-          </div>
+          </div>}
         </div>
 
         {/* Info Grid (Clean layout without background boxes - fully visible on mobile) */}
@@ -243,7 +241,7 @@ export default function PostCard({ post, onJoin, onChat, onCancel, onEdit, onMan
           </button>
           <img
             src={post.image}
-            alt={post.title}
+            alt={postDescription || post.sportName}
             className="max-h-[90vh] max-w-full rounded-xl object-contain shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           />
