@@ -5,11 +5,13 @@ from app import database, schemas, crud, auth_utils, models
 from app.sport_catalog import sport_catalog, sport_key_for
 
 
-def _batch_venues_payload(db: Session, venues: List[models.Venue]):
+def _venue_payloads(db: Session, venues: List[models.Venue]):
     if not venues:
         return []
-    venue_ids = [v.id for v in venues]
-    all_courts = db.query(models.Court).options(
+
+    venue_ids = [venue.id for venue in venues]
+    owner_ids = {venue.owner_id for venue in venues if venue.owner_id is not None}
+    courts = db.query(models.Court).options(
         joinedload(models.Court.sport),
         joinedload(models.Court.venue),
     ).filter(
@@ -18,28 +20,31 @@ def _batch_venues_payload(db: Session, venues: List[models.Venue]):
     ).order_by(models.Court.id.asc()).all()
 
     courts_by_venue = {}
-    for c in all_courts:
-        courts_by_venue.setdefault(c.venue_id, []).append(c)
+    for court in courts:
+        courts_by_venue.setdefault(court.venue_id, []).append(court)
 
-    owner_ids = {v.owner_id for v in venues if v.owner_id}
-    owners_by_id = {}
+    owners = {}
     if owner_ids:
-        owners = db.query(models.User).options(
-            joinedload(models.User.profile)
-        ).filter(models.User.id.in_(owner_ids)).all()
-        owners_by_id = {u.id: u for u in owners}
+        owners = {
+            owner.id: owner
+            for owner in db.query(models.User).options(
+                joinedload(models.User.profile)
+            ).filter(models.User.id.in_(owner_ids)).all()
+        }
 
-    result = []
+    payloads = []
     for venue in venues:
-        courts = courts_by_venue.get(venue.id, [])
-        sport_key = venue.sport_key or (sport_key_for(courts[0].sport.name) if courts and courts[0].sport else None)
+        venue_courts = courts_by_venue.get(venue.id, [])
+        owner = owners.get(venue.owner_id)
+        sport_key = venue.sport_key or (
+            sport_key_for(venue_courts[0].sport.name) if venue_courts else None
+        )
         price_label = venue.price_label
-        if not price_label and courts:
-            per_30_minutes = min(court.price_per_hour for court in courts) // 2
+        if not price_label and venue_courts:
+            per_30_minutes = min(court.price_per_hour for court in venue_courts) // 2
             price_label = f"{per_30_minutes:,}".replace(",", ".") + "đ"
-        owner = owners_by_id.get(venue.owner_id)
-        owner_name = owner.profile.full_name if owner and owner.profile and owner.profile.full_name else (owner.email if owner else None)
-        result.append({
+
+        payloads.append({
             "id": venue.id,
             "name": venue.name,
             "address": venue.address,
@@ -47,21 +52,21 @@ def _batch_venues_payload(db: Session, venues: List[models.Venue]):
             "longitude": venue.longitude,
             "description": venue.description,
             "owner_id": venue.owner_id,
-            "owner_name": owner_name,
+            "owner_name": owner.profile.full_name if owner and owner.profile and owner.profile.full_name else (owner.email if owner else None),
             "sport_key": sport_key,
             "price_label": price_label,
-            "court_count": len(courts),
+            "court_count": len(venue_courts),
             "facilities": venue.facilities or {},
             "image_url": venue.image_url,
             "rating": None,
             "review_count": 0,
-            "courts": courts,
+            "courts": venue_courts,
         })
-    return result
+    return payloads
 
 
 def _venue_payload(db: Session, venue: models.Venue):
-    results = _batch_venues_payload(db, [venue])
+    results = _venue_payloads(db, [venue])
     return results[0] if results else None
 
 
@@ -85,11 +90,11 @@ def get_nearby_venues(
     radius: float = Query(5.0, description="Radius in kilometers"),
     db: Session = Depends(database.get_db)
 ):
-    return _batch_venues_payload(db, crud.get_nearby_venues(db, lat=lat, lng=lng, radius=radius))
+    return _venue_payloads(db, crud.get_nearby_venues(db, lat=lat, lng=lng, radius=radius))
 
 @router.get("/venues", response_model=List[schemas.VenueResponse])
 def get_all_venues(db: Session = Depends(database.get_db)):
-    return _batch_venues_payload(db, crud.get_venues(db))
+    return _venue_payloads(db, crud.get_venues(db))
 
 
 @router.get("/venues/{venue_id}", response_model=schemas.VenueResponse)
@@ -97,7 +102,7 @@ def get_venue_details(venue_id: int, db: Session = Depends(database.get_db)):
     venue = crud.get_venue_by_id(db, venue_id)
     if not venue:
         raise HTTPException(status_code=404, detail="Không tìm thấy sân")
-    return _venue_payload(db, venue)
+    return _venue_payloads(db, [venue])[0]
 
 @router.get("/sports", response_model=List[schemas.SportCatalogItem])
 def get_supported_sports(db: Session = Depends(database.get_db)):

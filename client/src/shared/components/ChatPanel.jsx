@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { MessageSquare, X, Send, Search, ArrowLeft, UserPlus, UserCheck, Check, MessageCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useChat } from '../context/ChatContext';
@@ -6,11 +6,15 @@ import { useAuth } from '../context/AuthContext';
 import { chatService, resolveMediaUrl } from '../services/api';
 
 const toContact = (conversation) => ({
-  ...conversation,
   conversationId: conversation.id,
   userId: conversation.other_user.id,
   name: conversation.other_user.name,
   avatar: resolveMediaUrl(conversation.other_user.avatar_url),
+  last_message: conversation.last_message,
+  updated_at: conversation.updated_at,
+  unread_count: conversation.unread_count || 0,
+  friendship_status: conversation.friendship_status || 'none',
+  friendship_id: conversation.friendship_id || null,
 });
 
 const formatMessageTime = (value) => {
@@ -26,6 +30,9 @@ function ChatPanel() {
   const [conversations, setConversations] = useState([]);
   const [selected, setSelected] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [isMessagesLoading, setIsMessagesLoading] = useState(false);
+  const [isLoadingOlderMessages, setIsLoadingOlderMessages] = useState(false);
+  const [hasOlderMessages, setHasOlderMessages] = useState(false);
   const [message, setMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('messages');
@@ -38,6 +45,7 @@ function ChatPanel() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState('');
+  const messageCursorRef = useRef({ conversationId: null, oldestId: 0, latestId: 0 });
 
   const loadConversations = useCallback(async () => {
     try {
@@ -48,19 +56,9 @@ function ChatPanel() {
     }
   }, []);
 
-  const loadMessages = useCallback(async (conversationId) => {
-    try {
-      const detail = await chatService.getMessages(conversationId);
-      setMessages(detail.messages || []);
-      setConversations((current) => {
-        const contact = toContact(detail);
-        return [contact, ...current.filter((item) => item.conversationId !== contact.conversationId)];
-      });
-      setError('');
-    } catch (err) {
-      setError(err.message || 'Không tải được tin nhắn');
-    }
-  }, []);
+  const loadMessages = useCallback((conversationId, params = {}) => (
+    chatService.getMessages(conversationId, params)
+  ), []);
 
   const loadFriendData = useCallback(async () => {
     try {
@@ -77,9 +75,12 @@ function ChatPanel() {
 
   useEffect(() => {
     if (!isChatOpen) return undefined;
-    loadConversations();
+    const initialLoad = window.setTimeout(loadConversations, 0);
     const timer = window.setInterval(loadConversations, 12000);
-    return () => window.clearInterval(timer);
+    return () => {
+      window.clearTimeout(initialLoad);
+      window.clearInterval(timer);
+    };
   }, [isChatOpen, loadConversations]);
 
   useEffect(() => {
@@ -105,28 +106,143 @@ function ChatPanel() {
   useEffect(() => {
     if (!isChatOpen || !pendingRecipient?.id) return undefined;
     let active = true;
-    setIsLoading(true);
-    setError('');
-    chatService.startConversation(pendingRecipient.id)
-      .then((conversation) => {
-        if (!active) return;
-        const contact = toContact(conversation);
-        setSelected(contact);
-        setPendingRecipient(null);
-      })
-      .catch((err) => {
-        if (active) setError(err.message || 'Không thể bắt đầu cuộc trò chuyện');
-      })
-      .finally(() => { if (active) setIsLoading(false); });
-    return () => { active = false; };
+    const timer = window.setTimeout(() => {
+      if (!active) return;
+      setIsLoading(true);
+      setError('');
+      chatService.startConversation(pendingRecipient.id)
+        .then((conversation) => {
+          if (!active) return;
+          const contact = toContact(conversation);
+          setMessages([]);
+          setHasOlderMessages(false);
+          setIsMessagesLoading(true);
+          setSelected(contact);
+          setPendingRecipient(null);
+        })
+        .catch((err) => {
+          if (active) setError(err.message || 'Không thể bắt đầu cuộc trò chuyện');
+        })
+        .finally(() => { if (active) setIsLoading(false); });
+    }, 0);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
   }, [isChatOpen, pendingRecipient, setPendingRecipient]);
 
   useEffect(() => {
     if (!isChatOpen || !selected?.conversationId) return undefined;
-    loadMessages(selected.conversationId);
-    const timer = window.setInterval(() => loadMessages(selected.conversationId), 5000);
-    return () => window.clearInterval(timer);
+    const conversationId = selected.conversationId;
+    let active = true;
+    let requestInFlight = false;
+    let latestId = 0;
+    messageCursorRef.current = { conversationId, oldestId: 0, latestId: 0 };
+
+    const refreshMessages = async (initial = false) => {
+      if (!active || requestInFlight) return;
+      requestInFlight = true;
+      try {
+        const detail = await loadMessages(conversationId, initial
+          ? { limit: 50 }
+          : { after_id: messageCursorRef.current.latestId, limit: 50 });
+        if (!active) return;
+
+        const fetched = detail.messages || [];
+        if (initial) {
+          setMessages(fetched);
+          setHasOlderMessages(Boolean(detail.has_more));
+          const firstId = Number(fetched[0]?.id) || 0;
+          latestId = Number(fetched.at(-1)?.id) || 0;
+          messageCursorRef.current = { conversationId, oldestId: firstId, latestId };
+        } else if (fetched.length) {
+          setMessages((current) => {
+            const existingIds = new Set(current.map((item) => item.id));
+            return [...current, ...fetched.filter((item) => !existingIds.has(item.id))];
+          });
+          latestId = Math.max(messageCursorRef.current.latestId, ...fetched.map((item) => Number(item.id) || 0));
+          messageCursorRef.current.latestId = latestId;
+          const contact = toContact(detail);
+          setConversations((current) => [
+            contact,
+            ...current.filter((item) => item.conversationId !== conversationId),
+          ]);
+        }
+
+        setSelected((current) => {
+          if (current?.conversationId !== conversationId
+            || (current.friendship_status === detail.friendship_status
+              && current.friendship_id === detail.friendship_id)) return current;
+          return { ...current, friendship_status: detail.friendship_status, friendship_id: detail.friendship_id };
+        });
+        setError('');
+      } catch (err) {
+        if (active) setError(err.message || 'Không tải được tin nhắn');
+      } finally {
+        requestInFlight = false;
+        if (initial && active) setIsMessagesLoading(false);
+      }
+    };
+
+    refreshMessages(true);
+    const timer = window.setInterval(() => refreshMessages(false), 5000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
   }, [isChatOpen, selected?.conversationId, loadMessages]);
+
+  const loadOlderMessages = async () => {
+    const cursor = messageCursorRef.current;
+    if (!selected?.conversationId || cursor.conversationId !== selected.conversationId
+      || !cursor.oldestId || isLoadingOlderMessages) return;
+    setIsLoadingOlderMessages(true);
+    try {
+      const detail = await loadMessages(selected.conversationId, { before_id: cursor.oldestId, limit: 50 });
+      if (messageCursorRef.current.conversationId !== selected.conversationId) return;
+      const olderMessages = detail.messages || [];
+      if (olderMessages.length) {
+        setMessages((current) => {
+          const existingIds = new Set(current.map((item) => item.id));
+          return [...olderMessages.filter((item) => !existingIds.has(item.id)), ...current];
+        });
+        messageCursorRef.current.oldestId = Number(olderMessages[0].id) || cursor.oldestId;
+      }
+      setHasOlderMessages(Boolean(detail.has_more));
+    } catch (err) {
+      setError(err.message || 'Không tải được tin nhắn cũ hơn');
+    } finally {
+      setIsLoadingOlderMessages(false);
+    }
+  };
+
+  const updateSelectedFriendship = async () => {
+    if (!selected?.userId) return;
+    const actionKey = `chat-${selected.userId}`;
+    setFriendActionId(actionKey);
+    setError('');
+    try {
+      let status = selected.friendship_status;
+      let friendshipId = selected.friendship_id;
+      if (status === 'none') {
+        const request = await chatService.sendFriendRequest(selected.userId);
+        status = 'outgoing';
+        friendshipId = request.id;
+      } else if (status === 'incoming' && friendshipId) {
+        await chatService.acceptFriendRequest(friendshipId);
+        status = 'accepted';
+      } else {
+        return;
+      }
+      setSelected((current) => current?.conversationId === selected.conversationId
+        ? { ...current, friendship_status: status, friendship_id: friendshipId }
+        : current);
+    } catch (err) {
+      setError(err.message || 'Không thể cập nhật bạn bè');
+    } finally {
+      setFriendActionId(null);
+    }
+  };
 
   const sendMessage = async (event) => {
     event.preventDefault();
@@ -137,8 +253,12 @@ function ChatPanel() {
     try {
       const sent = await chatService.sendMessage(selected.conversationId, text);
       setMessages((current) => [...current, sent]);
+      messageCursorRef.current.latestId = Math.max(messageCursorRef.current.latestId, Number(sent.id) || 0);
+      setConversations((current) => {
+        const contact = { ...selected, last_message: sent.text, updated_at: sent.created_at };
+        return [contact, ...current.filter((item) => item.conversationId !== selected.conversationId)];
+      });
       setMessage('');
-      await loadConversations();
     } catch (err) {
       setError(err.message || 'Không gửi được tin nhắn');
     } finally {
@@ -175,6 +295,9 @@ function ChatPanel() {
       const conversation = await chatService.startConversation(friend.user.id);
       const contact = toContact(conversation);
       setConversations((current) => [contact, ...current.filter((item) => item.conversationId !== contact.conversationId)]);
+      setMessages([]);
+      setHasOlderMessages(false);
+      setIsMessagesLoading(true);
       setSelected(contact);
     } catch (err) {
       setError(err.message || 'Không mở được cuộc trò chuyện');
@@ -185,6 +308,15 @@ function ChatPanel() {
 
   const visiblePeople = peopleQuery === searchQuery.trim() ? people : [];
   const searchedUserIds = new Set(visiblePeople.map((person) => person.id));
+  const selectedFriendshipStatus = selected?.friendship_status || 'none';
+  const selectedFriendshipLabel = selectedFriendshipStatus === 'accepted'
+    ? 'Bạn bè'
+    : selectedFriendshipStatus === 'incoming'
+      ? 'Đã gửi lời mời cho bạn'
+      : selectedFriendshipStatus === 'outgoing'
+        ? 'Đã gửi lời mời'
+        : 'Người lạ';
+  const selectedFriendActionKey = selected ? `chat-${selected.userId}` : '';
 
   return (
     <>
@@ -202,9 +334,16 @@ function ChatPanel() {
     >
       <div className="flex items-center justify-between px-5 py-4 border-b border-black/5 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02]">
         <div className="flex items-center gap-2.5">
-          {selected && <button onClick={() => { setSelected(null); setMessages([]); }} aria-label="Quay lại" className="p-1 text-slate-500"><ArrowLeft className="w-4 h-4" /></button>}
+          {selected && <button onClick={() => { setSelected(null); setMessages([]); setHasOlderMessages(false); }} aria-label="Quay lại" className="p-1 text-slate-500"><ArrowLeft className="w-4 h-4" /></button>}
           <div className="p-2 rounded-xl bg-[#74C365]/10 text-[#74C365]"><MessageSquare className="w-5 h-5" /></div>
-          <h2 className="text-base font-extrabold text-gray-900 dark:text-white tracking-tight">{selected?.name || t('bottomNav.chat', 'Chat')}</h2>
+          <div className="min-w-0">
+            <h2 className="truncate text-base font-extrabold text-gray-900 dark:text-white tracking-tight">{selected?.name || t('bottomNav.chat', 'Chat')}</h2>
+            {selected && <div className="mt-0.5 flex items-center gap-2 text-[10px] leading-4">
+              <span className={selectedFriendshipStatus === 'accepted' ? 'font-semibold text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}>{selectedFriendshipLabel}</span>
+              {selectedFriendshipStatus === 'none' && <button type="button" disabled={friendActionId === selectedFriendActionKey} onClick={updateSelectedFriendship} className="inline-flex items-center gap-1 font-bold text-[#589470] hover:text-[#74C365] disabled:opacity-50"><UserPlus className="h-3 w-3" />Kết bạn</button>}
+              {selectedFriendshipStatus === 'incoming' && <button type="button" disabled={friendActionId === selectedFriendActionKey} onClick={updateSelectedFriendship} className="inline-flex items-center gap-1 font-bold text-[#589470] hover:text-[#74C365] disabled:opacity-50"><Check className="h-3 w-3" />Chấp nhận</button>}
+            </div>}
+          </div>
         </div>
         <button onClick={closeChat} aria-label="Đóng chat" className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-white/5 text-gray-500"><X className="w-4 h-4" /></button>
       </div>
@@ -229,7 +368,7 @@ function ChatPanel() {
               <p className="p-6 text-center text-sm text-slate-500">Chưa có cuộc trò chuyện. Mở tab Bạn bè để tìm và kết bạn.</p>
             )}
             {activeTab === 'messages' && filteredConversations.map((conversation) => (
-              <button key={conversation.conversationId} onClick={() => setSelected(conversation)} className="w-full flex items-center gap-3.5 px-4 py-3.5 hover:bg-slate-50 dark:hover:bg-white/[0.04] text-left">
+              <button key={conversation.conversationId} onClick={() => { setMessages([]); setHasOlderMessages(false); setIsMessagesLoading(true); setSelected(conversation); }} className="w-full flex items-center gap-3.5 px-4 py-3.5 hover:bg-slate-50 dark:hover:bg-white/[0.04] text-left">
                 <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#74C365] to-[#589470] flex items-center justify-center text-white font-bold shrink-0 overflow-hidden">
                   {conversation.avatar ? <img src={conversation.avatar} alt="" className="h-full w-full object-cover" /> : conversation.name.charAt(0).toUpperCase()}
                 </div>
@@ -271,8 +410,9 @@ function ChatPanel() {
       ) : (
         <div className="flex-1 flex flex-col min-h-0">
           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-            {isLoading && messages.length === 0 && <p className="text-center text-xs text-slate-500">Đang tải tin nhắn…</p>}
-            {!isLoading && messages.length === 0 && <p className="text-center text-xs text-slate-500">Bắt đầu cuộc trò chuyện với {selected.name}.</p>}
+            {hasOlderMessages && <button type="button" disabled={isLoadingOlderMessages} onClick={loadOlderMessages} className="mx-auto block rounded-full px-3 py-1 text-[11px] font-semibold text-[#589470] hover:bg-emerald-500/10 disabled:opacity-50">{isLoadingOlderMessages ? 'Đang tải…' : 'Tải tin nhắn cũ hơn'}</button>}
+            {isMessagesLoading && messages.length === 0 && <p className="text-center text-xs text-slate-500">Đang tải tin nhắn…</p>}
+            {!isMessagesLoading && messages.length === 0 && <p className="text-center text-xs text-slate-500">Bắt đầu cuộc trò chuyện với {selected.name}.</p>}
             {messages.map((item) => {
               const own = Number(item.sender_id) === Number(user?.id);
               return <div key={item.id} className={`flex ${own ? 'justify-end' : 'justify-start'}`}>

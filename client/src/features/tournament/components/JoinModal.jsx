@@ -41,7 +41,7 @@ export default function JoinModal({ isOpen, onClose, post, onConfirm }) {
               <span className="text-xs font-bold uppercase tracking-wider bg-white/20 px-2.5 py-0.5 rounded-full">
                 Xác nhận tham gia kèo đấu
               </span>
-              <h3 className="text-xl font-black mt-1 break-words leading-snug">{post.title}</h3>
+              <h3 className="text-xl font-black mt-1 break-words leading-snug">{post.description?.trim() || post.title?.trim() || 'Bài tìm người chơi'}</h3>
             </div>
           </div>
         </div>

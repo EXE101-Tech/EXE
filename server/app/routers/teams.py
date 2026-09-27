@@ -9,46 +9,62 @@ from app.sport_catalog import SPORTS, resolve_sport, sport_key_for
 
 router = APIRouter(prefix="/teams", tags=["Teams & Clubs"])
 
-
-def _batch_teams_payload(db: Session, teams: List[models.Team], user_id: Optional[int] = None):
+def _team_payloads(db: Session, teams: List[models.Team], user_id: Optional[int] = None):
     if not teams:
         return []
-    team_ids = [t.id for t in teams]
 
-    approved_map = dict(
-        db.query(models.TeamMembership.team_id, func.count(models.TeamMembership.id))
-        .filter(models.TeamMembership.team_id.in_(team_ids), models.TeamMembership.status == "APPROVED")
-        .group_by(models.TeamMembership.team_id).all()
-    )
+    team_ids = [team.id for team in teams]
+    owner_ids = {team.owner_id for team in teams if team.owner_id is not None}
+    sport_ids = {team.sport_id for team in teams if team.sport_id is not None}
 
-    rating_map = {
-        r[0]: (r[1], r[2])
-        for r in db.query(models.TeamReview.team_id, func.avg(models.TeamReview.rating), func.count(models.TeamReview.id))
-        .filter(models.TeamReview.team_id.in_(team_ids))
-        .group_by(models.TeamReview.team_id).all()
+    approved_counts = dict(db.query(
+        models.TeamMembership.team_id,
+        func.count(models.TeamMembership.id),
+    ).filter(
+        models.TeamMembership.team_id.in_(team_ids),
+        models.TeamMembership.status == "APPROVED",
+    ).group_by(models.TeamMembership.team_id).all())
+
+    review_stats = {
+        team_id: (average, count)
+        for team_id, average, count in db.query(
+            models.TeamReview.team_id,
+            func.avg(models.TeamReview.rating),
+            func.count(models.TeamReview.id),
+        ).filter(models.TeamReview.team_id.in_(team_ids)).group_by(models.TeamReview.team_id).all()
     }
+    memberships = {
+        membership.team_id: membership
+        for membership in db.query(models.TeamMembership).filter(
+            models.TeamMembership.team_id.in_(team_ids),
+            models.TeamMembership.user_id == user_id,
+        ).all()
+    }
+    owners = {
+        owner.id: owner
+        for owner in db.query(models.User).options(
+            joinedload(models.User.profile)
+        ).filter(models.User.id.in_(owner_ids)).all()
+    } if owner_ids else {}
+    sports = {
+        sport.id: sport
+        for sport in db.query(models.Sport).filter(models.Sport.id.in_(sport_ids)).all()
+    } if sport_ids else {}
 
-    membership_map = {
-        m.team_id: m
-        for m in db.query(models.TeamMembership)
-        .filter(models.TeamMembership.team_id.in_(team_ids), models.TeamMembership.user_id == user_id).all()
-    } if user_id is not None else {}
-
-    sports_map = {s.id: s for s in db.query(models.Sport).all()}
-
-    result = []
+    payloads = []
     for team in teams:
-        approved_count = approved_map.get(team.id, 0)
-        rating, rating_count = rating_map.get(team.id, (0, 0))
-        membership = membership_map.get(team.id)
-        owner_name = team.owner.profile.full_name if team.owner and team.owner.profile else None
-        sport = sports_map.get(team.sport_id)
+        approved_count = int(approved_counts.get(team.id, 0))
+        average, rating_count = review_stats.get(team.id, (None, 0))
+        membership = memberships.get(team.id)
+        owner = owners.get(team.owner_id)
+        sport = sports.get(team.sport_id)
         sport_key = team.sport_key or sport_key_for(sport.name if sport else "")
-        review_average = round(float(rating), 1) if rating_count else round(float(team.rating or 0), 1)
-        result.append({
+        review_average = round(float(average), 1) if rating_count else round(float(team.rating or 0), 1)
+
+        payloads.append({
             "id": team.id,
             "owner_id": team.owner_id,
-            "owner_name": owner_name or (team.owner.email if team.owner else "Trưởng CLB chưa cập nhật"),
+            "owner_name": owner.profile.full_name if owner and owner.profile and owner.profile.full_name else (owner.email if owner else "Trưởng CLB chưa cập nhật"),
             "name": team.name,
             "sport_id": sport_key,
             "sport_name": team.sport_name or (sport.name if sport else "Môn thể thao"),
@@ -65,11 +81,11 @@ def _batch_teams_payload(db: Session, teams: List[models.Team], user_id: Optiona
             "is_member": bool(membership and membership.status == "APPROVED"),
             "created_at": team.created_at,
         })
-    return result
+    return payloads
 
 
 def _team_payload(db: Session, team: models.Team, user_id: Optional[int] = None):
-    results = _batch_teams_payload(db, [team], user_id=user_id)
+    results = _team_payloads(db, [team], user_id=user_id)
     return results[0] if results else None
 
 
@@ -111,7 +127,7 @@ def list_teams(
             models.TeamMembership.status == "APPROVED",
         )
     teams = query.order_by(models.Team.created_at.desc()).all()
-    return _batch_teams_payload(db, teams, current_user.id)
+    return _team_payloads(db, teams, current_user.id)
 
 
 @router.post("", response_model=schemas.TeamResponse, status_code=status.HTTP_201_CREATED)
