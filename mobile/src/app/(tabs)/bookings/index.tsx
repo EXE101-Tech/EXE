@@ -1,8 +1,8 @@
+import { Text } from '@/components/ui/text';
 import { router } from 'expo-router';
 import { Calendar, Map, MapPin, Plus, Search, Trophy } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { Alert, FlatList, Modal, Text, TouchableOpacity, View } from 'react-native';
-
+import { Alert, FlatList, Modal, TouchableOpacity, View } from 'react-native';
 import { EmptyState } from '@/components/brand/empty-state';
 import { GradientButton } from '@/components/brand/gradient-button';
 import { LoadingState } from '@/components/brand/loading-state';

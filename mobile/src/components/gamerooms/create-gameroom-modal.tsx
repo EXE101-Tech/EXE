@@ -1,8 +1,9 @@
+import { Text } from '@/components/ui/text';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AlignLeft, Calendar, Clock, DollarSign, Gamepad2, MapPin, type LucideIcon, Sparkles, Trophy, Users } from 'lucide-react-native';
 import { Controller, useForm, useWatch } from 'react-hook-form';
-import { ActivityIndicator, Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Modal, ScrollView, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { z } from 'zod';
 

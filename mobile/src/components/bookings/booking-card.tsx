@@ -1,6 +1,6 @@
+import { Text } from '@/components/ui/text';
 import { CalendarDays, Clock3, MapPin, XCircle } from 'lucide-react-native';
-import { Text, View } from 'react-native';
-
+import {  View } from 'react-native';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';

@@ -1,5 +1,6 @@
+import { Text } from '@/components/ui/text';
 import { useState } from 'react';
-import { Image, Text } from 'react-native';
+import { Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { ctaGradient } from '@/theme/colors';

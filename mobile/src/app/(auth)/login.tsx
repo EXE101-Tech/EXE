@@ -1,10 +1,10 @@
+import { Text } from '@/components/ui/text';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, router } from 'expo-router';
 import { Eye, EyeOff, Zap } from 'lucide-react-native';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Alert, Pressable, Text, View } from 'react-native';
-
+import { Alert, Pressable, View } from 'react-native';
 import { Button } from '@/components/ui/button';
 import { ScreenContainer } from '@/components/brand/screen-container';
 import { Input } from '@/components/ui/input';

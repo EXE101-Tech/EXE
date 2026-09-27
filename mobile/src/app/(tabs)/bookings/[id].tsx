@@ -1,8 +1,9 @@
+import { Text } from '@/components/ui/text';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Clock, MapPin, Share2, ShieldCheck, Sparkles, Star } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, Share, Text, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, Share, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { resolveMediaUrl } from '@/api/resolve-media-url';

@@ -1,8 +1,8 @@
+import { Text } from '@/components/ui/text';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Trash2 } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-
+import { Alert, ScrollView, TouchableOpacity, View } from 'react-native';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';

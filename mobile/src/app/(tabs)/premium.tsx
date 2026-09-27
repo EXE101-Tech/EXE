@@ -1,6 +1,6 @@
+import { Text } from '@/components/ui/text';
 import { Crown } from 'lucide-react-native';
-import { Text, View } from 'react-native';
-
+import {  View } from 'react-native';
 import { ScreenContainer } from '@/components/brand/screen-container';
 import { TopNavbar } from '@/components/navigation/top-navbar';
 

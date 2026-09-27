@@ -1,7 +1,7 @@
+import { Text } from '@/components/ui/text';
 import { router } from 'expo-router';
 import { ArrowLeft, CalendarDays } from 'lucide-react-native';
-import { Alert, FlatList, Pressable, Text, View } from 'react-native';
-
+import { Alert, FlatList, Pressable, View } from 'react-native';
 import { EmptyState } from '@/components/brand/empty-state';
 import { LoadingState } from '@/components/brand/loading-state';
 import { ScreenContainer } from '@/components/brand/screen-container';

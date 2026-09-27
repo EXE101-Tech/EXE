@@ -1,7 +1,8 @@
+import { Text } from '@/components/ui/text';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Send } from 'lucide-react-native';
 import { useState } from 'react';
-import { FlatList, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from 'react-native';
+import { FlatList, KeyboardAvoidingView, Platform, Pressable, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { resolveMediaUrl } from '@/api/resolve-media-url';

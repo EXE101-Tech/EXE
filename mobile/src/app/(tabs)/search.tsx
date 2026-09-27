@@ -1,8 +1,8 @@
+import { Text } from '@/components/ui/text';
 import { router } from 'expo-router';
 import { ArrowLeft, MapPin, Search, Swords, Trophy, Users } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { Alert, FlatList, Pressable, Text, TouchableOpacity, View } from 'react-native';
-
+import { Alert, FlatList, Pressable, TouchableOpacity, View } from 'react-native';
 import { EmptyState } from '@/components/brand/empty-state';
 import { LoadingState } from '@/components/brand/loading-state';
 import { ScreenContainer } from '@/components/brand/screen-container';

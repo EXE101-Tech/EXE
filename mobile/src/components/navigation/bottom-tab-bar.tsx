@@ -1,3 +1,4 @@
+import { Text } from '@/components/ui/text';
 import { router, usePathname, type Href } from 'expo-router';
 import {
   Crown,
@@ -10,7 +11,7 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, Pressable, TouchableOpacity, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,

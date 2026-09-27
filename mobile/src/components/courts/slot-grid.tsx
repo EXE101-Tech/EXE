@@ -1,6 +1,6 @@
+import { Text } from '@/components/ui/text';
 import { Check, Layers } from 'lucide-react-native';
-import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
-
+import { ScrollView, TouchableOpacity, View } from 'react-native';
 import { LoadingState } from '@/components/brand/loading-state';
 import type { CourtResponse } from '@/schemas/courts';
 import { cn } from '@/lib/utils';

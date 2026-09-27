@@ -1,5 +1,6 @@
+import { Text } from '@/components/ui/text';
 import { Check, X } from 'lucide-react-native';
-import { FlatList, Modal, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, Modal, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/ui/avatar';

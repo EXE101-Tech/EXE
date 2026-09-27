@@ -1,7 +1,7 @@
+import { Text } from '@/components/ui/text';
 import { router } from 'expo-router';
 import { Bell, Search, Zap } from 'lucide-react-native';
-import { Text, TouchableOpacity, View } from 'react-native';
-
+import {  TouchableOpacity, View } from 'react-native';
 import { useUnreadCountQuery } from '@/hooks/queries/use-notifications';
 import { ThemeToggleButton } from './theme-toggle-button';
 

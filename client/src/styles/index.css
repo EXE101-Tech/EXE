@@ -1,3 +1,4 @@
+@import '@fontsource-variable/inter/index.css';
 @import 'tailwindcss';
 
 @property --theme-brand {
@@ -15,6 +16,7 @@
 @theme {
   --color-brand-primary: var(--theme-brand);
   --color-bg-primary: var(--theme-bg);
+  --font-sans: 'Inter Variable', Inter, ui-sans-serif, system-ui, sans-serif;
 }
 
 @variant dark (&:where(.dark, .dark *));
@@ -209,4 +211,21 @@ body.navbar-tabs-hidden .navbar-filter-bar {
 @keyframes fadeInScale {
   0% { opacity: 0; transform: scale(0.98); }
   100% { opacity: 1; transform: none; }
+}
+
+@keyframes fadeIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@media (max-width: 767px) {
+  /* Avoid compositing a full, long page as one scaled layer on mobile. */
+  .page-fade-in {
+    animation-name: fadeIn;
+  }
+
+  .page-fade-out {
+    transform: none;
+    transition: opacity 0.5s ease-out;
+  }
 }

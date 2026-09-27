@@ -1,6 +1,6 @@
+import { Text } from '@/components/ui/text';
 import * as React from 'react';
-import { Text, TextInput, type TextInputProps, View } from 'react-native';
-
+import {  TextInput, type TextInputProps, View } from 'react-native';
 import { cn } from '@/lib/utils';
 
 export interface InputProps extends TextInputProps {

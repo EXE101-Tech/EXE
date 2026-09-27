@@ -1,6 +1,7 @@
+import { Text } from '@/components/ui/text';
 import { RefreshCw } from 'lucide-react-native';
 import { useEffect } from 'react';
-import { Text, View } from 'react-native';
+import {  View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 
 import { useResolvedColorScheme } from '@/stores/theme-store';

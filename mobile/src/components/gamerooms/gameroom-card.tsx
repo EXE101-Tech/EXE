@@ -1,3 +1,4 @@
+import { Text } from '@/components/ui/text';
 import {
   Banknote,
   CalendarClock,
@@ -10,8 +11,7 @@ import {
   Sparkles,
   UserCheck,
 } from 'lucide-react-native';
-import { Pressable, Text, View } from 'react-native';
-
+import { Pressable, View } from 'react-native';
 import { resolveMediaUrl } from '@/api/resolve-media-url';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge, type BadgeProps } from '@/components/ui/badge';

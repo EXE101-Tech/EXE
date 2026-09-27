@@ -1,7 +1,7 @@
+import { Text } from '@/components/ui/text';
 import { ChevronDown, type LucideIcon } from 'lucide-react-native';
 import { useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, Text, View, type View as RNView } from 'react-native';
-
+import { Modal, Pressable, ScrollView, View, type View as RNView } from 'react-native';
 import { cn } from '@/lib/utils';
 
 export interface SelectOption {

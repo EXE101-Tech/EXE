@@ -1,6 +1,6 @@
+import { Text } from '@/components/ui/text';
 import { Sparkles } from 'lucide-react-native';
-import { Text, View } from 'react-native';
-
+import {  View } from 'react-native';
 import { Button } from '@/components/ui/button';
 
 interface BookingBarProps {

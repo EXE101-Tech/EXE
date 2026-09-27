@@ -1,6 +1,7 @@
+import { Text } from '@/components/ui/text';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AlertTriangle, Building2, Calendar, CheckCircle2, ShieldCheck } from 'lucide-react-native';
-import { ActivityIndicator, Modal, Pressable, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, ScrollView, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { cn } from '@/lib/utils';

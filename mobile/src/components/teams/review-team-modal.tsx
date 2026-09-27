@@ -1,6 +1,7 @@
+import { Text } from '@/components/ui/text';
 import { Star, X } from 'lucide-react-native';
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, Pressable, ScrollView, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GradientButton } from '@/components/brand/gradient-button';

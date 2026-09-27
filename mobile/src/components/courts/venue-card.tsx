@@ -1,7 +1,7 @@
+import { Text } from '@/components/ui/text';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Calendar, Car, Coffee, Droplets, MapPin, Package, ShieldCheck, Star, Trash2, Wifi } from 'lucide-react-native';
-import { Image, Pressable, Text, TouchableOpacity, View } from 'react-native';
-
+import { Image, Pressable, TouchableOpacity, View } from 'react-native';
 import { resolveMediaUrl } from '@/api/resolve-media-url';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';

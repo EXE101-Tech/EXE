@@ -1,6 +1,6 @@
+import { Text } from '@/components/ui/text';
 import { LogOut, MapPin, MessageCircle, Settings2, Star, UserPlus, Users } from 'lucide-react-native';
-import { Image, Text, View } from 'react-native';
-
+import { Image, View } from 'react-native';
 import { resolveMediaUrl } from '@/api/resolve-media-url';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';

@@ -1,8 +1,8 @@
+import { Text } from '@/components/ui/text';
 import * as ImagePicker from 'expo-image-picker';
 import { Eye, ImagePlus, LogOut, Pencil, Trophy, Users } from 'lucide-react-native';
 import { useState } from 'react';
-import { Alert, Image, Text, TouchableOpacity, View } from 'react-native';
-
+import { Alert, Image, TouchableOpacity, View } from 'react-native';
 import { storageApi } from '@/api/storage';
 import { Avatar } from '@/components/ui/avatar';
 import { LoadingState } from '@/components/brand/loading-state';
