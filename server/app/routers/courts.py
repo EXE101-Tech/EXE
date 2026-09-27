@@ -18,6 +18,7 @@ def _venue_payloads(db: Session, venues: List[models.Venue]):
         models.Court.venue_id.in_(venue_ids),
         models.Court.is_active.is_(True),
     ).order_by(models.Court.id.asc()).all()
+
     courts_by_venue = {}
     for court in courts:
         courts_by_venue.setdefault(court.venue_id, []).append(court)
@@ -62,6 +63,12 @@ def _venue_payloads(db: Session, venues: List[models.Venue]):
             "courts": venue_courts,
         })
     return payloads
+
+
+def _venue_payload(db: Session, venue: models.Venue):
+    results = _venue_payloads(db, [venue])
+    return results[0] if results else None
+
 
 router = APIRouter(
     prefix="/courts",
