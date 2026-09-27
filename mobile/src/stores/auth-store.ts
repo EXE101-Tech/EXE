@@ -1,10 +1,10 @@
-import * as SecureStore from 'expo-secure-store';
 import { create } from 'zustand';
 
 import { TOKEN_STORAGE_KEY, setUnauthorizedHandler } from '@/api/client';
 import { authApi } from '@/api/auth';
 import { ownerApi } from '@/api/owner';
 import { resolveMediaUrl } from '@/api/resolve-media-url';
+import { secureStorage } from '@/lib/secure-storage';
 import type { UserCreate, UserLogin, UserProfileWithSportsUpdate, UserResponse } from '@/schemas/auth';
 
 export interface NormalizedUser extends UserResponse {
@@ -52,7 +52,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isAuthenticated: false,
 
   hydrate: async () => {
-    const token = await SecureStore.getItemAsync(TOKEN_STORAGE_KEY);
+    const token = await secureStorage.getItemAsync(TOKEN_STORAGE_KEY);
     if (!token) {
       set({ hydrated: true });
       return;
@@ -61,7 +61,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const me = await authApi.getMe();
       set({ user: normalizeUser(me), isAuthenticated: true, hydrated: true });
     } catch {
-      await SecureStore.deleteItemAsync(TOKEN_STORAGE_KEY);
+      await secureStorage.deleteItemAsync(TOKEN_STORAGE_KEY);
       set({ user: null, isAuthenticated: false, hydrated: true });
     }
   },
@@ -69,14 +69,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   login: async (credentials) => {
     const response = await authApi.login(credentials);
     if (!response?.access_token) throw new Error('Máy chủ không trả về token đăng nhập');
-    await SecureStore.setItemAsync(TOKEN_STORAGE_KEY, response.access_token);
+    await secureStorage.setItemAsync(TOKEN_STORAGE_KEY, response.access_token);
     try {
       const me = await authApi.getMe();
       const normalized = normalizeUser(me);
       set({ user: normalized, isAuthenticated: true });
       return normalized;
     } catch (error) {
-      await SecureStore.deleteItemAsync(TOKEN_STORAGE_KEY);
+      await secureStorage.deleteItemAsync(TOKEN_STORAGE_KEY);
       set({ user: null, isAuthenticated: false });
       throw error;
     }
@@ -88,7 +88,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   logout: () => {
     authApi.logout().catch(() => {});
-    SecureStore.deleteItemAsync(TOKEN_STORAGE_KEY).catch(() => {});
+    secureStorage.deleteItemAsync(TOKEN_STORAGE_KEY).catch(() => {});
     set({ user: null, isAuthenticated: false });
   },
 
@@ -126,6 +126,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 }));
 
 setUnauthorizedHandler(() => {
-  SecureStore.deleteItemAsync(TOKEN_STORAGE_KEY).catch(() => {});
+  secureStorage.deleteItemAsync(TOKEN_STORAGE_KEY).catch(() => {});
   useAuthStore.setState({ user: null, isAuthenticated: false });
 });
