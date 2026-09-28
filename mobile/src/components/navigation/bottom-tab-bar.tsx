@@ -1,182 +1,135 @@
 import { Text } from '@/components/ui/text';
 import { router, usePathname, type Href } from 'expo-router';
-import {
-  Crown,
-  Gamepad2,
-  MessageCircle,
-  MessageSquare,
-  Plus,
-  User,
-  Users,
-  type LucideIcon,
-} from 'lucide-react-native';
-import { useEffect, useState } from 'react';
-import { Modal, Pressable, TouchableOpacity, View } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-  type SharedValue,
-} from 'react-native-reanimated';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Easing, Image, Modal, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Gamepad2, MessageSquarePlus, Plus, UserRound, Users } from 'lucide-react-native';
+import { useAuthStore } from '@/stores/auth-store';
+import communityIcon from '../../../assets/images/icons/diendan.png';
+import matchesIcon from '../../../assets/images/icons/phonggame.png';
+import teamsIcon from '../../../assets/images/icons/teams.png';
 
-import { useResolvedColorScheme } from '@/stores/theme-store';
-import { colors } from '@/theme/colors';
-
-interface BarItem {
-  /** First URL segment (`usePathname()`) this button represents — used for active-tab highlighting. */
-  routeName: string;
-  href: Href;
-  label: string;
-  icon: LucideIcon;
-}
-
-const LEFT_ITEMS: BarItem[] = [
-  { routeName: 'forum', href: '/(tabs)/forum', label: 'Diễn đàn', icon: MessageSquare },
-  { routeName: 'teams', href: '/(tabs)/teams', label: 'Teams', icon: Users },
+const ITEMS = [
+  { routeName: 'forum', href: '/(tabs)/forum' as Href, label: 'Cộng đồng', icon: communityIcon },
+  { routeName: 'gamerooms', href: '/(tabs)/gamerooms' as Href, label: 'Phòng game', icon: matchesIcon },
+  { routeName: 'teams', href: '/(tabs)/teams' as Href, label: 'CLB', icon: teamsIcon },
 ];
 
-const RIGHT_ITEMS: BarItem[] = [
-  { routeName: 'gamerooms', href: '/(tabs)/gamerooms', label: 'Phòng game', icon: Gamepad2 },
-  { routeName: 'profile', href: '/(tabs)/profile', label: 'Hồ sơ', icon: User },
+const CREATE_ITEMS = [
+  { label: 'Bài viết', route: '/(tabs)/forum' as Href, create: 'post', icon: MessageSquarePlus, x: -94, y: -52 },
+  { label: 'Phòng game', route: '/(tabs)/gamerooms' as Href, create: 'room', icon: Gamepad2, x: 0, y: -104 },
+  { label: 'CLB', route: '/(tabs)/teams' as Href, create: 'club', icon: Users, x: 94, y: -52 },
 ];
-
-// Fan spread above the FAB: left-most to right-most, in standard math degrees (90° = straight up).
-const EXPAND_ITEMS: { item: BarItem; angleDeg: number }[] = [
-  { item: { routeName: 'chat', href: '/(tabs)/chat', label: 'Chat', icon: MessageCircle }, angleDeg: 135 },
-  { item: { routeName: 'premium', href: '/(tabs)/premium', label: 'Premium', icon: Crown }, angleDeg: 45 },
-];
-
-const FAN_RADIUS = 80;
-const ANIM_DURATION = 160;
-
-function FanItem({
-  item,
-  angleDeg,
-  progress,
-  brandColor,
-  onPress,
-}: {
-  item: BarItem;
-  angleDeg: number;
-  progress: SharedValue<number>;
-  brandColor: string;
-  onPress: () => void;
-}) {
-  const rad = (angleDeg * Math.PI) / 180;
-  const targetX = FAN_RADIUS * Math.cos(rad) - 28;
-  const targetY = -FAN_RADIUS * Math.sin(rad) - 28;
-
-  const style = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: progress.value * targetX },
-      { translateY: progress.value * targetY },
-      { scale: 0.7 + progress.value * 0.3 },
-    ],
-    opacity: progress.value,
-  }));
-
-  const Icon = item.icon;
-  return (
-    <Animated.View style={[{ position: 'absolute', top: 0, left: 0, width: 64, alignItems: 'center' }, style]}>
-      <Pressable onPress={onPress} className="items-center gap-1.5">
-        <View
-          style={{ backgroundColor: brandColor }}
-          className="h-14 w-14 items-center justify-center rounded-full shadow-lg"
-        >
-          <Icon size={22} color="#fff" />
-        </View>
-        <Text className="text-xs font-bold text-white">{item.label}</Text>
-      </Pressable>
-    </Animated.View>
-  );
-}
 
 export function BottomTabBar() {
-  const scheme = useResolvedColorScheme();
-  const theme = colors[scheme];
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
-  const [expanded, setExpanded] = useState(false);
-
-  const progress = useSharedValue(0);
+  const activeName = pathname.split('/').filter(Boolean).at(-1);
+  const user = useAuthStore((state) => state.user);
+  const avatarUrl = user?.profile?.avatar_url || user?.avatar;
+  const initials = (user?.profile?.full_name || user?.name || 'U').charAt(0).toUpperCase();
+  const [createOpen, setCreateOpen] = useState(false);
+  const progress = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    progress.value = withTiming(expanded ? 1 : 0, { duration: ANIM_DURATION });
-  }, [expanded, progress]);
+    Animated.timing(progress, {
+      toValue: createOpen ? 1 : 0,
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [createOpen, progress]);
 
-  // First path segment, e.g. "/gamerooms" -> "gamerooms", "/forum" -> "forum".
-  const activeName = pathname.split('/').filter(Boolean)[0];
-
-  const goTo = (item: BarItem) => {
-    setExpanded(false);
-    router.navigate(item.href);
+  const chooseCreateAction = (item: (typeof CREATE_ITEMS)[number]) => {
+    setCreateOpen(false);
+    router.navigate((item.route + '?create=' + item.create) as Href);
   };
 
-  const fabStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${progress.value * 45}deg` }],
-  }));
-
-  const renderItem = (item: BarItem) => {
+  const renderItem = (item: (typeof ITEMS)[number]) => {
     const active = activeName === item.routeName;
-    const Icon = item.icon;
     return (
-      <TouchableOpacity
+      <Pressable
         key={item.routeName}
-        onPress={() => goTo(item)}
-        className="flex-1 items-center justify-center gap-0.5 py-1.5"
+        onPress={() => router.navigate(item.href)}
+        accessibilityRole="tab"
+        accessibilityState={{ selected: active }}
+        accessibilityLabel={item.label}
+        className="min-w-0 flex-1 items-center justify-center gap-1"
       >
-        <Icon size={22} color={active ? theme.brand : '#94A3B8'} />
-        <Text
-          className="text-[10px] font-bold"
-          style={{ color: active ? theme.brand : '#94A3B8' }}
-          numberOfLines={1}
-        >
+        <View className={active ? 'h-11 w-11 items-center justify-center rounded-md bg-white/10' : 'h-11 w-11 items-center justify-center rounded-md'}>
+          <Image source={item.icon} className="h-6 w-6" resizeMode="contain" />
+        </View>
+        <Text className="text-center text-[9px] font-bold" style={{ color: active ? '#F4F7E9' : '#A6B1A6' }} numberOfLines={1}>
           {item.label}
         </Text>
-      </TouchableOpacity>
+      </Pressable>
     );
   };
 
   return (
     <View
-      style={{ paddingBottom: insets.bottom, backgroundColor: scheme === 'dark' ? '#0F1E36' : '#FFFFFF' }}
-      className="flex-row items-center border-t border-border dark:border-border-dark"
+      style={{ paddingBottom: insets.bottom, backgroundColor: '#17231D' }}
+      className="relative flex-row items-center border-t border-white/10 px-1 pt-1"
     >
-      {LEFT_ITEMS.map(renderItem)}
+      {ITEMS.slice(0, 2).map(renderItem)}
+      <Pressable
+        onPress={() => setCreateOpen((open) => !open)}
+        accessibilityRole="button"
+        accessibilityLabel="Tạo mới"
+        accessibilityState={{ expanded: createOpen }}
+        className="min-w-0 flex-1 items-center justify-center"
+      >
+        <Animated.View
+          style={{
+            transform: [{ rotate: progress.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '45deg'] }) }],
+            backgroundColor: '#D3EB5E',
+          }}
+          className="h-[52px] w-[52px] items-center justify-center rounded-full border border-white/40 shadow-lg"
+        >
+          <Plus size={27} color="#17231D" />
+        </Animated.View>
+      </Pressable>
+      {renderItem(ITEMS[2])}
+      <Pressable
+        onPress={() => router.navigate('/(tabs)/profile')}
+        accessibilityRole="tab"
+        accessibilityLabel="Hồ sơ"
+        accessibilityState={{ selected: activeName === 'profile' }}
+        className="min-w-0 flex-1 items-center justify-center gap-1"
+      >
+        <View className="h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-[#D3EB5E]/50 bg-[#D3EB5E]">
+          {avatarUrl ? <Image source={{ uri: avatarUrl }} className="h-full w-full" resizeMode="cover" /> : <UserRound size={23} color="#263829" />}
+        </View>
+        <Text className="text-center text-[9px] font-bold" style={{ color: activeName === 'profile' ? '#F4F7E9' : '#A6B1A6' }}>Hồ sơ</Text>
+      </Pressable>
 
-      <View className="flex-1 items-center justify-center">
-        <TouchableOpacity onPress={() => setExpanded((v) => !v)} activeOpacity={0.85}>
-          <Animated.View
-            style={[{ backgroundColor: theme.brand }, fabStyle]}
-            className="h-14 w-14 items-center justify-center rounded-full shadow-lg"
-          >
-            <Plus size={24} color="#fff" />
-          </Animated.View>
-        </TouchableOpacity>
-      </View>
-
-      {RIGHT_ITEMS.map(renderItem)}
-
-      <Modal visible={expanded} transparent animationType="fade" onRequestClose={() => setExpanded(false)}>
-        <Pressable className="flex-1 bg-black/30" onPress={() => setExpanded(false)}>
-          <View
-            style={{ position: 'absolute', left: 0, right: 0, bottom: insets.bottom + 28, alignItems: 'center' }}
-          >
-            <View style={{ width: 1, height: 1 }}>
-              {EXPAND_ITEMS.map(({ item, angleDeg }) => (
-                <FanItem
-                  key={item.routeName}
-                  item={item}
-                  angleDeg={angleDeg}
-                  progress={progress}
-                  brandColor={theme.brand}
-                  onPress={() => goTo(item)}
-                />
-              ))}
-            </View>
+      <Modal transparent visible={createOpen} animationType="fade" onRequestClose={() => setCreateOpen(false)}>
+        <View className="flex-1 justify-end" style={{ backgroundColor: 'rgba(8, 16, 10, .16)' }}>
+          <Pressable onPress={() => setCreateOpen(false)} accessibilityLabel="Đóng menu tạo mới" className="absolute inset-0" />
+          <View pointerEvents="box-none" style={{ position: 'absolute', left: '50%', bottom: insets.bottom + 42, width: 1, height: 1 }}>
+            {CREATE_ITEMS.map((item) => {
+              const Icon = item.icon;
+              const animatedStyle = {
+                opacity: progress,
+                transform: [
+                  { translateX: progress.interpolate({ inputRange: [0, 1], outputRange: [0, item.x] }) },
+                  { translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [0, item.y] }) },
+                  { scale: progress.interpolate({ inputRange: [0, 1], outputRange: [0.72, 1] }) },
+                ],
+              };
+              return (
+                <Animated.View key={item.create} style={[{ position: 'absolute', left: -43, top: -39, width: 86, alignItems: 'center' }, animatedStyle]}>
+                  <Pressable onPress={() => chooseCreateAction(item)} accessibilityRole="button" accessibilityLabel={'Tạo ' + item.label} className="items-center gap-1">
+                    <View className="h-12 w-12 items-center justify-center rounded-full border border-white/35 bg-[#D3EB5E] shadow-lg">
+                      <Icon size={21} color="#17231D" />
+                    </View>
+                    <Text className="rounded bg-[#202D23] px-1.5 py-0.5 text-[10px] font-bold text-[#F4F7E9]">{item.label}</Text>
+                  </Pressable>
+                </Animated.View>
+              );
+            })}
           </View>
-        </Pressable>
+        </View>
       </Modal>
     </View>
   );

@@ -90,23 +90,29 @@ export default function BookingsScreen() {
   return (
     <ScreenContainer scroll={false} className="pt-3">
       <TopNavbar />
-      <View className="mb-3 flex-row items-center justify-between gap-2">
-        <Text className="text-2xl font-black text-slate-900 dark:text-white">Đặt sân</Text>
-        <View className="flex-row gap-2">
-          <Button variant="outline" size="icon" onPress={() => router.push('/(tabs)/map')}>
-            <Map size={16} color="#0EA5E9" />
-          </Button>
-          <Button variant="outline" size="icon" onPress={() => router.push('/(tabs)/bookings/my')}>
-            <Calendar size={16} color="#059669" />
-          </Button>
-          <TouchableOpacity
-            onPress={handleAddVenuePress}
-            className="flex-row items-center gap-1 rounded-full bg-brand px-3 py-2 dark:bg-brand-dark"
-          >
-            <Plus size={16} color="#fff" />
-            <Text className="text-xs font-bold text-white">{isOwner ? 'Thêm sân' : 'Đăng ký chủ sân'}</Text>
-          </TouchableOpacity>
+      <View className="mb-3 flex-row items-end justify-between gap-2">
+        <View className="flex-1">
+          <Text className="text-[10px] font-extrabold uppercase text-[#66834F] dark:text-[#D3EB5E]">SportGo / Sân bãi</Text>
+          <Text className="text-[23px] font-black text-slate-900 dark:text-white">Đặt sân</Text>
         </View>
+        <TouchableOpacity
+          onPress={handleAddVenuePress}
+          className="flex-row items-center gap-1 rounded-md bg-[#42734B] px-3 py-2.5"
+        >
+          <Plus size={16} color="#fff" />
+          <Text className="text-xs font-bold text-white">{isOwner ? 'Thêm sân' : 'Đăng ký chủ sân'}</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View className="mb-3 flex-row gap-2">
+        <TouchableOpacity onPress={() => router.push('/(tabs)/map')} className="flex-1 flex-row items-center justify-center gap-2 rounded-md border border-[#DCE5DB] bg-white py-2.5 dark:border-[#34453A] dark:bg-[#1C2A21]">
+          <Map size={16} color="#42734B" />
+          <Text className="text-xs font-bold text-slate-700 dark:text-slate-200">Bản đồ sân</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push('/(tabs)/bookings/my')} className="flex-1 flex-row items-center justify-center gap-2 rounded-md border border-[#DCE5DB] bg-white py-2.5 dark:border-[#34453A] dark:bg-[#1C2A21]">
+          <Calendar size={16} color="#42734B" />
+          <Text className="text-xs font-bold text-slate-700 dark:text-slate-200">Lịch đặt của tôi</Text>
+        </TouchableOpacity>
       </View>
 
       <View className="mb-3 flex-row gap-2">

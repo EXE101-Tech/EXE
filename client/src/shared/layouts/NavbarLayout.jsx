@@ -2,16 +2,15 @@ import { Outlet } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import ChatPanel from '../components/ChatPanel';
 import { useChat } from '../context/ChatContext';
+import './member-ui.css';
 
 export default function NavbarLayout() {
   const { isChatOpen } = useChat();
 
   return (
-    <div className="member-app-shell min-h-screen text-slate-900 dark:text-[#EAF2FF] relative z-50 w-full overflow-x-clip font-sans transition-colors duration-500 selection:bg-[#65E6A0]/30 flex flex-col">
+    <div className="member-app-shell min-h-screen text-slate-900 dark:text-[#EAF2FF] relative z-50 w-full overflow-x-clip font-sans selection:bg-[#C7E84D]/30">
       <Navbar />
-      <div 
-        className={`navbar-content flex-1 pt-[104px] sm:pt-[124px] transition-[margin,padding] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] relative ${isChatOpen ? 'md:mr-[384px]' : 'md:mr-0'}`}
-      >
+      <div className={`navbar-content relative transition-[margin] duration-300 ${isChatOpen ? 'chat-is-open' : ''}`}>
         <Outlet />
       </div>
       <ChatPanel />

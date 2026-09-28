@@ -4,6 +4,7 @@ import { ActivityIndicator, Pressable, type PressableProps } from 'react-native'
 import { cva, type VariantProps } from 'class-variance-authority';
 
 import { cn } from '@/lib/utils';
+import { useAuthStore } from '@/stores/auth-store';
 
 const buttonVariants = cva('flex-row items-center justify-center gap-2 rounded-xl active:opacity-80', {
   variants: {
@@ -49,11 +50,18 @@ export interface ButtonProps extends PressableProps, VariantProps<typeof buttonV
 }
 
 export const Button = React.forwardRef<React.ElementRef<typeof Pressable>, ButtonProps>(
-  ({ className, textClassName, variant, size, label, loading, disabled, children, ...props }, ref) => (
+  ({ className, textClassName, variant, size, label, loading, disabled, children, ...props }, ref) => {
+    const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+    return (
     <Pressable
       ref={ref}
       disabled={disabled || loading}
-      className={cn(buttonVariants({ variant, size }), (disabled || loading) && 'opacity-50', className)}
+      className={cn(
+        buttonVariants({ variant, size }),
+        isAuthenticated && (!variant || variant === 'default') && 'bg-[#42734B] dark:bg-[#42734B]',
+        (disabled || loading) && 'opacity-50',
+        className,
+      )}
       {...props}
     >
       {loading ? (
@@ -66,6 +74,7 @@ export const Button = React.forwardRef<React.ElementRef<typeof Pressable>, Butto
         children
       )}
     </Pressable>
-  ),
+    );
+  },
 );
 Button.displayName = 'Button';

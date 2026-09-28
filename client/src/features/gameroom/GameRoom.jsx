@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Search, Plus, PlusCircle, Gamepad2, Trophy, Award, Filter, Sparkles, SlidersHorizontal, RefreshCw, AlertCircle, MessageSquare, Send, X, Crown, CheckCircle2, MapPin, Calendar, DollarSign, Users, ChevronDown, UserRound } from 'lucide-react';
+import { Search, Gamepad2, Trophy, Award, Filter, Sparkles, SlidersHorizontal, RefreshCw, AlertCircle, MessageSquare, Send, X, Crown, CheckCircle2, MapPin, Calendar, DollarSign, Users, ChevronDown, UserRound } from 'lucide-react';
 import { gameRoomService, resolveMediaUrl, sportService } from '../../shared/services/api';
 import { useSportFilter } from '../../shared/context/SportFilterContext';
 import { useChat } from '../../shared/context/ChatContext';
@@ -30,7 +30,7 @@ const LEVEL_TABS = [
 ];
 
 function GameRoom() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const searchQuery = searchParams.get('search') || '';
   const { selectedSport, setSelectedSport } = useSportFilter();
   const { openChat } = useChat();
@@ -203,10 +203,18 @@ function GameRoom() {
     }
   };
 
-  const openCreateModal = () => {
+  const openCreateModal = useCallback(() => {
     setEditingRoom(null);
     setIsCreateOpen(true);
-  };
+  }, []);
+
+  useEffect(() => {
+    if (searchParams.get('create') !== 'room') return;
+    openCreateModal();
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('create');
+    setSearchParams(nextParams, { replace: true });
+  }, [openCreateModal, searchParams, setSearchParams]);
 
   const handleJoinConfirm = async (roomId, note) => {
     setIsLoading(true);
@@ -281,13 +289,11 @@ function GameRoom() {
         </div>
       )}
 
-
-
       {/* ── Filter Bar Section ── */}
       <div className="navbar-filter-bar pb-4 pt-0 px-4 sm:px-6 sticky top-[112px] sm:top-[132px] z-40 transition-all duration-300">
         <div className="member-filter-panel max-w-[1600px] mx-auto rounded-xl sm:rounded-2xl p-1.5 sm:p-2.5 flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-2 xl:gap-3 transition-all duration-300">
           
-          {/* Mobile Header (Toggle + Action Button) */}
+          {/* Mobile filter toggle */}
           <div className="flex xl:hidden items-center justify-between gap-2 w-full">
             <button 
               onClick={() => setIsMobileFilterOpen(!isMobileFilterOpen)}
@@ -296,13 +302,6 @@ function GameRoom() {
               <Filter className="w-4 h-4" />
               <span>Bộ lọc</span>
               <ChevronDown className={`w-4 h-4 transition-transform ${isMobileFilterOpen ? 'rotate-180' : ''}`} />
-            </button>
-            <button
-              onClick={openCreateModal}
-              className="px-3.5 py-1.5 rounded-lg font-bold text-sm bg-gradient-to-r from-[#74C365] to-[#589470] text-white shadow-md flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap"
-            >
-              <PlusCircle className="w-4 h-4 shrink-0" />
-              <span>Tạo phòng</span>
             </button>
           </div>
 
@@ -392,22 +391,11 @@ function GameRoom() {
 
           </div>
 
-          {/* Right action: Create Button */}
-          <button
-            onClick={openCreateModal}
-            className="hidden xl:flex px-3.5 py-2 xl:px-5 xl:py-2.5 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-95 text-white shadow-md hover:shadow-lg items-center justify-center gap-1.5 sm:gap-2 transition-all duration-200 active:scale-95 group shrink-0 whitespace-nowrap"
-          >
-            <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 group-hover:rotate-90 transition-transform duration-300 shrink-0" />
-            <span className="sm:hidden">Mở phòng</span>
-            <span className="hidden sm:inline">Mở phòng chờ</span>
-          </button>
-
         </div>
       </div>
 
       {/* Main Content Area */}
       <main className="max-w-[1600px] mx-auto px-4 sm:px-6 md:px-12 pt-4 sm:pt-6">
-
         {error && <div role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">{error}</div>}
 
 
@@ -424,14 +412,8 @@ function GameRoom() {
             </div>
             <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Không tìm thấy phòng chờ phù hợp</h3>
             <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto mb-6">
-              Bạn có thể thử chọn môn thể thao khác, thay đổi bộ lọc trình độ, hoặc tự mở một phòng chờ mới cho riêng bạn ngay!
+              Bạn có thể thử chọn môn thể thao khác hoặc thay đổi bộ lọc trình độ.
             </p>
-            <button
-              onClick={openCreateModal}
-              className="px-5 py-3 rounded-2xl bg-[#589470] dark:bg-[#DBE64C] text-white dark:text-[#001F3F] font-bold text-xs shadow-lg active:scale-95 transition-all"
-            >
-              + Mở Phòng Chờ Mới
-            </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

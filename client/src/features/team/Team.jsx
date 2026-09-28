@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { Users, PlusCircle, Sparkles, SlidersHorizontal, Crown, Shield, UserCheck, Trophy, Filter, ChevronDown, Trash2 } from 'lucide-react';
+import { Users, Sparkles, SlidersHorizontal, Crown, Shield, UserCheck, Trophy, Filter, ChevronDown, Trash2 } from 'lucide-react';
 import { useSportFilter } from '../../shared/context/SportFilterContext';
 import TeamCard from './components/TeamCard';
 import CreateTeamModal from './components/CreateTeamModal';
@@ -23,7 +23,7 @@ const TABS = [
 ];
 
 export default function Team() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const routeSearch = (searchParams.get('search') || '').trim().toLowerCase();
   const { selectedSport, setSelectedSport } = useSportFilter();
   const { openChat } = useChat();
@@ -41,6 +41,14 @@ export default function Team() {
   const [memberDialog, setMemberDialog] = useState(null);
   const [members, setMembers] = useState([]);
   const [alertMessage, setAlertMessage] = useState('');
+
+  useEffect(() => {
+    if (searchParams.get('create') !== 'club') return;
+    setIsCreateModalOpen(true);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('create');
+    setSearchParams(nextParams, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const loadTeams = useCallback(async (silent = false) => {
     if (isLoadingTeamsRef.current) return;
@@ -190,13 +198,11 @@ export default function Team() {
         </div>
       )}
 
-
-
       {/* ── Filter Bar Section ── */}
       <div className="navbar-filter-bar pb-4 pt-0 px-4 sm:px-6 sticky top-[112px] sm:top-[132px] z-40 transition-all duration-300">
         <div className="member-filter-panel max-w-[1600px] mx-auto rounded-xl sm:rounded-2xl p-1.5 sm:p-2.5 flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-2 xl:gap-3 transition-all duration-300">
           
-          {/* Mobile Header (Toggle + Action Button) */}
+          {/* Mobile filter toggle */}
           <div className="flex xl:hidden items-center justify-between gap-2 w-full">
             <button 
               onClick={() => setIsMobileFilterOpen(!isMobileFilterOpen)}
@@ -205,13 +211,6 @@ export default function Team() {
               <Filter className="w-4 h-4" />
               <span>Bộ lọc</span>
               <ChevronDown className={`w-4 h-4 transition-transform ${isMobileFilterOpen ? 'rotate-180' : ''}`} />
-            </button>
-            <button
-              onClick={() => setIsCreateModalOpen(true)}
-              className="px-3.5 py-1.5 rounded-lg font-bold text-sm bg-gradient-to-r from-[#74C365] to-[#589470] text-white shadow-md flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap"
-            >
-              <PlusCircle className="w-4 h-4 shrink-0" />
-              <span>Tạo CLB</span>
             </button>
           </div>
 
@@ -252,22 +251,11 @@ export default function Team() {
             </div>
           </div>
 
-          {/* Right action: Create Button */}
-          <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="hidden xl:flex px-3.5 py-2 xl:px-5 xl:py-2.5 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-95 text-white shadow-md hover:shadow-lg items-center justify-center gap-1.5 sm:gap-2 transition-all duration-200 active:scale-95 group shrink-0 whitespace-nowrap"
-          >
-            <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 group-hover:rotate-90 transition-transform duration-300 shrink-0" />
-            <span className="sm:hidden">Tạo CLB</span>
-            <span className="hidden sm:inline">Thành lập CLB</span>
-          </button>
-
         </div>
       </div>
 
       {/* ── Main Teams Feed ── */}
       <main className="max-w-[1600px] mx-auto px-4 sm:px-6 pt-4 sm:pt-6">
-
         {error && <div role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">{error}</div>}
         {isLoading ? (
           <div className="py-16 text-center text-sm font-semibold text-slate-500">Đang tải dữ liệu CLB…</div>
@@ -286,14 +274,6 @@ export default function Team() {
               {activeTab === 'member' && 'Hãy khám phá và tham gia các CLB trong tab "Khám phá CLB" để kết nối cộng đồng!'}
               {activeTab === 'discover' && 'Hiện chưa có CLB nào phù hợp với môn thể thao bạn đang chọn. Thử xóa bộ lọc hoặc thành lập CLB mới!'}
             </p>
-            {(activeTab === 'captain' || activeTab === 'discover') && (
-              <button
-                onClick={() => setIsCreateModalOpen(true)}
-                className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-amber-400 to-yellow-500 text-white font-bold text-xs shadow-lg active:scale-95 transition-all"
-              >
-                + Thành lập CLB mới
-              </button>
-            )}
           </div>
         ) : (
           <div className="space-y-6">

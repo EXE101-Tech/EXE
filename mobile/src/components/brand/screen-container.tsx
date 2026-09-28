@@ -3,6 +3,7 @@ import { ScrollView, View, type ViewProps } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { cn } from '@/lib/utils';
+import { useAuthStore } from '@/stores/auth-store';
 
 interface ScreenContainerProps extends PropsWithChildren<ViewProps> {
   scroll?: boolean;
@@ -10,8 +11,15 @@ interface ScreenContainerProps extends PropsWithChildren<ViewProps> {
 
 /** Consistent safe-area + padding wrapper, background follows the brand bg token in both themes. */
 export function ScreenContainer({ children, className, scroll = true, ...props }: ScreenContainerProps) {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   return (
-    <SafeAreaView className="flex-1 bg-bg dark:bg-bg-dark" edges={['top', 'left', 'right']}>
+    <SafeAreaView
+      className={cn(
+        'flex-1',
+        isAuthenticated ? 'bg-[#F3F6F2] dark:bg-[#111A16]' : 'bg-bg dark:bg-bg-dark',
+      )}
+      edges={['top', 'left', 'right']}
+    >
       {scroll ? (
         <ScrollView
           className="flex-1"

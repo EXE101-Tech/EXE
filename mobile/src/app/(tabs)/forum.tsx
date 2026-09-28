@@ -1,7 +1,7 @@
 import { Text } from '@/components/ui/text';
-import { router } from 'expo-router';
-import { Award, Calendar, DollarSign, MapPin, MessageSquare, Plus, Trophy, UserRound } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { Award, Calendar, DollarSign, MapPin, MessageSquare, Trophy, UserRound } from 'lucide-react-native';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, FlatList, TouchableOpacity, View } from 'react-native';
 import { EmptyState } from '@/components/brand/empty-state';
 import { LoadingState } from '@/components/brand/loading-state';
@@ -69,6 +69,8 @@ const SKILL_OPTIONS: SelectOption[] = [
 ];
 
 export default function ForumScreen() {
+  const params = useLocalSearchParams<{ create?: string | string[] }>();
+  const createParam = Array.isArray(params.create) ? params.create[0] : params.create;
   const currentUserId = useAuthStore((s) => s.user?.id);
   const { data: posts, isLoading, isError, refetch, isRefetching } = useLfgPostsQuery();
   const joinPost = useJoinLfgPostMutation();
@@ -79,6 +81,12 @@ export default function ForumScreen() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingPost, setEditingPost] = useState<LfgPostResponse | null>(null);
   const [managingPostId, setManagingPostId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (createParam !== 'post') return;
+    setIsCreateOpen(true);
+    router.setParams({ create: undefined });
+  }, [createParam]);
 
   const [sportFilter, setSportFilter] = useState('all');
   const [scopeFilter, setScopeFilter] = useState('all');
@@ -155,15 +163,11 @@ export default function ForumScreen() {
     <ScreenContainer scroll={false} className="px-4">
       <TopNavbar />
 
-      <View className="mb-3 flex-row items-center justify-between">
-        <Text className="text-xl font-black text-slate-900 dark:text-white">Diễn đàn tìm đối</Text>
-        <TouchableOpacity
-          onPress={() => setIsCreateOpen(true)}
-          className="flex-row items-center gap-1 rounded-full bg-brand px-3 py-2 dark:bg-brand-dark"
-        >
-          <Plus size={16} color="#fff" />
-          <Text className="text-xs font-bold text-white">Đăng bài</Text>
-        </TouchableOpacity>
+      <View className="mb-3 flex-row items-end justify-between gap-2">
+        <View className="flex-1">
+          <Text className="text-[10px] font-extrabold uppercase text-[#66834F] dark:text-[#D3EB5E]">SportGo / Cộng đồng</Text>
+          <Text className="text-[23px] font-black text-slate-900 dark:text-white">Diễn đàn</Text>
+        </View>
       </View>
 
       <FilterGrid

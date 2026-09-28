@@ -14,12 +14,12 @@ export default function TabsLayout() {
       tabBar={() => <BottomTabBar />}
     >
       <Tabs.Screen name="forum" />
-      <Tabs.Screen name="bookings" options={{ href: null }} />
       <Tabs.Screen name="gamerooms" />
+      <Tabs.Screen name="teams" />
+      <Tabs.Screen name="bookings" options={{ href: null }} />
       <Tabs.Screen name="profile" />
       <Tabs.Screen name="chat" />
       <Tabs.Screen name="premium" />
-      <Tabs.Screen name="teams" />
       <Tabs.Screen name="search" />
       <Tabs.Screen name="notifications" />
       <Tabs.Screen name="map" options={{ href: null }} />

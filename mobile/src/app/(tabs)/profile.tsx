@@ -1,6 +1,7 @@
 import { Text } from '@/components/ui/text';
 import * as ImagePicker from 'expo-image-picker';
-import { Eye, ImagePlus, LogOut, Pencil, Trophy, Users } from 'lucide-react-native';
+import { router } from 'expo-router';
+import { ChevronRight, Crown, Eye, ImagePlus, LogOut, Pencil, Trophy, Users } from 'lucide-react-native';
 import { useState } from 'react';
 import { Alert, Image, TouchableOpacity, View } from 'react-native';
 import { storageApi } from '@/api/storage';
@@ -75,7 +76,7 @@ export default function ProfileScreen() {
         <Text className="text-3xl font-black text-slate-900 dark:text-white">{displayName}</Text>
       </View>
 
-      <View className="overflow-hidden rounded-3xl border border-border dark:border-border-dark">
+      <View className="overflow-hidden rounded-lg border border-[#DCE5DB] dark:border-[#34453A]">
         <View className="h-40 bg-slate-200 dark:bg-slate-800">
           {user.profile?.cover_url ? (
             <Image source={{ uri: user.profile.cover_url }} className="h-full w-full" resizeMode="cover" />
@@ -102,9 +103,9 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        <View className="bg-white px-5 pb-6 dark:bg-[#0F1E36]">
+        <View className="bg-white px-5 pb-6 dark:bg-[#1C2A21]">
           <View className="-mt-10 flex-row items-end gap-4 pb-4">
-            <View className="rounded-full border-4 border-white p-0.5 dark:border-[#0F1E36]">
+            <View className="rounded-full border-4 border-white p-0.5 dark:border-[#1C2A21]">
               <Avatar uri={user.profile?.avatar_url} fallback={displayName} size={80} />
             </View>
             <View className="flex-1 pb-1">
@@ -177,6 +178,21 @@ export default function ProfileScreen() {
           </View>
         </View>
       </View>
+
+      <TouchableOpacity
+        onPress={() => router.push('/(tabs)/premium')}
+        accessibilityLabel="Xem SportGo Premium"
+        className="mt-3 flex-row items-center gap-3 rounded-lg border border-[#DCE5DB] bg-white px-4 py-4 dark:border-[#34453A] dark:bg-[#1C2A21]"
+      >
+        <View className="h-9 w-9 items-center justify-center rounded-lg bg-[#F7E6B0]">
+          <Crown size={18} color="#8F6215" />
+        </View>
+        <View className="flex-1">
+          <Text className="text-sm font-bold text-slate-900 dark:text-white">SportGo Premium</Text>
+          <Text className="text-xs text-slate-500 dark:text-slate-400">Quyền lợi dành cho người chơi</Text>
+        </View>
+        <ChevronRight size={18} color="#7A887C" />
+      </TouchableOpacity>
 
       <EditProfileModal visible={isEditOpen} user={user} onClose={() => setIsEditOpen(false)} />
       {user.profile?.cover_url ? (
