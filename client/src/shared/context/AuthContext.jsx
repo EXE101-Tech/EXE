@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { authService, ownerService, resolveMediaUrl } from '../services/api';
 
 const AuthContext = createContext(null);
@@ -85,11 +85,11 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     const profile = normalizeUser(await authService.getProfile());
     setUser(profile);
     return profile;
-  };
+  }, []);
 
   const applyOwnerRegistration = async () => {
     const status = await ownerService.register();

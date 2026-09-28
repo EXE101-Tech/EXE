@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app import database, schemas, crud, auth_utils, models
@@ -15,7 +16,16 @@ def get_all_matches(
     status: Optional[str] = Query(None),
     db: Session = Depends(database.get_db)
 ):
+    crud.close_expired_matches(db)
     return crud.get_matches(db, sport_id=sport_id, status=status)
+
+@router.get("/mine", response_model=List[schemas.MatchResponse])
+def get_my_matches(
+    current_user = Depends(auth_utils.get_current_user),
+    db: Session = Depends(database.get_db),
+):
+    crud.close_expired_matches(db)
+    return crud.get_matches(db, host_id=current_user.id)
 
 @router.post("", response_model=schemas.MatchResponse, status_code=status.HTTP_201_CREATED)
 def create_new_match(
@@ -37,11 +47,79 @@ def create_new_match(
     return crud.create_match(db, host_id=current_user.id, match=match_data)
 
 @router.get("/{id}", response_model=schemas.MatchResponse)
-def get_match_by_id(id: int, db: Session = Depends(database.get_db)):
+def get_match_by_id(
+    id: int,
+    current_user = Depends(auth_utils.get_optional_current_user),
+    db: Session = Depends(database.get_db),
+):
+    crud.close_expired_matches(db)
     match = crud.get_match_by_id(db, match_id=id)
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
+    if match.status in ["CLOSED", "CANCELLED", "FINISHED"] and match.host_id != getattr(current_user, "id", None):
+        raise HTTPException(status_code=404, detail="Match not found")
     return match
+
+@router.put("/{id}", response_model=schemas.MatchResponse)
+def update_existing_match(
+    id: int,
+    match_data: schemas.MatchCreate,
+    current_user = Depends(auth_utils.get_current_user),
+    db: Session = Depends(database.get_db),
+):
+    crud.close_expired_matches(db)
+    match = crud.get_match_by_id(db, match_id=id)
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    if match.host_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the host can edit this match")
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    if match.status in ["CLOSED", "CANCELLED", "FINISHED"] or match.end_time <= now:
+        raise HTTPException(status_code=409, detail="Phòng đã đóng nên không thể chỉnh sửa")
+    if match_data.end_time <= now:
+        raise HTTPException(status_code=422, detail="Thời gian kết thúc mới phải ở trong tương lai")
+    sport = db.query(models.Sport).filter(models.Sport.id == match_data.sport_id).first()
+    if not sport:
+        raise HTTPException(status_code=404, detail="Sport not found")
+    if match_data.court_id and not crud.get_court_by_id(db, court_id=match_data.court_id):
+        raise HTTPException(status_code=404, detail="Court not found")
+    approved_count = db.query(models.MatchParticipant).filter_by(match_id=id, status="APPROVED").count()
+    if match_data.max_players < approved_count:
+        raise HTTPException(status_code=409, detail="Số người tối đa không thể ít hơn số thành viên đã tham gia")
+    return crud.update_match(db, match_id=id, data=match_data)
+
+@router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_existing_match(
+    id: int,
+    current_user = Depends(auth_utils.get_current_user),
+    db: Session = Depends(database.get_db),
+):
+    match = crud.get_match_by_id(db, match_id=id)
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    if match.host_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the host can delete this match")
+
+    approved_members = db.query(models.MatchParticipant.user_id).filter(
+        models.MatchParticipant.match_id == id,
+        models.MatchParticipant.status == "APPROVED",
+        models.MatchParticipant.user_id != current_user.id,
+    ).all()
+    for (recipient_id,) in approved_members:
+        create_notification(
+            db,
+            recipient_id=recipient_id,
+            actor=current_user,
+            notification_type="gameroom_deleted",
+            title="Phòng game đã bị xóa",
+            body=f'Chủ phòng đã xóa phòng “{match.title}”.',
+            target_url="/matches",
+            entity_type="game_room",
+            entity_id=match.id,
+        )
+    db.delete(match)
+    db.commit()
+    return None
 
 @router.post("/{id}/join", response_model=schemas.MatchParticipantResponse)
 def join_existing_match(
@@ -50,11 +128,12 @@ def join_existing_match(
     current_user = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db)
 ):
+    crud.close_expired_matches(db)
     # Check if match exists
     match = crud.get_match_by_id(db, match_id=id)
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
-    if match.status in ["FULL", "FINISHED", "CANCELLED"]:
+    if match.status in ["FULL", "CLOSED", "FINISHED", "CANCELLED"]:
         raise HTTPException(status_code=400, detail=f"Cannot join match in status {match.status}")
     if match.host_id == current_user.id:
         raise HTTPException(status_code=400, detail="Bạn là trưởng phòng này rồi")
@@ -87,6 +166,7 @@ def leave_existing_match(
     current_user = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db)
 ):
+    crud.close_expired_matches(db)
     # Check if match exists
     match = crud.get_match_by_id(db, match_id=id)
     if not match:
@@ -106,14 +186,15 @@ def update_participant_status(
     current_user = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db)
 ):
+    crud.close_expired_matches(db)
     # Verify match exists
     match = crud.get_match_by_id(db, match_id=id)
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
         
     # Verify match is not cancelled
-    if match.status == "CANCELLED":
-        raise HTTPException(status_code=400, detail="Cannot update participant status for a cancelled match")
+    if match.status in ["CLOSED", "CANCELLED", "FINISHED"]:
+        raise HTTPException(status_code=400, detail="Cannot update participant status for a closed match")
         
     # Verify current user is the host
     if match.host_id != current_user.id:
@@ -155,5 +236,39 @@ def update_participant_status(
             entity_id=match.id,
         )
         db.commit()
+    return participant
+
+
+@router.patch("/{id}/participants/{user_id}/attendance", response_model=schemas.MatchParticipantResponse)
+def update_participant_attendance(
+    id: int,
+    user_id: int,
+    attendance_data: schemas.MatchAttendanceUpdate,
+    current_user = Depends(auth_utils.get_current_user),
+    db: Session = Depends(database.get_db),
+):
+    crud.close_expired_matches(db)
+    match = crud.get_match_by_id(db, match_id=id)
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    if match.host_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the host can confirm attendance")
+    if match.status == "CANCELLED":
+        raise HTTPException(status_code=409, detail="Phòng đã bị hủy nên không thể xác nhận tham gia")
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    if match.end_time > now:
+        raise HTTPException(status_code=409, detail="Chỉ có thể xác nhận sau khi trận đấu kết thúc")
+
+    participant = db.query(models.MatchParticipant).filter_by(
+        match_id=id,
+        user_id=user_id,
+        status="APPROVED",
+    ).first()
+    if not participant:
+        raise HTTPException(status_code=404, detail="Không tìm thấy thành viên đã được duyệt trong phòng")
+
+    participant.attendance_status = attendance_data.attendance_status
+    db.commit()
+    db.refresh(participant)
     return participant
 

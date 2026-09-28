@@ -180,8 +180,26 @@ def logout(credentials = Depends(auth_utils.security), db: Session = Depends(dat
     return {"message": "Logged out successfully"}
 
 @router.get("/me", response_model=schemas.UserResponse)
-def get_me(current_user = Depends(auth_utils.get_current_user)):
-    return current_user
+def get_me(
+    current_user = Depends(auth_utils.get_current_user),
+    db: Session = Depends(database.get_db),
+):
+    response = schemas.UserResponse.model_validate(current_user)
+    attendance_by_sport = db.query(
+        models.Match.sport_id,
+        func.count(models.MatchParticipant.id),
+    ).join(
+        models.MatchParticipant,
+        models.MatchParticipant.match_id == models.Match.id,
+    ).filter(
+        models.MatchParticipant.user_id == current_user.id,
+        models.MatchParticipant.status == "APPROVED",
+        models.MatchParticipant.attendance_status == "ATTENDED",
+    ).group_by(models.Match.sport_id).all()
+    confirmed_counts = {sport_id: int(count) for sport_id, count in attendance_by_sport}
+    for user_sport in response.sports:
+        user_sport.games_played = int(user_sport.games_played or 0) + confirmed_counts.get(user_sport.sport_id, 0)
+    return response
 
 
 @router.get("/me/stats", response_model=schemas.UserStatsResponse)
@@ -189,9 +207,26 @@ def get_my_stats(
     current_user = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db),
 ):
-    games_played = db.query(func.coalesce(func.sum(models.UserSport.games_played), 0)).filter(
-        models.UserSport.user_id == current_user.id
-    ).scalar()
+    legacy_games_by_sport = db.query(
+        models.UserSport.sport_id,
+        func.coalesce(func.sum(models.UserSport.games_played), 0),
+    ).filter(
+        models.UserSport.user_id == current_user.id,
+    ).group_by(models.UserSport.sport_id).all()
+    confirmed_games_by_sport = db.query(
+        models.Match.sport_id,
+        func.count(models.MatchParticipant.id),
+    ).join(
+        models.MatchParticipant,
+        models.MatchParticipant.match_id == models.Match.id,
+    ).filter(
+        models.MatchParticipant.user_id == current_user.id,
+        models.MatchParticipant.status == "APPROVED",
+        models.MatchParticipant.attendance_status == "ATTENDED",
+    ).group_by(models.Match.sport_id).all()
+    games_by_sport = {sport_id: int(count) for sport_id, count in legacy_games_by_sport}
+    for sport_id, count in confirmed_games_by_sport:
+        games_by_sport[sport_id] = games_by_sport.get(sport_id, 0) + int(count)
     teams_joined = db.query(models.TeamMembership).filter_by(
         user_id=current_user.id, status="APPROVED"
     ).count()
@@ -203,7 +238,8 @@ def get_my_stats(
         models.UserSport.user_id == current_user.id
     ).scalar()
     return {
-        "games_played": int(games_played or 0),
+        "games_played": sum(games_by_sport.values()),
+        "games_by_sport": games_by_sport,
         "teams_joined": teams_joined,
         "bookings_count": bookings_count,
         "average_skill_rating": round(float(average_rating), 1) if average_rating is not None else None,
@@ -214,4 +250,4 @@ def update_me(profile_data: schemas.UserProfileWithSportsUpdate, current_user = 
     updated_user = crud.update_user_profile_with_sports(db, current_user.id, profile_data)
     if not updated_user:
         raise HTTPException(status_code=404, detail="User not found")
-    return updated_user
+    return get_me(current_user=updated_user, db=db)

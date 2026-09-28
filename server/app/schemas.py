@@ -209,6 +209,7 @@ class OwnerScheduleItem(BaseModel):
 
 class UserStatsResponse(BaseModel):
     games_played: int = 0
+    games_by_sport: Dict[int, int] = Field(default_factory=dict)
     teams_joined: int = 0
     bookings_count: int = 0
     average_skill_rating: Optional[float] = None
@@ -293,6 +294,7 @@ class MatchParticipantResponse(BaseModel):
     user_id: int
     role: str
     status: str
+    attendance_status: Optional[str] = None
     note: Optional[str] = None
     joined_at: datetime
     user: UserBasicResponse
@@ -365,6 +367,10 @@ class ParticipantStatusUpdate(BaseModel):
         if v not in valid_statuses:
             raise ValueError("Trạng thái phải là APPROVED hoặc REJECTED")
         return v
+
+
+class MatchAttendanceUpdate(BaseModel):
+    attendance_status: Literal["ATTENDED", "ABSENT"]
 
 
 class MatchJoinRequest(BaseModel):

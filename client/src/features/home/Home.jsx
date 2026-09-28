@@ -28,12 +28,12 @@ const SPORT_KEY_BY_NAME = { badminton: 'badminton', 'cầu lông': 'badminton', 
 
 function Home() {
   const navigate = useNavigate();
-  const { user, logout, updateProfile } = useAuth();
+  const { user, logout, updateProfile, refreshProfile } = useAuth();
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isCoverPreviewOpen, setIsCoverPreviewOpen] = useState(false);
   const [coverError, setCoverError] = useState('');
   const [isUploadingCover, setIsUploadingCover] = useState(false);
-  const [stats, setStats] = useState({ games_played: 0, teams_joined: 0 });
+  const [stats, setStats] = useState({ games_played: 0, games_by_sport: {}, teams_joined: 0 });
 
   const displayName = user?.profile?.full_name || user?.email?.split('@')[0] || 'Người dùng';
   const email = user?.email || '';
@@ -58,12 +58,35 @@ function Home() {
 
   useEffect(() => {
     let active = true;
-    authService.getStats().then((nextStats) => {
-      if (!active) return;
-      setStats(nextStats);
-    }).catch(() => {});
-    return () => { active = false; };
-  }, [user?.id]);
+    let loadingStats = false;
+    refreshProfile().catch(() => {});
+
+    const loadStats = async () => {
+      if (!active || document.visibilityState !== 'visible' || loadingStats) return;
+      loadingStats = true;
+      try {
+        const nextStats = await authService.getStats();
+        if (active) setStats(nextStats);
+      } catch {
+        // Keep the last successful values if the API is briefly unavailable.
+      } finally {
+        loadingStats = false;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') loadStats();
+    };
+
+    loadStats();
+    const intervalId = window.setInterval(loadStats, 2000);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [user?.id, refreshProfile]);
 
   const skills = useMemo(() => (user?.sports || []).filter((item) => isActiveSport(item.sport?.name)).map((item) => {
     const sportName = item.sport?.name || 'Môn thể thao';
@@ -74,9 +97,9 @@ function Home() {
       emoji: SKILL_STYLE[key]?.emoji || '🏅',
       color: SKILL_STYLE[key]?.color || 'from-slate-400 to-slate-600',
       level: LEVEL_META[item.skill_level] || item.skill_level,
-      games: item.games_played || 0,
-    };
-  }), [user?.sports]);
+      games: stats.games_by_sport?.[item.sport_id] ?? item.games_played ?? 0,
+  };
+  }), [user?.sports, stats.games_by_sport]);
 
   const statsCards = [
     { label: 'Trận đã chơi', value: stats.games_played, icon: Trophy, color: 'text-amber-500 bg-amber-500/10' },

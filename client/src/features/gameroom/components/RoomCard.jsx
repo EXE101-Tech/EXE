@@ -60,6 +60,7 @@ function RoomCard({ room, currentUserId = 1, onJoin, onChat, onManage }) {
   const currentParticipant = participants.find((p) => Number(p.user_id ?? p.user?.id ?? p.id) === Number(currentUserId));
   const isUserPending = currentParticipant?.status === 'PENDING';
   const isUserJoined = currentParticipant?.status === 'APPROVED';
+  const isClosed = ['CLOSED', 'CANCELLED', 'FINISHED'].includes(status);
   const approvedParticipants = participants.filter((participant) => participant.status === 'APPROVED');
   const currentCount = approvedParticipants.length + 1; // Chỉ tính trưởng phòng và thành viên đã được duyệt
   const isFull = currentCount >= max_players;
@@ -145,11 +146,18 @@ function RoomCard({ room, currentUserId = 1, onJoin, onChat, onManage }) {
             {/* Status Badge (Nút màu xanh "Đang chờ") */}
             <div className="shrink-0 ml-1">
               <span className={`text-[11px] sm:text-xs font-bold px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full whitespace-nowrap inline-flex items-center gap-1 ${
-                isFull
-                  ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30'
-                  : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 animate-pulse'
+                isClosed
+                  ? 'bg-slate-500/15 text-slate-600 dark:text-slate-300 border border-slate-500/30'
+                  : isFull
+                    ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30'
+                    : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 animate-pulse'
               }`}>
-                {isFull ? (
+                {isClosed ? (
+                  <>
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-500 shrink-0" />
+                    <span>{status === 'CANCELLED' ? 'Đã hủy' : status === 'FINISHED' ? 'Đã kết thúc' : 'Đã đóng'}</span>
+                  </>
+                ) : isFull ? (
                   <>
                     <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
                     <span>Đã đầy</span>
@@ -278,9 +286,9 @@ function RoomCard({ room, currentUserId = 1, onJoin, onChat, onManage }) {
               return (
                 <div
                   key={idx}
-                  onClick={() => !isHost && !isUserJoined && !isUserPending && !isFull && onJoin?.(room)}
+                  onClick={() => !isClosed && !isHost && !isUserJoined && !isUserPending && !isFull && onJoin?.(room)}
                   className={`flex flex-col items-center justify-center w-full aspect-square max-w-[40px] mx-auto rounded-2xl border-2 border-dashed border-slate-300 dark:border-white/15 text-slate-400 dark:text-slate-400 transition-all ${
-                    !isHost && !isUserJoined && !isUserPending && !isFull ? 'hover:border-[#589470] dark:hover:border-[#DBE64C] hover:text-[#589470] dark:hover:text-[#DBE64C] cursor-pointer hover:bg-slate-50 dark:hover:bg-white/5' : 'opacity-60 cursor-default'
+                    !isClosed && !isHost && !isUserJoined && !isUserPending && !isFull ? 'hover:border-[#589470] dark:hover:border-[#DBE64C] hover:text-[#589470] dark:hover:text-[#DBE64C] cursor-pointer hover:bg-slate-50 dark:hover:bg-white/5' : 'opacity-60 cursor-default'
                   }`}
                   title="Ô trống — Bấm để tham gia"
                 >
@@ -313,6 +321,14 @@ function RoomCard({ room, currentUserId = 1, onJoin, onChat, onManage }) {
           >
             <UserCheck className="w-4 h-4 stroke-[2.5] shrink-0" />
             <span>Quản lý ({participants.length})</span>
+          </button>
+        ) : isClosed ? (
+          <button
+            disabled
+            className="flex-1 sm:flex-none justify-center px-4 sm:px-6 py-2.5 rounded-xl sm:rounded-2xl bg-slate-200 dark:bg-white/10 text-slate-500 dark:text-slate-400 font-bold text-xs sm:text-sm cursor-default flex items-center gap-1.5 sm:gap-2"
+          >
+            <Clock className="w-4 h-4 shrink-0" />
+            <span>Phòng đã đóng</span>
           </button>
         ) : isUserPending ? (
           <button

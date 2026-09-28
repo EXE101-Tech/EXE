@@ -130,12 +130,17 @@ export const ownerService = {
 
 export const gameRoomService = {
   getAll: (filters = {}) => getCached('/gamerooms', { params: filters }),
+  getMine: () => apiClient.get('/gamerooms/mine'),
   getById: (id) => apiClient.get(`/gamerooms/${id}`),
   join: (roomId, note = '') => apiClient.post(`/gamerooms/${roomId}/join`, { note }),
   leave: (roomId) => apiClient.post(`/gamerooms/${roomId}/leave`),
   create: (data) => apiClient.post('/gamerooms', data),
+  update: (roomId, data) => apiClient.put(`/gamerooms/${roomId}`, data),
+  remove: (roomId) => apiClient.delete(`/gamerooms/${roomId}`),
   approveParticipant: (roomId, userId, status) => 
     apiClient.patch(`/gamerooms/${roomId}/participants/${userId}/status`, { status }),
+  updateAttendance: (roomId, userId, attendance_status) =>
+    apiClient.patch(`/gamerooms/${roomId}/participants/${userId}/attendance`, { attendance_status }),
 };
 
 export const teamService = {

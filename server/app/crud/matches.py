@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from sqlalchemy.orm import Session, joinedload, selectinload
 from app import models, schemas
 
@@ -41,13 +43,50 @@ def create_match(db: Session, host_id: int, match: schemas.MatchCreate):
     db.refresh(db_match)
     return db_match
 
-def get_matches(db: Session, sport_id: int = None, status: str = None):
+def close_expired_matches(db: Session):
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    updated = db.query(models.Match).filter(
+        models.Match.end_time <= now,
+        models.Match.status.notin_(["CLOSED", "CANCELLED", "FINISHED"]),
+    ).update({models.Match.status: "CLOSED"}, synchronize_session=False)
+    if updated:
+        db.commit()
+    return updated
+
+
+def get_matches(db: Session, sport_id: int = None, status: str = None, host_id: int = None):
     query = db.query(models.Match).options(*_match_eager_options())
+    if host_id is not None:
+        query = query.filter(models.Match.host_id == host_id)
+    else:
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        query = query.filter(
+            models.Match.status.notin_(["CLOSED", "CANCELLED", "FINISHED"]),
+            models.Match.end_time > now,
+        )
     if sport_id:
         query = query.filter(models.Match.sport_id == sport_id)
     if status:
         query = query.filter(models.Match.status == status)
     return query.order_by(models.Match.created_at.desc()).all()
+
+
+def update_match(db: Session, match_id: int, data: schemas.MatchCreate):
+    match = db.query(models.Match).filter(models.Match.id == match_id).first()
+    if not match:
+        return None
+    for field in (
+        "title", "description", "location", "price_info", "sport_id", "court_id",
+        "required_level", "start_time", "end_time", "max_players",
+    ):
+        setattr(match, field, getattr(data, field))
+    approved_count = db.query(models.MatchParticipant).filter(
+        models.MatchParticipant.match_id == match_id,
+        models.MatchParticipant.status == "APPROVED",
+    ).count()
+    match.status = "FULL" if approved_count >= match.max_players else "OPEN"
+    db.commit()
+    return get_match_by_id(db, match_id)
 
 def get_match_by_id(db: Session, match_id: int):
     return db.query(models.Match).options(*_match_eager_options()).filter(models.Match.id == match_id).first()

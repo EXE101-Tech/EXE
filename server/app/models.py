@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import CheckConstraint, Column, Integer, String, Float, DateTime, ForeignKey, Text, Table, Boolean, JSON, UniqueConstraint
+from sqlalchemy import CheckConstraint, Column, Integer, String, Float, DateTime, ForeignKey, Text, Table, Boolean, JSON, Index, UniqueConstraint
 from sqlalchemy.orm import relationship
 from .database import Base
 
@@ -194,8 +194,13 @@ class MatchParticipant(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     role = Column(String, default="PLAYER")  # HOST, PLAYER
     status = Column(String, default="APPROVED")  # PENDING, APPROVED, REJECTED
+    attendance_status = Column(String(16), nullable=True)  # ATTENDED, ABSENT; set by host after match ends
     note = Column(Text, nullable=True)
     joined_at = Column(DateTime, default=utc_now_naive)
+
+    __table_args__ = (
+        Index("ix_match_participants_user_attendance", "user_id", "attendance_status"),
+    )
 
     # Relationships
     match = relationship("Match", back_populates="participants")

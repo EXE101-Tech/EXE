@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { X, Gamepad2, Trophy, MapPin, Calendar, Clock, Users, DollarSign, AlignLeft, Sparkles, AlertCircle } from 'lucide-react';
 import { sportService } from '../../../shared/services/api';
-import { parseCostInputToVnd } from '../../../shared/utils/price';
+import { parseCostInputToVnd, storedCostToInput } from '../../../shared/utils/price';
 import { isActiveSport } from '../../../shared/constants/sports';
 
 const SPORT_EMOJI = { badminton: '🏸', football: '⚽', pickleball: '🏓' };
@@ -13,26 +13,65 @@ const LEVELS = [
   { value: 'Expert', label: 'Chuyên nghiệp (Thi đấu giải)' },
 ];
 
-function CreateRoomModal({ isOpen, onClose, onSubmit, isLoading = false }) {
-  const [formData, setFormData] = useState({
+const localDateString = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getTimeParts = (value) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return { date: localDateString(new Date()), time: '19:00' };
+  return {
+    date: localDateString(date),
+    time: `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`,
+  };
+};
+
+const defaultFormData = () => ({
     title: '',
     sportName: 'Cầu lông',
     sport_id: '',
     required_level: 'Intermediate',
     location: '',
-    date: new Date().toISOString().split('T')[0],
+    date: localDateString(new Date()),
     start_time: '19:00',
     end_time: '21:00',
     max_players: 6,
     price_info: '',
     description: '',
-  });
+});
+
+function CreateRoomModal({ isOpen, onClose, onSubmit, initialRoom = null, isLoading = false }) {
+  const [formData, setFormData] = useState(defaultFormData);
 
   const [error, setError] = useState('');
   const [sports, setSports] = useState([]);
 
   useEffect(() => {
     if (!isOpen) return;
+    setError('');
+    if (initialRoom) {
+      const start = getTimeParts(initialRoom.start_time);
+      const end = getTimeParts(initialRoom.end_time);
+      setFormData({
+        title: initialRoom.title || '',
+        sportName: initialRoom.sportName || initialRoom.sport?.name || 'Cầu lông',
+        sport_id: Number(initialRoom.sport_id) || '',
+        required_level: initialRoom.required_level || 'Intermediate',
+        location: initialRoom.location || '',
+        date: start.date,
+        start_time: start.time,
+        end_time: end.time,
+        max_players: Number(initialRoom.max_players) || 2,
+        price_info: storedCostToInput(initialRoom.price_info),
+        description: initialRoom.description || '',
+        court_id: initialRoom.court_id || '',
+      });
+    } else {
+      setFormData(defaultFormData());
+    }
     sportService.getAll().then((items) => {
       const available = items.filter((item) => item.id != null && isActiveSport(item));
       setSports(available);
@@ -42,7 +81,7 @@ function CreateRoomModal({ isOpen, onClose, onSubmit, isLoading = false }) {
         return first ? { ...current, sport_id: first.id, sportName: first.name } : current;
       });
     }).catch((err) => setError(err.message || 'Không tải được danh sách môn thể thao'));
-  }, [isOpen]);
+  }, [isOpen, initialRoom]);
 
   if (!isOpen) return null;
 
@@ -111,8 +150,8 @@ function CreateRoomModal({ isOpen, onClose, onSubmit, isLoading = false }) {
               <Gamepad2 className="w-6 h-6 stroke-[2.5]" />
             </div>
             <div>
-              <h3 className="text-xl font-black">Mở Phòng Chờ Thi Đấu</h3>
-              <p className="text-xs opacity-90">Tạo sảnh chờ tìm bạn chơi phù hợp theo trình độ và thời gian</p>
+              <h3 className="text-xl font-black">{initialRoom ? 'Chỉnh sửa phòng chờ' : 'Mở Phòng Chờ Thi Đấu'}</h3>
+              <p className="text-xs opacity-90">{initialRoom ? 'Cập nhật thông tin phòng chơi của bạn' : 'Tạo sảnh chờ tìm bạn chơi phù hợp theo trình độ và thời gian'}</p>
             </div>
           </div>
           <button
@@ -323,7 +362,7 @@ function CreateRoomModal({ isOpen, onClose, onSubmit, isLoading = false }) {
               className="px-6 py-2.5 rounded-2xl font-bold text-sm bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-95 text-white shadow-lg shadow-[#589470]/30 flex items-center gap-2 transition-transform active:scale-95 disabled:opacity-50"
             >
               <Sparkles className="w-4 h-4" />
-              <span>{isLoading ? 'Đang tạo phòng...' : 'Tạo Phòng Ngay'}</span>
+              <span>{isLoading ? (initialRoom ? 'Đang lưu...' : 'Đang tạo phòng...') : (initialRoom ? 'Lưu thay đổi' : 'Tạo Phòng Ngay')}</span>
             </button>
           </div>
         </form>
