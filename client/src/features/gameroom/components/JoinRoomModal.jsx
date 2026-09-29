@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { X, Sparkles, Trophy, MapPin, Calendar, Users, DollarSign, AlertTriangle, ShieldCheck, MessageSquare } from 'lucide-react';
 import { formatStoredCost } from '../../../shared/utils/price';
+import ViewLocationModal from '../../../shared/components/ViewLocationModal';
 
 function JoinRoomModal({ isOpen, onClose, onConfirm, room, isLoading = false }) {
   const [note, setNote] = useState('');
+  const [isViewMapOpen, setIsViewMapOpen] = useState(false);
 
   if (!isOpen || !room) return null;
 
@@ -100,9 +102,22 @@ function JoinRoomModal({ isOpen, onClose, onConfirm, room, isLoading = false }) 
                 <Calendar className="w-4 h-4 text-[#589470] dark:text-[#DBE64C] shrink-0" />
                 <span className="font-bold text-slate-900 dark:text-white">{timeStr}</span>
               </div>
-              <div className="flex items-start gap-2">
-                <MapPin className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
-                <span className="font-semibold break-words flex-1 text-slate-800 dark:text-slate-100">{location}</span>
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start gap-2 flex-1 min-w-0">
+                  <MapPin className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                  <span className="font-semibold break-words flex-1 text-slate-800 dark:text-slate-100">{location}</span>
+                </div>
+                {location && (
+                  <button
+                    type="button"
+                    onClick={() => setIsViewMapOpen(true)}
+                    className="px-2.5 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-bold text-[11px] hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition shrink-0 flex items-center gap-1 active:scale-95 shadow-xs border border-emerald-500/20"
+                    title="Xem vị trí sân trên bản đồ"
+                  >
+                    <MapPin className="w-3 h-3 text-[#589470]" />
+                    <span>Xem map</span>
+                  </button>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <span className="font-bold text-slate-700 dark:text-slate-300 shrink-0">Chi phí/người:</span>
@@ -154,6 +169,19 @@ function JoinRoomModal({ isOpen, onClose, onConfirm, room, isLoading = false }) 
           </div>
         </form>
       </div>
+
+      {/* Modal xem bản đồ vị trí sân cho người tham gia */}
+      <ViewLocationModal
+        isOpen={isViewMapOpen}
+        onClose={() => setIsViewMapOpen(false)}
+        title={title}
+        location={location}
+        coords={
+          room?.court?.venue?.latitude && room?.court?.venue?.longitude
+            ? [parseFloat(room.court.venue.latitude), parseFloat(room.court.venue.longitude)]
+            : null
+        }
+      />
     </div>
   );
 }
