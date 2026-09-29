@@ -1,22 +1,27 @@
+import { Camera, Map as MapLibreMap, Marker, RasterSource, UserLocation, Layer, type StyleSpecification, type CameraRef } from '@maplibre/maplibre-react-native';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
-import { ArrowLeft, LocateFixed, Navigation, Search, Star, X } from 'lucide-react-native';
+import { ArrowLeft, LocateFixed, MapPin, Navigation, Search, Star, X } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Pressable, Text, TextInput, View } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { resolveMediaUrl } from '@/api/resolve-media-url';
 import { useNearbyVenuesQuery } from '@/hooks/queries/use-courts';
 import { SPORTS } from '@/lib/constants';
+import { cn } from '@/lib/utils';
 import type { VenueResponse } from '@/schemas/courts';
 
-const HCM_CENTER = { latitude: 10.762622, longitude: 106.660172 };
+/** MapLibre needs a base style even when every layer is composed via JSX children below. */
+const BASE_STYLE: StyleSpecification = { version: 8, sources: {}, layers: [] };
+const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+
+const HCM_CENTER: [number, number] = [106.660172, 10.762622];
 const NEARBY_RADIUS_KM = 50;
 
 export default function MapScreen() {
-  const mapRef = useRef<MapView>(null);
-  const [origin, setOrigin] = useState(HCM_CENTER);
+  const cameraRef = useRef<CameraRef>(null);
+  const [origin, setOrigin] = useState({ latitude: HCM_CENTER[1], longitude: HCM_CENTER[0] });
   const [query, setQuery] = useState('');
   const [selectedVenue, setSelectedVenue] = useState<VenueResponse | null>(null);
   const [isLocating, setIsLocating] = useState(false);
@@ -31,7 +36,7 @@ export default function MapScreen() {
         const position = await Location.getCurrentPositionAsync({});
         const next = { latitude: position.coords.latitude, longitude: position.coords.longitude };
         setOrigin(next);
-        mapRef.current?.animateToRegion({ ...next, latitudeDelta: 0.05, longitudeDelta: 0.05 }, 800);
+        cameraRef.current?.flyTo({ center: [next.longitude, next.latitude], zoom: 14, duration: 800 });
       } catch {
         // Keep the HCM center fallback.
       }
@@ -49,7 +54,7 @@ export default function MapScreen() {
       const position = await Location.getCurrentPositionAsync({});
       const next = { latitude: position.coords.latitude, longitude: position.coords.longitude };
       setOrigin(next);
-      mapRef.current?.animateToRegion({ ...next, latitudeDelta: 0.05, longitudeDelta: 0.05 }, 800);
+      cameraRef.current?.flyTo({ center: [next.longitude, next.latitude], zoom: 14, duration: 800 });
     } catch {
       Alert.alert('Lỗi', 'Không thể định vị được vị trí của bạn.');
     } finally {
@@ -68,10 +73,7 @@ export default function MapScreen() {
   const handleSelectVenue = (venue: VenueResponse) => {
     setSelectedVenue(venue);
     if (venue.latitude != null && venue.longitude != null) {
-      mapRef.current?.animateToRegion(
-        { latitude: venue.latitude, longitude: venue.longitude, latitudeDelta: 0.02, longitudeDelta: 0.02 },
-        600,
-      );
+      cameraRef.current?.flyTo({ center: [venue.longitude, venue.latitude], zoom: 16, duration: 600 });
     }
   };
 
@@ -79,25 +81,44 @@ export default function MapScreen() {
 
   return (
     <View className="flex-1 bg-bg dark:bg-bg-dark">
-      <MapView
-        ref={mapRef}
-        style={{ flex: 1 }}
-        initialRegion={{ ...HCM_CENTER, latitudeDelta: 0.15, longitudeDelta: 0.15 }}
-        showsUserLocation
-        showsMyLocationButton={false}
-        onPress={() => setSelectedVenue(null)}
-      >
-        {filteredVenues.map((venue) => (
-          <Marker
-            key={venue.id}
-            coordinate={{ latitude: venue.latitude as number, longitude: venue.longitude as number }}
-            title={venue.name}
-            description={venue.address}
-            pinColor={selectedVenue?.id === venue.id ? '#0EA5E9' : undefined}
-            onPress={() => handleSelectVenue(venue)}
-          />
-        ))}
-      </MapView>
+      <MapLibreMap style={{ flex: 1 }} mapStyle={BASE_STYLE} onPress={() => setSelectedVenue(null)}>
+        <Camera ref={cameraRef} initialViewState={{ center: HCM_CENTER, zoom: 12 }} />
+
+        <RasterSource
+          id="osm"
+          tiles={[OSM_TILE_URL]}
+          tileSize={256}
+          minzoom={0}
+          maxzoom={19}
+          attribution="© OpenStreetMap contributors"
+        >
+          <Layer id="osm-layer" type="raster" />
+        </RasterSource>
+
+        <UserLocation animated accuracy />
+
+        {filteredVenues.map((venue) => {
+          const isSelected = selectedVenue?.id === venue.id;
+          return (
+            <Marker
+              key={venue.id}
+              id={`venue-${venue.id}`}
+              lngLat={[venue.longitude as number, venue.latitude as number]}
+              anchor="bottom"
+              onPress={() => handleSelectVenue(venue)}
+            >
+              <View
+                className={cn(
+                  'h-9 w-9 items-center justify-center rounded-full border-2 border-white shadow-md',
+                  isSelected ? 'bg-brand dark:bg-brand-dark' : 'bg-rose-500',
+                )}
+              >
+                <MapPin size={16} color="#fff" />
+              </View>
+            </Marker>
+          );
+        })}
+      </MapLibreMap>
 
       <SafeAreaView edges={['top']} className="absolute left-0 right-0 top-0" pointerEvents="box-none">
         <View className="flex-row items-center gap-2 px-4 pt-2">
