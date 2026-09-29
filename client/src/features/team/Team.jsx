@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { Users, PlusCircle, Sparkles, SlidersHorizontal, Crown, Shield, UserCheck, Trophy, Filter, ChevronDown, Trash2 } from 'lucide-react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { Users, PlusCircle, Sparkles, Crown, UserCheck, Trophy, Filter, ChevronDown, Trash2 } from 'lucide-react';
 import { useSportFilter } from '../../shared/context/SportFilterContext';
 import TeamCard from './components/TeamCard';
 import CreateTeamModal from './components/CreateTeamModal';
@@ -17,9 +17,9 @@ import footballImg from '../../assets/sports/foodball.avif';
 import pickleballImg from '../../assets/sports/pickleball.jpg';
 
 const TABS = [
+  { id: 'discover', label: 'Khám phá CLB', icon: Users, emoji: '🌐' },
   { id: 'captain', label: 'CLB tôi làm chủ', icon: Crown, emoji: '👑' },
   { id: 'member', label: 'CLB tôi tham gia', icon: UserCheck, emoji: '🤝' },
-  { id: 'discover', label: 'Khám phá CLB', icon: Users, emoji: '🌐' },
 ];
 
 export default function Team() {
@@ -33,7 +33,7 @@ export default function Team() {
   const [teams, setTeams] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('captain');
+  const [activeTab, setActiveTab] = useState('discover');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingTeam, setEditingTeam] = useState(null);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
@@ -53,6 +53,7 @@ export default function Team() {
       setTeams(items.filter((team) => isActiveSport(team.sport_id)).map((team) => ({
         ...team,
         sportId: team.sport_id,
+        sportName: team.sport_name || team.sport_id,
         sportEmoji: emojis[team.sport_id] || '🏅',
         image: resolveMediaUrl(team.image_url) || images[team.sport_id] || badmintonImg,
         captain: team.owner_name,
@@ -74,7 +75,7 @@ export default function Team() {
     }
   }, [selectedSport]);
 
-  useEffect(() => { loadTeams(); }, [loadTeams]);
+  useEffect(() => { const timer = window.setTimeout(loadTeams, 0); return () => window.clearTimeout(timer); }, [loadTeams]);
 
   useEffect(() => {
     const refreshWhileVisible = () => {
@@ -121,16 +122,12 @@ export default function Team() {
   };
 
   const handleSaveTeam = async (data) => {
-    try {
-      if (editingTeam) await teamService.update(editingTeam.id, data);
-      else await teamService.create(data);
-      await loadTeams();
-      setIsCreateModalOpen(false);
-      setEditingTeam(null);
-      showToast(editingTeam ? 'Đã cập nhật thông tin CLB.' : 'Đã tạo CLB.');
-    } catch (err) {
-      throw err;
-    }
+    if (editingTeam) await teamService.update(editingTeam.id, data);
+    else await teamService.create(data);
+    await loadTeams();
+    setIsCreateModalOpen(false);
+    setEditingTeam(null);
+    showToast(editingTeam ? 'Đã cập nhật thông tin CLB.' : 'Đã tạo CLB.');
   };
 
   const handleJoinTeam = async (team) => {
@@ -142,12 +139,10 @@ export default function Team() {
   };
 
   const handleReview = async (data) => {
-    try {
-      await teamService.review(reviewTeam.id, data);
-      await loadTeams();
-      setReviewTeam(null);
-      showToast('Đã lưu đánh giá của bạn.');
-    } catch (err) { throw err; }
+    await teamService.review(reviewTeam.id, data);
+    await loadTeams();
+    setReviewTeam(null);
+    showToast('Đã lưu đánh giá của bạn.');
   };
 
   const openMembers = async (team) => {
@@ -180,7 +175,7 @@ export default function Team() {
   };
 
   return (
-    <div className="min-h-screen bg-transparent dark:bg-transparent text-slate-900 dark:text-[#F6F7ED] relative w-full overflow-x-clip font-sans transition-colors duration-500 selection:bg-[#589470]/30 pb-20">
+    <div className="sg-collection min-h-screen bg-transparent dark:bg-transparent text-slate-900 dark:text-[#F6F7ED] relative w-full overflow-x-clip font-sans pb-20">
       {/* Toast Notification Alert */}
       {alertMessage && (
         <div className="fixed top-36 right-6 z-[9999] max-w-md bg-white dark:bg-slate-900 border-2 border-[#589470] text-slate-800 dark:text-white px-5 py-4 rounded-2xl shadow-2xl flex items-start gap-3 animate-in slide-in-from-right duration-300">
@@ -192,6 +187,7 @@ export default function Team() {
 
 
 
+      <div className="sg-collection-heading"><span className="sg-eyebrow">CỘNG ĐỒNG</span><h1>Tìm cộng đồng của bạn</h1><p>Khám phá các câu lạc bộ, gặp đồng đội mới và cùng nhau tiến bộ.</p></div>
       {/* ── Filter Bar Section ── */}
       <div className="navbar-filter-bar pb-4 pt-0 px-4 sm:px-6 sticky top-[112px] sm:top-[132px] z-40 transition-all duration-300">
         <div className="member-filter-panel max-w-[1600px] mx-auto rounded-xl sm:rounded-2xl p-1.5 sm:p-2.5 flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-2 xl:gap-3 transition-all duration-300">

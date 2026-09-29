@@ -145,6 +145,7 @@ export const gameRoomService = {
 
 export const teamService = {
   getAll: (filters = {}) => apiClient.get('/teams', { params: filters }),
+  getById: (id) => apiClient.get(`/teams/${id}`),
   create: (data) => apiClient.post('/teams', data),
   update: (id, data) => apiClient.patch(`/teams/${id}`, data),
   remove: (id) => apiClient.delete(`/teams/${id}`),

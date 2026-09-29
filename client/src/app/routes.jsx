@@ -5,10 +5,12 @@ import Home from '../features/home/Home.jsx';
 import SocialFeed from '../features/tournament/SocialFeed.jsx';
 import GameRoom from '../features/gameroom/GameRoom.jsx';
 import Team from '../features/team/Team.jsx';
+import TeamDetailPage from '../features/team/TeamDetailPage.jsx';
 import { ChatProvider } from '../shared/context/ChatContext.jsx';
 import LandingPage from '../features/landing/Landing.jsx';
 import PublicLayout from '../shared/layouts/PublicLayout.jsx';
 import NavbarLayout from '../shared/layouts/NavbarLayout.jsx';
+import PremiumPage from '../features/premium/PremiumPage.jsx';
 import { SportFilterProvider } from '../shared/context/SportFilterContext.jsx';
 
 function GlobalWrapper({ children }) {
@@ -56,6 +58,8 @@ function AppRoutes() {
                                 <Route path="/tournaments" element={<SocialFeed />} />
                                 <Route path="/matches" element={<GameRoom />} />
                                 <Route path="/team" element={<Team />} />
+                                <Route path="/team/:id" element={<TeamDetailPage />} />
+                                <Route path="/premium" element={<PremiumPage />} />
                                 <Route path="/bookings" element={<Navigate to="/home" replace />} />
                                 <Route path="/bookings/*" element={<Navigate to="/home" replace />} />
                                 <Route path="/my-bookings" element={<Navigate to="/home" replace />} />

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Search, Plus, PlusCircle, Gamepad2, Trophy, Award, Filter, Sparkles, SlidersHorizontal, RefreshCw, AlertCircle, MessageSquare, Send, X, Crown, CheckCircle2, MapPin, Calendar, DollarSign, Users, ChevronDown, UserRound } from 'lucide-react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { PlusCircle, Trophy, Award, Filter, RefreshCw, CheckCircle2, MapPin, Calendar, DollarSign, ChevronDown, UserRound } from 'lucide-react';
 import { gameRoomService, resolveMediaUrl, sportService } from '../../shared/services/api';
 import { useSportFilter } from '../../shared/context/SportFilterContext';
 import { useChat } from '../../shared/context/ChatContext';
@@ -14,25 +14,12 @@ import { createSportExperienceMap, sortBySportExperience } from '../../shared/ut
 import { parseStoredCostToVnd } from '../../shared/utils/price';
 import { isActiveSport } from '../../shared/constants/sports';
 
-const SPORTS_TABS = [
-  { id: 'all', name: 'Tất cả môn', emoji: '🌟' },
-  { id: 'badminton', name: 'Cầu lông', emoji: '🏸' },
-  { id: 'pickleball', name: 'Pickleball', emoji: '🏓' },
-  { id: 'football', name: 'Bóng đá', emoji: '⚽' },
-];
-
-const LEVEL_TABS = [
-  { id: 'all', label: 'Tất cả trình độ' },
-  { id: 'Beginner', label: 'Mới chơi' },
-  { id: 'Intermediate', label: 'Trung bình' },
-  { id: 'Advanced', label: 'Khá / Giỏi' },
-  { id: 'Expert', label: 'Chuyên nghiệp' },
-];
-
 function GameRoom() {
   const [searchParams] = useSearchParams();
   const searchQuery = searchParams.get('search') || '';
+  const routeSport = searchParams.get('sport');
   const { selectedSport, setSelectedSport } = useSportFilter();
+  useEffect(() => { if (['badminton', 'pickleball', 'football'].includes(routeSport)) setSelectedSport(routeSport); }, [routeSport, setSelectedSport]);
   const { openChat } = useChat();
   const { user } = useAuth();
   const sportExperience = useMemo(() => createSportExperienceMap(user?.sports), [user?.sports]);
@@ -99,7 +86,7 @@ function GameRoom() {
     }
   }, [user?.id, myPostsOnly]);
 
-  useEffect(() => { loadRooms(); }, [loadRooms]);
+  useEffect(() => { const timer = window.setTimeout(loadRooms, 0); return () => window.clearTimeout(timer); }, [loadRooms]);
 
   // Show auto-dismissing toast
   const showToast = (msg) => {
@@ -134,8 +121,16 @@ function GameRoom() {
         return false;
       }
       // Filter by Time
-      if (selectedTime !== 'all' && !room.start_time?.toLowerCase().includes(selectedTime.toLowerCase())) {
-        return false;
+      if (selectedTime !== 'all') {
+        const start = new Date(room.start_time);
+        if (Number.isNaN(start.getTime())) return false;
+        const today = new Date();
+        const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+        const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+        if (selectedTime === 'today' && !sameDay(start, today)) return false;
+        if (selectedTime === 'tomorrow' && !sameDay(start, tomorrow)) return false;
+        if (selectedTime === 'evening' && start.getHours() < 18) return false;
+        if (selectedTime === 'weekend' && ![0, 6].includes(start.getDay())) return false;
       }
       // Filter by Price
       if (selectedPrice !== 'all') {
@@ -272,7 +267,7 @@ function GameRoom() {
   };
 
   return (
-    <div className="min-h-screen bg-transparent dark:bg-transparent text-slate-900 dark:text-[#F6F7ED] relative w-full overflow-x-clip font-sans transition-colors duration-500 selection:bg-[#589470]/30 pb-20">
+    <div className="sg-collection min-h-screen bg-transparent dark:bg-transparent text-slate-900 dark:text-[#F6F7ED] relative w-full overflow-x-clip font-sans pb-20">
       {/* Toast Alert */}
       {toastMessage && (
         <div className="fixed top-36 right-6 z-[9999] bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-5 py-3.5 rounded-2xl shadow-2xl border border-white/10 flex items-center gap-3 animate-bounce">
@@ -283,6 +278,7 @@ function GameRoom() {
 
 
 
+      <div className="sg-collection-heading"><span className="sg-eyebrow">TÌM NGƯỜI CHƠI</span><h1>Trận hay đang chờ bạn</h1><p>Lọc theo môn, thời gian và trình độ để tìm phòng phù hợp.</p></div>
       {/* ── Filter Bar Section ── */}
       <div className="navbar-filter-bar pb-4 pt-0 px-4 sm:px-6 sticky top-[112px] sm:top-[132px] z-40 transition-all duration-300">
         <div className="member-filter-panel max-w-[1600px] mx-auto rounded-xl sm:rounded-2xl p-1.5 sm:p-2.5 flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-2 xl:gap-3 transition-all duration-300">
@@ -355,11 +351,10 @@ function GameRoom() {
               onChange={(e) => setSelectedTime(e.target.value)}
             >
               <option value="all">Tất cả giờ</option>
-              <option value="Tối nay">Tối nay</option>
-              <option value="Tối mai">Tối mai</option>
-              <option value="Chiều">Chiều nay</option>
-              <option value="Sáng">Sáng Chủ Nhật</option>
-              <option value="Thứ 6">Tối Thứ 6</option>
+              <option value="today">Hôm nay</option>
+              <option value="tomorrow">Ngày mai</option>
+              <option value="evening">Buổi tối</option>
+              <option value="weekend">Cuối tuần</option>
             </FilterSelect>
 
             {/* 3. Phí giao lưu (Price) */}

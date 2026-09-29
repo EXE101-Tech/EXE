@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Heart, LoaderCircle, MessageCircle, Pencil, Send, Trash2, UserPlus, UserRoundCheck, X } from 'lucide-react';
+import { Bookmark, Heart, LoaderCircle, MessageCircle, Pencil, Send, Share2, Trash2, UserPlus, UserRoundCheck, X } from 'lucide-react';
 import { chatService, resolveMediaUrl, socialPostService } from '../../../shared/services/api';
 
 const formatDate = (value) => {
@@ -46,9 +46,29 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
   const [friendError, setFriendError] = useState('');
   const [friendBusy, setFriendBusy] = useState(false);
   const [commentCount, setCommentCount] = useState(post.comment_count || 0);
+  const [saved, setSaved] = useState(() => localStorage.getItem(`sportgo:saved:${user?.id}:${post.id}`) === '1');
+  const [shareNotice, setShareNotice] = useState('');
   const commentMutationVersionRef = useRef(0);
 
   const isMine = Number(post.author_id) === Number(user?.id);
+
+  const toggleSaved = () => {
+    const next = !saved;
+    setSaved(next);
+    const key = `sportgo:saved:${user?.id}:${post.id}`;
+    if (next) localStorage.setItem(key, '1');
+    else localStorage.removeItem(key);
+  };
+
+  const sharePost = async () => {
+    const shareUrl = `${window.location.origin}/tournaments?search=${encodeURIComponent((post.content || post.author_name || '').slice(0, 45))}`;
+    try {
+      if (navigator.share) await navigator.share({ title: `Bài viết của ${post.author_name}`, url: shareUrl });
+      else { await navigator.clipboard.writeText(shareUrl); setShareNotice('Đã sao chép liên kết'); window.setTimeout(() => setShareNotice(''), 2500); }
+    } catch (error) {
+      if (error.name !== 'AbortError') setShareNotice('Không thể chia sẻ lúc này');
+    }
+  };
 
   useEffect(() => {
     if (!commentsOpen) return undefined;
@@ -301,7 +321,7 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
   };
 
   return (
-    <article className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-sm transition-shadow hover:shadow-lg dark:border-white/10 dark:bg-slate-900/80">
+    <article className="sg-panel sg-post-card overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-sm transition-shadow hover:shadow-lg dark:border-white/10 dark:bg-slate-900/80">
       <header className="flex items-center gap-3 px-4 py-4 sm:px-5">
         <div className="rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500 p-[2px]">
           <div className="rounded-full bg-white p-[2px] dark:bg-slate-900"><Avatar src={post.author_avatar_url} name={post.author_name} className="h-10 w-10" /></div>
@@ -321,7 +341,7 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
       {mediaUrl && (post.media_type === 'video' ? (
         <video src={mediaUrl} controls playsInline preload="metadata" className="max-h-[min(75vh,720px)] w-full bg-black object-contain" />
       ) : (
-        <img src={mediaUrl} alt={`Ảnh trong bài viết của ${post.author_name}`} loading="lazy" className="max-h-[min(75vh,720px)] w-full bg-slate-50 object-contain dark:bg-black/20" />
+        <img src={mediaUrl} alt={`Ảnh trong bài viết của ${post.author_name}`} loading="lazy" className="sg-post-media max-h-[min(75vh,720px)] w-full bg-slate-50 object-contain dark:bg-black/20" />
       ))}
 
       <div className="px-4 sm:px-5">
@@ -334,11 +354,17 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
               <MessageCircle className="h-5 w-5" /> Bình luận <span className="tabular-nums">{commentCount}</span>
             </button>
           </div>
-          {canManage && isMine && <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1">
+            <button type="button" onClick={sharePost} title="Chia sẻ bài viết" aria-label="Chia sẻ bài viết" className="sg-post-icon-action"><Share2 className="h-4 w-4" /></button>
+            <button type="button" onClick={toggleSaved} title={saved ? 'Bỏ lưu trên thiết bị' : 'Lưu trên thiết bị'} aria-label={saved ? 'Bỏ lưu bài viết' : 'Lưu bài viết'} aria-pressed={saved} className={`sg-post-icon-action ${saved ? 'saved' : ''}`}><Bookmark className={`h-4 w-4 ${saved ? 'fill-current' : ''}`} /></button>
+          {canManage && isMine && <>
             <button type="button" onClick={() => onEdit?.(post)} title="Chỉnh sửa bài viết" aria-label="Chỉnh sửa bài viết" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-emerald-700 dark:hover:bg-white/10"><Pencil className="h-4 w-4" /></button>
             <button type="button" onClick={() => onDelete?.(post)} title="Xóa bài viết" aria-label="Xóa bài viết" className="rounded-lg p-2 text-slate-500 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10"><Trash2 className="h-4 w-4" /></button>
-          </div>}
+          </>}
+          </div>
         </div>
+
+        {shareNotice && <p role="status" className="pb-2 text-xs text-blue-300">{shareNotice}</p>}
 
         {actionError && <p role="alert" className="py-2 text-xs text-rose-600 dark:text-rose-300">{actionError}</p>}
         {friendError && <p role="alert" className="py-2 text-xs text-rose-600 dark:text-rose-300">{friendError}</p>}
