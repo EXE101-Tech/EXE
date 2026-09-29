@@ -17,6 +17,7 @@ function JoinRoomModal({ isOpen, onClose, onConfirm, room, isLoading = false }) 
     location = 'Sân thể thao',
     price_info = 'Chia đều',
     host = { name: 'Trưởng phòng' },
+    host_id,
     participants = [],
   } = room;
 
@@ -41,7 +42,11 @@ function JoinRoomModal({ isOpen, onClose, onConfirm, room, isLoading = false }) 
     'Expert': 'Chuyên nghiệp',
   };
   const displayLevel = LEVEL_VI[required_level] || required_level;
-  const approvedCount = participants.filter((participant) => participant.status === 'APPROVED').length;
+  const approvedCount = participants.filter((participant) => (
+    participant.status === 'APPROVED'
+    && participant.role !== 'HOST'
+    && Number(participant.user_id) !== Number(host?.id || host_id)
+  )).length + 1;
 
   const timeStr = formatDateTime(start_time, end_time);
 
@@ -51,15 +56,15 @@ function JoinRoomModal({ isOpen, onClose, onConfirm, room, isLoading = false }) 
   };
 
   return (
-    <div className="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+    <div className="sg-modal-backdrop fixed inset-0 z-[1050] flex items-center justify-center p-4 animate-in fade-in duration-200 overflow-y-auto">
       <div 
-        className="relative w-full max-w-lg bg-white dark:bg-[#001F3F] border border-gray-200 dark:border-white/10 rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-8 flex flex-col max-h-[88vh]"
+        className="sg-modal-card relative my-8 flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="relative bg-gradient-to-r from-[#74C365] to-[#589470] p-6 text-white flex items-center justify-between shrink-0">
+        <div className="sg-modal-header relative flex items-center justify-between p-6 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shadow-sm">
+            <div className="sg-modal-header-icon flex h-11 w-11 items-center justify-center rounded-2xl shadow-sm">
               <Sparkles className="w-6 h-6 stroke-[2.5]" />
             </div>
             <div>
@@ -70,14 +75,14 @@ function JoinRoomModal({ isOpen, onClose, onConfirm, room, isLoading = false }) 
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-full bg-black/10 hover:bg-black/20 text-white transition-colors"
+            className="sg-modal-close rounded-full p-2 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-5 text-slate-900 dark:text-white">
+        <form onSubmit={handleSubmit} className="sg-modal-body space-y-5 p-6">
           {/* Room summary card */}
           <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-3">
             <div className="flex items-center justify-between">
@@ -94,7 +99,7 @@ function JoinRoomModal({ isOpen, onClose, onConfirm, room, isLoading = false }) 
             <div className="space-y-2 text-xs sm:text-sm text-slate-800 dark:text-slate-100">
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-sky-500 shrink-0" />
-                <span><span className="font-bold text-slate-700 dark:text-slate-300">Chủ phòng:</span> <strong className="text-slate-900 dark:text-white font-black">{host.name}</strong> ({approvedCount + 1}/{max_players} thành viên)</span>
+                <span><span className="font-bold text-slate-700 dark:text-slate-300">Chủ phòng:</span> <strong className="text-slate-900 dark:text-white font-black">{host.name}</strong> ({approvedCount}/{max_players} thành viên)</span>
               </div>
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-[#589470] dark:text-[#DBE64C] shrink-0" />
@@ -135,18 +140,18 @@ function JoinRoomModal({ isOpen, onClose, onConfirm, room, isLoading = false }) 
           </div>
 
           {/* Modal Footer */}
-          <div className="pt-3 border-t border-slate-200 dark:border-white/10 flex items-center justify-end gap-3">
+          <div className="sg-modal-footer flex items-center justify-end gap-3 border-t pt-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 rounded-xl bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 text-slate-700 dark:text-slate-300 font-bold text-xs transition-all"
+              className="sg-modal-secondary rounded-xl px-5 py-2.5 text-xs font-bold transition-all"
             >
               Hủy
             </button>
             <button
               type="submit"
               disabled={isLoading}
-              className="px-6 py-2.5 rounded-xl bg-[#589470] hover:bg-[#4a7c5d] dark:bg-[#DBE64C] dark:hover:bg-[#c8d438] text-white dark:text-[#001F3F] font-black text-xs shadow-lg shadow-[#589470]/20 dark:shadow-[#DBE64C]/20 active:scale-95 transition-all flex items-center gap-2"
+              className="sg-modal-primary flex items-center gap-2 rounded-xl px-6 py-2.5 text-xs font-black shadow-lg active:scale-95 transition-all"
             >
               <ShieldCheck className="w-4 h-4" />
               <span>{isLoading ? 'Đang gửi yêu cầu...' : 'Xác Nhận Tham Gia'}</span>

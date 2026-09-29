@@ -138,15 +138,15 @@ function CreateRoomModal({ isOpen, onClose, onSubmit, initialRoom = null, isLoad
   };
 
   return (
-    <div className="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+    <div className="sg-modal-backdrop fixed inset-0 z-[1050] flex items-center justify-center p-4 animate-in fade-in duration-200 overflow-y-auto">
       <div 
-        className="relative w-full max-w-2xl bg-white dark:bg-[#001F3F] border border-gray-200 dark:border-white/10 rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-8 flex flex-col max-h-[88vh]"
+        className="sg-modal-card relative my-8 flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="relative bg-gradient-to-r from-[#74C365] to-[#589470] p-6 text-white flex items-center justify-between shrink-0">
+        <div className="sg-modal-header relative flex items-center justify-between p-6 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shadow-sm">
+            <div className="sg-modal-header-icon flex h-11 w-11 items-center justify-center rounded-2xl shadow-sm">
               <Gamepad2 className="w-6 h-6 stroke-[2.5]" />
             </div>
             <div>
@@ -157,14 +157,14 @@ function CreateRoomModal({ isOpen, onClose, onSubmit, initialRoom = null, isLoad
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-full bg-black/10 hover:bg-black/20 text-white transition-colors"
+            className="sg-modal-close rounded-full p-2 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Form Content (Scrollable) */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto custom-scrollbar flex-1 text-slate-900 dark:text-white">
+        <form onSubmit={handleSubmit} className="sg-modal-body flex-1 space-y-5 overflow-y-auto p-6 custom-scrollbar">
           {error && (
             <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -348,18 +348,18 @@ function CreateRoomModal({ isOpen, onClose, onSubmit, initialRoom = null, isLoad
           </div>
 
           {/* Submit Footer */}
-          <div className="p-6 pt-3 bg-gray-50 dark:bg-[#001F3F]/50 border-t border-slate-100 dark:border-white/10 flex items-center justify-end gap-3 shrink-0">
+          <div className="sg-modal-footer flex items-center justify-end gap-3 p-6 pt-3 shrink-0">
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 rounded-2xl font-bold text-sm text-slate-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
+              className="sg-modal-secondary rounded-2xl px-5 py-2.5 text-sm font-bold transition-colors"
             >
               Hủy
             </button>
             <button
               type="submit"
               disabled={isLoading}
-              className="px-6 py-2.5 rounded-2xl font-bold text-sm bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-95 text-white shadow-lg shadow-[#589470]/30 flex items-center gap-2 transition-transform active:scale-95 disabled:opacity-50"
+              className="sg-modal-primary flex items-center gap-2 rounded-2xl px-6 py-2.5 text-sm font-bold shadow-lg transition-transform active:scale-95 disabled:opacity-50"
             >
               <Sparkles className="w-4 h-4" />
               <span>{isLoading ? (initialRoom ? 'Đang lưu...' : 'Đang tạo phòng...') : (initialRoom ? 'Lưu thay đổi' : 'Tạo Phòng Ngay')}</span>

@@ -278,7 +278,6 @@ function GameRoom() {
 
 
 
-      <div className="sg-collection-heading"><span className="sg-eyebrow">TÌM NGƯỜI CHƠI</span><h1>Trận hay đang chờ bạn</h1><p>Lọc theo môn, thời gian và trình độ để tìm phòng phù hợp.</p></div>
       {/* ── Filter Bar Section ── */}
       <div className="navbar-filter-bar pb-4 pt-0 px-4 sm:px-6 sticky top-[112px] sm:top-[132px] z-40 transition-all duration-300">
         <div className="member-filter-panel max-w-[1600px] mx-auto rounded-xl sm:rounded-2xl p-1.5 sm:p-2.5 flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-2 xl:gap-3 transition-all duration-300">
@@ -295,7 +294,7 @@ function GameRoom() {
             </button>
             <button
               onClick={openCreateModal}
-              className="px-3.5 py-1.5 rounded-lg font-bold text-sm bg-gradient-to-r from-[#74C365] to-[#589470] text-white shadow-md flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap"
+              className="sg-action-button flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap"
             >
               <PlusCircle className="w-4 h-4 shrink-0" />
               <span>Tạo phòng</span>
@@ -390,7 +389,7 @@ function GameRoom() {
           {/* Right action: Create Button */}
           <button
             onClick={openCreateModal}
-            className="hidden xl:flex px-3.5 py-2 xl:px-5 xl:py-2.5 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-95 text-white shadow-md hover:shadow-lg items-center justify-center gap-1.5 sm:gap-2 transition-all duration-200 active:scale-95 group shrink-0 whitespace-nowrap"
+            className="sg-action-button hidden xl:flex items-center justify-center gap-1.5 sm:gap-2 group shrink-0 whitespace-nowrap"
           >
             <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 group-hover:rotate-90 transition-transform duration-300 shrink-0" />
             <span className="sm:hidden">Mở phòng</span>

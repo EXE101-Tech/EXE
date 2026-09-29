@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Crown, Gamepad2, Home, Menu, MessageCircle, Search, Users, X } from 'lucide-react';
+import { Crown, Gamepad2, Home, Menu, MessageCircle, Moon, Search, Sun, Users, X } from 'lucide-react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useChat } from '../context/ChatContext';
@@ -11,14 +11,14 @@ import brandLogo from '../../../icons/logo.png';
 const links = [
   { to: '/tournaments', label: 'Bảng tin', icon: Home },
   { to: '/matches', label: 'Tìm trận', icon: Gamepad2 },
-  { to: '/team', label: 'Cộng đồng', icon: Users },
+  { to: '/team', label: 'Team', icon: Users },
 ];
 const kindLabels = { gameroom: 'Phòng chơi', team: 'CLB', social_post: 'Bài viết', user: 'Người chơi', sport: 'Môn thể thao' };
 const sports = [{ id: 'badminton', name: 'Cầu lông' }, { id: 'pickleball', name: 'Pickleball' }, { id: 'football', name: 'Bóng đá' }];
 
 export default function Navbar() {
   const { user } = useAuth();
-  const { toggleChat, openChat } = useChat();
+  const { isChatOpen, toggleChat, openChat } = useChat();
   const unreadChats = useChatUnreadCount();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
@@ -27,14 +27,33 @@ export default function Navbar() {
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') !== 'light');
   const searchRef = useRef(null);
+  const themeReadyRef = useRef(false);
+  const themeTimerRef = useRef(null);
   const avatar = user?.profile?.avatar_url || user?.avatar;
   const name = user?.profile?.full_name || user?.name || 'Người chơi';
 
   useEffect(() => {
-    document.documentElement.classList.add('dark');
-    localStorage.setItem('theme', 'dark');
-  }, []);
+    const root = document.documentElement;
+    if (themeReadyRef.current) {
+      root.classList.add('sg-theme-switching');
+      if (themeTimerRef.current) window.clearTimeout(themeTimerRef.current);
+      themeTimerRef.current = window.setTimeout(() => {
+        root.classList.remove('sg-theme-switching');
+        themeTimerRef.current = null;
+      }, 460);
+    } else {
+      themeReadyRef.current = true;
+    }
+    root.classList.toggle('dark', isDark);
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    return () => {
+      if (themeTimerRef.current) window.clearTimeout(themeTimerRef.current);
+      root.classList.remove('sg-theme-switching');
+      themeTimerRef.current = null;
+    };
+  }, [isDark]);
 
   useEffect(() => {
     const trimmed = query.trim();
@@ -85,7 +104,7 @@ export default function Navbar() {
   };
   const searchBox = (mobile = false) => <form onSubmit={submitSearch} className="sg-search" role="search">
     <Search size={19} aria-hidden="true" />
-    <input value={query} onChange={(event) => { setQuery(event.target.value); setSearchOpen(true); }} onFocus={() => setSearchOpen(true)} placeholder="Tìm người chơi, CLB, phòng chơi..." aria-label="Tìm kiếm toàn cục" autoFocus={mobile} />
+    <input value={query} onChange={(event) => { setQuery(event.target.value); setSearchOpen(true); }} onFocus={() => setSearchOpen(true)} placeholder="Tìm người chơi, email, CLB, phòng chơi..." aria-label="Tìm kiếm toàn cục" autoFocus={mobile} />
     {query && <button type="button" className="sg-search-clear" onClick={() => { setQuery(''); setResults([]); }} aria-label="Xóa tìm kiếm"><X size={16} /></button>}
     {searchOpen && query.trim().length >= 2 && <div className="sg-search-results" role="listbox" aria-label="Gợi ý tìm kiếm">
       {loading ? <div className="sg-search-status">Đang tìm kiếm...</div> : results.length ? results.map((item) => <button key={`${item.kind}-${item.id}`} type="button" role="option" aria-selected="false" onClick={() => selectResult(item)}><span className="sg-search-kind">{kindLabels[item.kind] || 'Kết quả'}</span><span><strong>{item.title}</strong><small>{item.subtitle}</small></span></button>) : <div className="sg-search-status">Chưa có kết quả phù hợp.</div>}
@@ -94,13 +113,18 @@ export default function Navbar() {
 
   return <>
     <header className="sg-topbar"><div className="sg-topbar-inner">
-      <Link to="/tournaments" className="sg-brand" aria-label="SportGo, về bảng tin"><img className="sg-brand-mark" src={brandLogo} alt="" /><span>SPORTGO</span></Link>
+      <div className="sg-topbar-left">
+        <Link to="/tournaments" className="sg-brand" aria-label="SportGo, về bảng tin"><img className="sg-brand-mark" src={brandLogo} alt="" /><span>SPORTGO</span></Link>
+        <div className="sg-desktop-search" ref={searchRef}>{searchBox()}</div>
+      </div>
       <nav className="sg-primary-nav" aria-label="Điều hướng chính">{links.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} className={({ isActive }) => `sg-nav-link ${isActive ? 'active' : ''}`}><Icon size={18} /><span>{label}</span></NavLink>)}</nav>
-      <div className="sg-desktop-search" ref={searchRef}>{searchBox()}</div>
       <div className="sg-top-actions">
         <button type="button" className="sg-icon-button sg-mobile-search-toggle" onClick={() => setMobileSearchOpen(true)} aria-label="Mở tìm kiếm"><Search size={20} /></button>
         <button type="button" className="sg-icon-button sg-chat-button" onClick={toggleChat} aria-label="Mở tin nhắn"><MessageCircle size={20} />{unreadChats > 0 && <i>{unreadChats > 9 ? '9+' : unreadChats}</i>}</button>
         <NotificationBell className="sg-icon-button sg-notification-button" />
+        <button type="button" className="sg-icon-button sg-theme-toggle" onClick={() => setIsDark((current) => !current)} aria-label={isDark ? 'Chuyển sang chế độ sáng' : 'Chuyển sang chế độ tối'} title={isDark ? 'Chế độ sáng' : 'Chế độ tối'}>
+          {isDark ? <Sun size={19} /> : <Moon size={19} />}
+        </button>
         <Link to="/premium" className="sg-premium-link"><Crown size={16} /><span>Premium</span></Link>
         <Link to="/home" className="sg-user-avatar" aria-label="Hồ sơ của tôi">{avatar ? <img src={avatar} alt="" /> : name.charAt(0).toUpperCase()}</Link>
         <button type="button" className="sg-icon-button sg-mobile-menu-toggle" onClick={() => setMobileMenuOpen((open) => !open)} aria-label="Mở menu"><Menu size={20} /></button>
@@ -108,6 +132,14 @@ export default function Navbar() {
     </div></header>
     {mobileSearchOpen && <div className="sg-mobile-search-overlay"><div className="sg-mobile-search-row" ref={searchRef}>{searchBox(true)}<button type="button" onClick={() => { setMobileSearchOpen(false); setSearchOpen(false); }} aria-label="Đóng tìm kiếm"><X size={22} /></button></div></div>}
     {mobileMenuOpen && <div className="sg-mobile-menu"><Link to="/premium" onClick={() => setMobileMenuOpen(false)}><Crown size={18} /> Premium</Link><Link to="/home" onClick={() => setMobileMenuOpen(false)}><Users size={18} /> Hồ sơ</Link></div>}
-    <nav className="sg-bottom-nav" aria-label="Điều hướng di động">{links.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} className={({ isActive }) => isActive ? 'active' : ''}><Icon size={21} /><span>{label}</span></NavLink>)}<NavLink to="/home" className={({ isActive }) => isActive ? 'active' : ''}><span className="sg-bottom-avatar">{avatar ? <img src={avatar} alt="" /> : name.charAt(0).toUpperCase()}</span><span>Hồ sơ</span></NavLink></nav>
+    <nav className="sg-bottom-nav" aria-label="Điều hướng di động">
+      {links.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} className={({ isActive }) => isActive ? 'active' : ''}><Icon size={21} /><span>{label}</span></NavLink>)}
+      <button type="button" className={`sg-bottom-chat ${isChatOpen ? 'active' : ''}`} onClick={toggleChat} aria-label="Mở tin nhắn">
+        <span className="sg-bottom-chat-icon"><MessageCircle size={21} /></span>
+        <span>Chat</span>
+        {unreadChats > 0 && <i>{unreadChats > 9 ? '9+' : unreadChats}</i>}
+      </button>
+      <NavLink to="/home" className={({ isActive }) => isActive ? 'active' : ''}><span className="sg-bottom-avatar">{avatar ? <img src={avatar} alt="" /> : name.charAt(0).toUpperCase()}</span><span>Hồ sơ</span></NavLink>
+    </nav>
   </>;
 }
