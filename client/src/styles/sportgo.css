@@ -130,6 +130,7 @@ html.sg-theme-switching .sg-app *::after {
 .sg-primary-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 10px 16px; border: 1px solid #698cfb; border-radius: 9px; background: #537fff; color: white; font-size: 12px; font-weight: 750; transition: transform .18s, background .18s; }
 .sg-primary-button:hover { transform: translateY(-2px); background: #6b94ff; }
 .sg-profile-post-create svg { width: 32px !important; height: 32px !important; stroke-width: 3.5; }
+.sg-room-pending-count { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; border: 1px solid rgba(255, 255, 255, .35); border-radius: 999px; background: rgba(17, 29, 61, .28); color: #fff; font-size: 10px; font-weight: 850; line-height: 1; }
 
 .sg-app .member-content-card, .sg-app .member-content-surface, .sg-app .member-filter-panel { background: #111827; border-color: var(--sg-line); box-shadow: 0 10px 30px rgba(0,0,0,.1); backdrop-filter: none; }
 .sg-app .member-content-card:hover { border-color: rgba(113, 153, 248, .34); box-shadow: 0 15px 32px rgba(0,0,0,.2); }

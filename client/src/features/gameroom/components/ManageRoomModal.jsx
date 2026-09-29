@@ -11,6 +11,7 @@ function ManageRoomModal({ isOpen, onClose, room, onUpdateStatus, onUpdateAttend
     host = { name: 'Bạn (Trưởng phòng)' },
     participants = [],
   } = room;
+  const hostAvatar = host.avatar || host.avatar_url || '';
 
   const pendingList = participants.filter((p) => p.status === 'PENDING' || !p.status);
   const approvedList = participants.filter((p) => p.status === 'APPROVED');
@@ -96,7 +97,7 @@ function ManageRoomModal({ isOpen, onClose, room, onUpdateStatus, onUpdateAttend
               <div className="space-y-2.5">
                 {pendingList.map((participant) => {
                   const userName = participant.user?.name || participant.name || 'Người chơi';
-                  const userAvatar = participant.user?.avatar || '';
+                  const userAvatar = participant.user?.avatar || participant.user?.avatar_url || participant.avatar || '';
                   const userId = participant.user_id || participant.id;
 
                   return (
@@ -105,8 +106,8 @@ function ManageRoomModal({ isOpen, onClose, room, onUpdateStatus, onUpdateAttend
                       className="sg-modal-pending flex items-center justify-between p-3.5 rounded-2xl border transition-all"
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="sg-modal-avatar w-10 h-10 rounded-full text-white font-bold flex items-center justify-center shrink-0 shadow-sm">
-                          {userName.charAt(0).toUpperCase()}
+                        <div className="sg-modal-avatar w-10 h-10 rounded-full overflow-hidden text-white font-bold flex items-center justify-center shrink-0 shadow-sm">
+                          {userAvatar ? <img src={userAvatar} alt="" className="h-full w-full object-cover" /> : userName.charAt(0).toUpperCase()}
                         </div>
                         <div className="min-w-0">
                           <span className="text-sm font-bold text-slate-900 dark:text-white block truncate">
@@ -157,8 +158,10 @@ function ManageRoomModal({ isOpen, onClose, room, onUpdateStatus, onUpdateAttend
               {/* Host item */}
               <div className="sg-modal-approved flex items-center justify-between p-3.5 rounded-2xl border">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="sg-modal-avatar w-10 h-10 rounded-full text-white font-bold flex items-center justify-center shrink-0 shadow-sm relative">
-                    <span>{(host.name || 'H').charAt(0).toUpperCase()}</span>
+                  <div className="relative w-10 h-10 shrink-0">
+                    <div className="sg-modal-avatar w-10 h-10 rounded-full overflow-hidden text-white font-bold flex items-center justify-center shadow-sm">
+                      {hostAvatar ? <img src={hostAvatar} alt="" className="h-full w-full object-cover" /> : <span>{(host.name || 'H').charAt(0).toUpperCase()}</span>}
+                    </div>
                     <Crown className="sg-modal-accent-icon w-3 h-3 absolute -top-1 -right-1" />
                   </div>
                   <div className="min-w-0">
@@ -175,6 +178,7 @@ function ManageRoomModal({ isOpen, onClose, room, onUpdateStatus, onUpdateAttend
               {/* Other approved members */}
               {approvedList.map((participant) => {
                 const userName = participant.user?.name || participant.name || 'Người chơi';
+                const userAvatar = participant.user?.avatar || participant.user?.avatar_url || participant.avatar || '';
                 const userId = participant.user_id || participant.id;
 
                 return (
@@ -183,8 +187,8 @@ function ManageRoomModal({ isOpen, onClose, room, onUpdateStatus, onUpdateAttend
                     className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="sg-modal-avatar w-10 h-10 rounded-full text-white font-bold flex items-center justify-center shrink-0 shadow-sm">
-                        {userName.charAt(0).toUpperCase()}
+                      <div className="sg-modal-avatar w-10 h-10 rounded-full overflow-hidden text-white font-bold flex items-center justify-center shrink-0 shadow-sm">
+                        {userAvatar ? <img src={userAvatar} alt="" className="h-full w-full object-cover" /> : userName.charAt(0).toUpperCase()}
                       </div>
                       <div className="min-w-0">
                         <span className="text-sm font-bold text-slate-900 dark:text-white block truncate">
