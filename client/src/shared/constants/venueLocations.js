@@ -561,7 +561,16 @@ export const VERIFIED_VENUES = [
   },
 ];
 
-// Hàm tìm tọa độ từ chuỗi địa chỉ
+// Danh sách các từ khóa địa danh chung không dùng để khớp đơn lẻ
+const GENERIC_DISTRICT_KEYWORDS = new Set([
+  'quận 1', 'quan 1', 'quận 3', 'quan 3', 'quận 4', 'quan 4', 'quận 5', 'quan 5',
+  'quận 7', 'quan 7', 'quận 9', 'quan 9', 'quận 10', 'quan 10', 'quận 11', 'quan 11',
+  'quận tân bình', 'tân bình', 'tan binh', 'bình thạnh', 'binh thanh', 'phú nhuận',
+  'phu nhuan', 'gò vấp', 'go vap', 'tân phú', 'tan phu', 'thủ đức', 'thu duc',
+  'tp.hcm', 'hcm', 'hồ chí minh', 'ho chi minh', 'sân', 'san', 'tp hcm'
+]);
+
+// Hàm tìm tọa độ từ chuỗi địa chỉ với thuật toán xếp hạng trọng số cao cấp
 export function findVenueCoordinates(locationStr) {
   if (!locationStr || typeof locationStr !== 'string') return null;
 
@@ -575,18 +584,57 @@ export function findVenueCoordinates(locationStr) {
     }
   }
 
-  // 2. Tìm trong danh mục sân đã xác thực
-  const normalized = locationStr.toLowerCase();
-  for (const venue of VERIFIED_VENUES) {
-    if (
-      normalized.includes(venue.name.toLowerCase()) ||
-      normalized.includes(venue.shortName.toLowerCase())
-    ) {
-      return [venue.lat, venue.lng];
+  // 2. Tìm kiếm chính xác theo tên sân, tên rút gọn và địa chỉ
+  const norm = locationStr.toLowerCase();
+  let bestMatch = null;
+  let maxScore = 0;
+
+  for (const v of VERIFIED_VENUES) {
+    const vName = v.name.toLowerCase();
+    const vShort = (v.shortName || '').toLowerCase();
+    const vAddr = (v.address || '').toLowerCase();
+
+    let score = 0;
+
+    // Trùng tên sân đầy đủ có độ ưu tiên cao nhất
+    if (norm.includes(vName)) {
+      score += 1000 + vName.length;
+    } else if (vShort && norm.includes(vShort)) {
+      score += 500 + vShort.length;
+    } else if (vName.includes(norm) && norm.length >= 6) {
+      score += 300 + norm.length;
     }
-    // Tìm theo keywords
-    if (venue.keywords && venue.keywords.some((kw) => normalized.includes(kw))) {
-      return [venue.lat, venue.lng];
+
+    // Trùng khớp địa chỉ cụ thể
+    if (vAddr && norm.includes(vAddr)) {
+      score += 100 + vAddr.length;
+    } else {
+      // Khớp tên đường (ví dụ: "Bùi Xương Trạch", "Hoàng Hữu Nam")
+      const street = vAddr.split(',')[0]?.trim();
+      if (street && street.length >= 6 && norm.includes(street)) {
+        score += 50 + street.length;
+      }
+    }
+
+    if (score > maxScore) {
+      maxScore = score;
+      bestMatch = v;
+    }
+  }
+
+  if (bestMatch && maxScore >= 50) {
+    return [bestMatch.lat, bestMatch.lng];
+  }
+
+  // 3. Khớp theo từ khóa đặc thù (loại trừ quận/huyện chung)
+  for (const v of VERIFIED_VENUES) {
+    if (v.keywords) {
+      for (const kw of v.keywords) {
+        const kwNorm = kw.toLowerCase().trim();
+        if (!GENERIC_DISTRICT_KEYWORDS.has(kwNorm) && kwNorm.length >= 4 && norm.includes(kwNorm)) {
+          return [v.lat, v.lng];
+        }
+      }
     }
   }
 
