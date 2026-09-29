@@ -14,8 +14,17 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     status = Column(String, default="active")  # active, banned
     owner_status = Column(String, default="none", nullable=False)  # none, registered
+    # Moderators are separate from club/court ownership.  Keep this flag server-side
+    # so the UI cannot grant itself moderation permissions.
+    is_admin = Column(Boolean, nullable=False, default=False, server_default="false", index=True)
+    premium_until = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=utc_now_naive)
     updated_at = Column(DateTime, default=utc_now_naive, onupdate=utc_now_naive)
+
+    @property
+    def is_premium(self):
+        """Whether the account currently has an active Premium entitlement."""
+        return bool(self.premium_until and self.premium_until > utc_now_naive())
 
     # Relationships
     profile = relationship("UserProfile", uselist=False, back_populates="user", cascade="all, delete-orphan")
@@ -34,6 +43,12 @@ class User(Base):
     conversations_as_user1 = relationship("Conversation", foreign_keys="Conversation.user1_id", back_populates="user1")
     conversations_as_user2 = relationship("Conversation", foreign_keys="Conversation.user2_id", back_populates="user2")
     sent_messages = relationship("Message", back_populates="sender")
+    premium_payments = relationship(
+        "PremiumPayment",
+        foreign_keys="PremiumPayment.user_id",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
 
 class OAuthIdentity(Base):
@@ -382,6 +397,44 @@ class SocialPostCommentReaction(Base):
 
     comment = relationship("SocialPostComment", back_populates="reactions")
     user = relationship("User")
+
+
+class PremiumPayment(Base):
+    """Manual Premium payment submitted with a QR transfer proof."""
+    __tablename__ = "premium_payments"
+    __table_args__ = (
+        UniqueConstraint("payment_code", name="uq_premium_payments_payment_code"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    payment_code = Column(String(32), nullable=False, index=True)
+    amount = Column(Integer, nullable=False, default=30000)
+    proof_url = Column(Text, nullable=True)
+    status = Column(String(20), nullable=False, default="PENDING", index=True)  # PENDING, APPROVED, REJECTED
+    submitted_at = Column(DateTime, nullable=False, default=utc_now_naive, index=True)
+    reviewed_at = Column(DateTime, nullable=True)
+    reviewed_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    review_note = Column(Text, nullable=True)
+
+    user = relationship("User", foreign_keys=[user_id], back_populates="premium_payments")
+    reviewer = relationship("User", foreign_keys=[reviewed_by])
+
+
+class ModerationWarning(Base):
+    """A warning issued by an admin to a team owner or game-room host."""
+    __tablename__ = "moderation_warnings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    admin_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    recipient_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    target_type = Column(String(20), nullable=False)  # team, game_room
+    target_id = Column(Integer, nullable=False, index=True)
+    message = Column(Text, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=utc_now_naive, index=True)
+
+    admin = relationship("User", foreign_keys=[admin_id])
+    recipient = relationship("User", foreign_keys=[recipient_id])
 
 
 class Notification(Base):

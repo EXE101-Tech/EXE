@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from app import models, schemas
 from app.sport_catalog import resolve_sport, sport_key_for
 
@@ -6,12 +7,13 @@ def get_user_by_id(db: Session, user_id: int):
     return db.query(models.User).filter(models.User.id == user_id).first()
 
 def get_user_by_email(db: Session, email: str):
-    return db.query(models.User).filter(models.User.email == email).first()
+    normalized = email.strip().lower()
+    return db.query(models.User).filter(func.lower(models.User.email) == normalized).first()
 
 def create_user(db: Session, user: schemas.UserCreate):
     from app.auth_utils import get_password_hash
     hashed_password = get_password_hash(user.password)
-    db_user = models.User(email=user.email, password_hash=hashed_password)
+    db_user = models.User(email=user.email.strip().lower(), password_hash=hashed_password)
     db.add(db_user)
     db.commit()
     db.refresh(db_user)

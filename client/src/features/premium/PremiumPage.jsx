@@ -1,22 +1,24 @@
-import { ArrowLeft, BadgeCheck, ChartNoAxesCombined, Crown, History, ListFilter, Palette, Sparkles, Users } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowLeft, BadgeCheck, ChartNoAxesCombined, Crown, History, Sparkles, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import PremiumInfoModal from './PremiumInfoModal.jsx';
 
 const benefits = [
-  { icon: Sparkles, title: 'Dễ được tìm thấy hơn', text: 'Ưu tiên xuất hiện khi người chơi tìm đồng đội phù hợp.' },
-  { icon: ListFilter, title: 'Bộ lọc chuyên sâu', text: 'Thu hẹp kết quả theo mục tiêu, lịch chơi và trình độ.' },
-  { icon: ChartNoAxesCombined, title: 'Hiểu hành trình của bạn', text: 'Theo dõi nhịp độ hoạt động và những cột mốc cá nhân.' },
-  { icon: Users, title: 'Không gian để phát triển', text: 'Tạo thêm phòng và CLB khi cộng đồng của bạn lớn lên.' },
-  { icon: BadgeCheck, title: 'Dấu ấn Premium', text: 'Một cách tinh tế để thể hiện sự gắn bó của bạn với cộng đồng.' },
-  { icon: Palette, title: 'Hồ sơ mang màu sắc riêng', text: 'Tùy chỉnh diện mạo để câu chuyện thể thao của bạn nổi bật.' },
-  { icon: History, title: 'Lưu lại nhiều khoảnh khắc', text: 'Xem lịch sử hoạt động trong khoảng thời gian dài hơn.' },
+  { icon: Sparkles, title: 'Tự động tìm phòng và gửi thông báo', text: 'Thiết lập sẵn môn chơi, thời gian, khu vực và trình độ để hệ thống tự tìm phòng phù hợp, không cần tự vào tìm mỗi ngày.' },
+  { icon: ChartNoAxesCombined, title: 'Ưu tiên lấp đầy phòng sắp bắt đầu', text: 'Nếu phòng còn thiếu người trong vòng 2 giờ trước giờ chơi, bài sẽ được đưa lên đầu hoặc gửi lời mời đến số người cần tìm cộng thêm 2 người dự phòng.' },
+  { icon: History, title: 'Lịch đăng bài tự động', text: 'Thiết lập nội dung và thời gian để bài tìm người chơi được đăng tự động theo lịch của bạn.' },
+  { icon: Users, title: 'Mở rộng CLB và có lịch riêng', text: 'Tăng giới hạn thành viên so với mức cơ bản tối đa 10 người và có lịch quản lý riêng cho chủ CLB đăng ký gói.' },
+  { icon: BadgeCheck, title: 'Nhắc thu phí thường niên cho CLB', text: 'Trưởng CLB có thể thiết lập thông báo và lịch nhắc thu phí thường niên khi đăng ký gói.' },
 ];
 
 export default function PremiumPage() {
+  const [paymentOpen, setPaymentOpen] = useState(false);
   return <main className="sg-premium-page">
     <Link to="/tournaments" className="sg-premium-back"><ArrowLeft size={16} /> Quay lại bảng tin</Link>
-    <section className="sg-premium-hero"><div className="sg-premium-glow" /><div className="sg-premium-hero-content"><span className="sg-premium-badge"><Crown size={16} /> SPORTGO PREMIUM</span><h1>Thêm không gian<br /><em>cho đam mê<br />vận động.</em></h1><p>Những công cụ hữu ích giúp bạn kết nối đúng người, tổ chức nhiều hoạt động hơn và nhìn lại hành trình của mình.</p><span className="sg-premium-state">Tính năng Premium đang được phát triển</span></div><div className="sg-premium-graphic" aria-hidden="true"><span>MOVE<br />TOGETHER<span className="sg-premium-dot">.</span></span><i /></div></section>
-    <div className="sg-premium-section-heading"><span className="sg-eyebrow">GIÁ TRỊ THỰC TẾ</span><h2>Được tạo cho người luôn muốn chơi thêm một trận</h2></div>
+    <section className="sg-premium-hero"><div className="sg-premium-glow" /><div className="sg-premium-hero-content"><span className="sg-premium-badge"><Crown size={16} /> SPORTGO PREMIUM</span><h1>Chủ động hơn<br /><em>trong mỗi trận<br />chơi.</em></h1><p>Gói Premium 30.000đ/tháng giúp bạn tự động tìm phòng, lấp đầy phòng chơi và quản lý hoạt động CLB theo lịch đã thiết lập.</p><button type="button" className="sg-premium-state sg-premium-upgrade-button" onClick={() => setPaymentOpen(true)} aria-label="Nâng cấp Premium với giá 30.000đ mỗi tháng"><strong>30.000đ/tháng</strong><span>· Nâng cấp ngay</span></button></div><div className="sg-premium-graphic" aria-hidden="true"><span>MOVE<br />TOGETHER<span className="sg-premium-dot">.</span></span><i /></div></section>
+    <div className="sg-premium-section-heading"><span className="sg-eyebrow">GÓI PREMIUM · 30.000Đ/THÁNG</span><h2>Tự động hóa những việc bạn thường phải làm thủ công</h2></div>
     <div className="sg-premium-grid">{benefits.map(({ icon: Icon, title, text }) => <article key={title} className="sg-panel sg-premium-benefit"><span><Icon size={21} /></span><h3>{title}</h3><p>{text}</p></article>)}</div>
-    <p className="sg-premium-footnote">SportGo chưa kết nối đăng ký hay thanh toán Premium. Trang này giới thiệu định hướng tính năng và không tạo giao dịch.</p>
+    <p className="sg-premium-footnote">Thanh toán bằng mã QR, ghi đúng mã giao dịch và gửi ảnh xác nhận để quản trị viên kiểm tra.</p>
+    <PremiumInfoModal isOpen={paymentOpen} onClose={() => setPaymentOpen(false)} />
   </main>;
 }

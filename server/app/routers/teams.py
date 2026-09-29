@@ -66,6 +66,7 @@ def _team_payloads(db: Session, teams: List[models.Team], user_id: Optional[int]
             "id": team.id,
             "owner_id": team.owner_id,
             "owner_name": owner.profile.full_name if owner and owner.profile and owner.profile.full_name else (owner.email if owner else "Người mở CLB chưa cập nhật"),
+            "owner_is_premium": bool(owner and owner.is_premium),
             "name": team.name,
             "sport_id": sport_key,
             "sport_name": team.sport_name or (sport.name if sport else "Môn thể thao"),
@@ -137,6 +138,8 @@ def create_team(
     current_user: models.User = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db),
 ):
+    if current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Tài khoản quản trị chỉ dùng để kiểm duyệt")
     sport_key = data.sport_id.strip().casefold()
     sport = resolve_sport(db, sport_key)
     team = models.Team(
@@ -175,6 +178,8 @@ def update_team(
     current_user: models.User = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db),
 ):
+    if current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Tài khoản quản trị chỉ dùng để kiểm duyệt")
     team = _get_team_or_404(db, team_id)
     if team.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Chỉ trưởng CLB mới được chỉnh sửa")
@@ -208,7 +213,7 @@ def delete_team(
     db: Session = Depends(database.get_db),
 ):
     team = _get_team_or_404(db, team_id)
-    if team.owner_id != current_user.id:
+    if not current_user.is_admin and team.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Chỉ trưởng CLB mới được xóa CLB")
     db.delete(team)
     db.commit()
@@ -220,6 +225,8 @@ def request_to_join_team(
     current_user: models.User = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db),
 ):
+    if current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Tài khoản quản trị chỉ dùng để kiểm duyệt")
     team = _get_team_or_404(db, team_id)
     if team.owner_id == current_user.id:
         raise HTTPException(status_code=400, detail="Bạn đang là trưởng CLB này")
@@ -260,6 +267,8 @@ def leave_team(
     current_user: models.User = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db),
 ):
+    if current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Tài khoản quản trị chỉ dùng để kiểm duyệt")
     team = _get_team_or_404(db, team_id)
     if team.owner_id == current_user.id:
         raise HTTPException(status_code=409, detail="Người mở CLB cần xóa CLB hoặc chuyển quyền trước")
@@ -279,6 +288,7 @@ def _member_payload(membership: models.TeamMembership):
         "user_id": membership.user_id,
         "full_name": profile.full_name if profile else None,
         "avatar_url": profile.avatar_url if profile else None,
+        "is_premium": user.is_premium,
         "email": None,
         "status": membership.status,
         "joined_at": membership.joined_at,
@@ -377,6 +387,8 @@ def submit_team_review(
     current_user: models.User = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db),
 ):
+    if current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Tài khoản quản trị chỉ dùng để kiểm duyệt")
     team = _get_team_or_404(db, team_id)
     if team.owner_id == current_user.id:
         raise HTTPException(status_code=400, detail="Không thể tự đánh giá CLB của mình")

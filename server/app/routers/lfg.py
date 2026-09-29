@@ -25,6 +25,7 @@ def _post_payload(post: models.LfgPost, user_id: Optional[int] = None):
         "author_name": author_name or (post.author.email if post.author else ""),
         "author_avatar_url": post.author.profile.avatar_url if post.author and post.author.profile else None,
         "author_owner_status": post.author.owner_status if post.author else "none",
+        "author_is_premium": bool(post.author and post.author.is_premium),
         "sport_id": post.sport_id,
         "sport_name": post.sport_name,
         "title": post.title or "",
@@ -88,6 +89,8 @@ def create_post(
     current_user: models.User = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db),
 ):
+    if current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Tài khoản quản trị chỉ dùng để kiểm duyệt")
     fields = data.model_dump()
     description = (fields.get("description") or "").strip()
     # Keep the database/API title field for clients that still read it, without requiring
@@ -121,6 +124,8 @@ def update_post(
     current_user: models.User = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db),
 ):
+    if current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Tài khoản quản trị chỉ dùng để kiểm duyệt")
     post = _get_post_or_404(db, post_id)
     if post.author_id != current_user.id:
         raise HTTPException(status_code=403, detail="Chỉ tác giả mới được chỉnh sửa bài đăng")
@@ -161,6 +166,8 @@ def join_post(
     current_user: models.User = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db),
 ):
+    if current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Tài khoản quản trị chỉ dùng để kiểm duyệt")
     post_view = _get_post_or_404(db, post_id)
     if post_view.author_id == current_user.id:
         raise HTTPException(status_code=400, detail="Bạn không thể tham gia bài đăng của chính mình")
@@ -332,7 +339,7 @@ def cancel_post(
     db: Session = Depends(database.get_db),
 ):
     post_view = _get_post_or_404(db, post_id)
-    if post_view.author_id != current_user.id:
+    if not current_user.is_admin and post_view.author_id != current_user.id:
         raise HTTPException(status_code=403, detail="Chỉ tác giả mới được hủy bài đăng")
     post = db.query(models.LfgPost).filter(models.LfgPost.id == post_id).with_for_update().first()
     if post.status == "CANCELLED":

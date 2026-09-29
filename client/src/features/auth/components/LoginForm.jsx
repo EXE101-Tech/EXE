@@ -27,9 +27,9 @@ function LoginForm({ onShowRegister }) {
     setErrors({});
     setIsLoading(true);
     try {
-      await loginWithGoogle(code);
+      const result = await loginWithGoogle(code);
       setIsSuccess(true);
-      setTimeout(() => navigate('/home'), 1500);
+      setTimeout(() => navigate(result?.user?.isAdmin ? '/admin' : '/home'), 1500);
     } catch (err) {
       setErrors({ general: err.message || t('auth.invalidCredentials') });
     } finally {
@@ -117,10 +117,10 @@ function LoginForm({ onShowRegister }) {
     setIsLoading(true);
     
     try {
-      await login(form);
+      const result = await login(form);
       setIsSuccess(true);
       // Wait for success animation before navigating
-      setTimeout(() => navigate('/home'), 1500);
+      setTimeout(() => navigate(result?.user?.isAdmin ? '/admin' : '/home'), 1500);
     } catch (err) {
       setErrors({ general: err.message || t('auth.invalidCredentials') });
     } finally {

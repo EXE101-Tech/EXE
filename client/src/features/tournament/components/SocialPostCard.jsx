@@ -2,9 +2,26 @@ import { useEffect, useRef, useState } from 'react';
 import { Heart, LoaderCircle, MessageCircle, Pencil, Send, Trash2, UserPlus, UserRoundCheck, X } from 'lucide-react';
 import { chatService, resolveMediaUrl, socialPostService } from '../../../shared/services/api';
 
+const normalizeUtcTimestamp = (value) => {
+  if (typeof value !== 'string' || !value) return value;
+  return /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value) ? value : `${value}Z`;
+};
+
 const formatDate = (value) => {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? '' : date.toLocaleString('vi-VN', { dateStyle: 'medium', timeStyle: 'short' });
+  const date = new Date(normalizeUtcTimestamp(value));
+  if (Number.isNaN(date.getTime())) return '';
+
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).formatToParts(date).map(({ type, value: partValue }) => [type, partValue]));
+
+  return `${parts.hour}:${parts.minute} | ${parts.day}/${parts.month}/${parts.year}`;
 };
 
 const COMMENT_REACTIONS = [
@@ -303,12 +320,12 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
   return (
     <article className="sg-panel sg-post-card overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-sm transition-shadow hover:shadow-lg dark:border-white/10 dark:bg-slate-900/80">
       <header className="flex items-center gap-3 px-4 py-4 sm:px-5">
-        <div className="rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500 p-[2px]">
+        <div className={`rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500 p-[2px] ${post.author_is_premium ? 'sg-premium-avatar-shell' : ''}`}>
           <div className="rounded-full bg-white p-[2px] dark:bg-slate-900"><Avatar src={post.author_avatar_url} name={post.author_name} className="h-10 w-10" /></div>
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-extrabold text-slate-900 dark:text-white">{post.author_name}</p>
-          <time className="text-xs text-slate-500 dark:text-slate-400" dateTime={post.created_at}>{formatDate(post.created_at)}</time>
+          <p className={`truncate text-sm font-extrabold text-slate-900 dark:text-white ${post.author_is_premium ? 'sg-premium-name' : ''}`}>{post.author_name}</p>
+          <time className="text-xs text-slate-500 dark:text-slate-400" dateTime={normalizeUtcTimestamp(post.created_at)}>{formatDate(post.created_at)}</time>
         </div>
         {!isMine && <button type="button" onClick={connectOrMessage} disabled={friendBusy || post.friendship_status === 'outgoing'} className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-default disabled:opacity-65 dark:bg-white/10 dark:text-slate-200 dark:hover:bg-emerald-400/10 dark:hover:text-emerald-200">
           {friendBusy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : post.friendship_status === 'accepted' ? <MessageCircle className="h-4 w-4" /> : post.friendship_status === 'outgoing' ? <UserRoundCheck className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}

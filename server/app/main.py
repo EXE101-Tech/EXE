@@ -6,11 +6,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
-from app.database import engine, Base
-from app.routers import auth, courts, gamerooms, bookings, teams, lfg, owner, chat, search, storage, notifications, social
+from app.database import engine, Base, SessionLocal
+from app.admin_seed import bootstrap_admins
+from app.routers import auth, courts, gamerooms, bookings, teams, lfg, owner, chat, search, storage, notifications, social, admin
 
 # Create all database tables on startup if they do not exist
 Base.metadata.create_all(bind=engine)
+bootstrap_admins(engine, SessionLocal)
 
 app = FastAPI(
     title="EXE101 Badminton Social Network & Booking API",
@@ -40,6 +42,7 @@ app.include_router(search.router, prefix="/api")
 app.include_router(storage.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")
 app.include_router(social.router, prefix="/api")
+app.include_router(admin.router, prefix="/api")
 
 @app.get("/")
 def read_root():

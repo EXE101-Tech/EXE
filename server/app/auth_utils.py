@@ -73,6 +73,13 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     return _user_from_credentials(credentials, db)
 
 
+def require_admin(current_user: models.User = Depends(get_current_user)) -> models.User:
+    """Require the server-side moderator role for administrative operations."""
+    if not current_user.is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Bạn không có quyền quản trị")
+    return current_user
+
+
 def get_optional_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(optional_security),
     db: Session = Depends(database.get_db),

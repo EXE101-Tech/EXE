@@ -52,6 +52,8 @@ def get_match_by_id(
     current_user = Depends(auth_utils.get_optional_current_user),
     db: Session = Depends(database.get_db),
 ):
+    if current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Tài khoản quản trị chỉ dùng để kiểm duyệt")
     crud.close_expired_matches(db)
     match = crud.get_match_by_id(db, match_id=id)
     if not match:
@@ -67,6 +69,8 @@ def update_existing_match(
     current_user = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db),
 ):
+    if current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Tài khoản quản trị chỉ dùng để kiểm duyệt")
     crud.close_expired_matches(db)
     match = crud.get_match_by_id(db, match_id=id)
     if not match:
@@ -97,7 +101,7 @@ def delete_existing_match(
     match = crud.get_match_by_id(db, match_id=id)
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
-    if match.host_id != current_user.id:
+    if not current_user.is_admin and match.host_id != current_user.id:
         raise HTTPException(status_code=403, detail="Only the host can delete this match")
 
     approved_members = db.query(models.MatchParticipant.user_id).filter(
@@ -128,6 +132,8 @@ def join_existing_match(
     current_user = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db)
 ):
+    if current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Tài khoản quản trị chỉ dùng để kiểm duyệt")
     crud.close_expired_matches(db)
     # Check if match exists
     match = crud.get_match_by_id(db, match_id=id)
@@ -166,6 +172,8 @@ def leave_existing_match(
     current_user = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db)
 ):
+    if current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Tài khoản quản trị chỉ dùng để kiểm duyệt")
     crud.close_expired_matches(db)
     # Check if match exists
     match = crud.get_match_by_id(db, match_id=id)

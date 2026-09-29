@@ -11,6 +11,7 @@ import LandingPage from '../features/landing/Landing.jsx';
 import PublicLayout from '../shared/layouts/PublicLayout.jsx';
 import NavbarLayout from '../shared/layouts/NavbarLayout.jsx';
 import PremiumPage from '../features/premium/PremiumPage.jsx';
+import AdminDashboard from '../features/admin/AdminDashboard.jsx';
 import { SportFilterProvider } from '../shared/context/SportFilterContext.jsx';
 
 function GlobalWrapper({ children }) {
@@ -41,6 +42,18 @@ function ProtectedRoute({ children }) {
     return children;
 }
 
+function MemberLayout() {
+    const { user } = useAuth();
+    if (user?.isAdmin) return <Navigate to="/admin" replace />;
+    return <NavbarLayout />;
+}
+
+function AdminRoute({ children }) {
+    const { user } = useAuth();
+    if (!user?.isAdmin) return <Navigate to="/home" replace />;
+    return children;
+}
+
 function AppRoutes() {
     return (
         <BrowserRouter>
@@ -53,7 +66,8 @@ function AppRoutes() {
                                 <Route path="/register" element={<Login defaultIsRegister={true} />} />
                                 <Route path="/" element={<LandingPage />} />
                             </Route>
-                            <Route element={<ProtectedRoute><NavbarLayout /></ProtectedRoute>}>
+                            <Route path="/admin" element={<ProtectedRoute><AdminRoute><AdminDashboard /></AdminRoute></ProtectedRoute>} />
+                            <Route element={<ProtectedRoute><MemberLayout /></ProtectedRoute>}>
                                 <Route path="/home" element={<Home />} />
                                 <Route path="/tournaments" element={<SocialFeed />} />
                                 <Route path="/matches" element={<GameRoom />} />

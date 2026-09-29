@@ -72,6 +72,23 @@ export const authService = {
   getStats: () => apiClient.get('/auth/me/stats'),
 };
 
+export const premiumService = {
+  createPaymentIntent: () => apiClient.post('/premium/payments/intents'),
+  submitPaymentProof: (id, data) => apiClient.post(`/premium/payments/${id}/submit`, data),
+  getMine: () => apiClient.get('/premium/payments/mine'),
+};
+
+export const adminService = {
+  getSummary: () => apiClient.get('/admin/summary'),
+  getPosts: () => apiClient.get('/admin/posts'),
+  getRooms: () => apiClient.get('/admin/rooms'),
+  getPayments: (status) => apiClient.get('/admin/payments', { params: status ? { status } : {} }),
+  reviewPayment: (id, data) => apiClient.patch(`/admin/payments/${id}`, data),
+  getAccounts: () => apiClient.get('/admin/accounts'),
+  createAccount: (data) => apiClient.post('/admin/accounts', data),
+  sendWarning: (data) => apiClient.post('/admin/warnings', data),
+};
+
 export const resolveMediaUrl = (path) => {
   if (!path || /^(https?:|data:|blob:)/i.test(path)) return path || '';
   const apiBase = new URL(apiClient.defaults.baseURL, window.location.origin);

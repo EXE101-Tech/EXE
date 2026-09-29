@@ -114,12 +114,80 @@ class UserBasicResponse(BaseModel):
     email: str
     status: str
     owner_status: str = "none"
+    is_admin: bool = False
+    premium_until: Optional[datetime] = None
+    is_premium: bool = False
     created_at: datetime
     profile: Optional[UserProfileResponse] = None
     model_config = ConfigDict(from_attributes=True)
 
 class UserResponse(UserBasicResponse):
     sports: List[UserSportResponse] = []
+
+
+class AdminAccountCreate(BaseModel):
+    email: str = Field(..., min_length=5, max_length=255)
+    password: str = Field(..., min_length=6, max_length=128)
+    name: str = Field(..., min_length=1, max_length=160)
+
+
+class AdminAccountResponse(BaseModel):
+    id: int
+    email: str
+    status: str
+    is_admin: bool
+    created_at: datetime
+    profile: Optional[UserProfileResponse] = None
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PremiumPaymentIntentResponse(BaseModel):
+    id: int
+    payment_code: str
+    amount: int
+    status: str
+    submitted_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PremiumPaymentSubmit(BaseModel):
+    payment_code: str = Field(..., min_length=8, max_length=32)
+    proof_url: str = Field(..., min_length=1, max_length=2000)
+
+
+class PremiumPaymentReview(BaseModel):
+    status: Literal["APPROVED", "REJECTED"]
+    review_note: Optional[str] = Field(None, max_length=500)
+
+
+class PremiumPaymentResponse(BaseModel):
+    id: int
+    user_id: int
+    user_email: str
+    user_name: str
+    payment_code: str
+    amount: int
+    proof_url: Optional[str] = None
+    status: str
+    submitted_at: datetime
+    reviewed_at: Optional[datetime] = None
+    review_note: Optional[str] = None
+
+
+class ModerationWarningCreate(BaseModel):
+    target_type: Literal["team", "game_room"]
+    target_id: int = Field(..., gt=0)
+    message: str = Field(..., min_length=1, max_length=1000)
+
+
+class ModerationWarningResponse(BaseModel):
+    id: int
+    recipient_id: int
+    target_type: str
+    target_id: int
+    message: str
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
 
 # Venue / Court Schemas
 class VenueBase(BaseModel):
@@ -401,6 +469,7 @@ class ChatUserResponse(BaseModel):
     id: int
     name: str
     avatar_url: Optional[str] = None
+    is_premium: bool = False
 
 
 class ChatUserSearchResponse(ChatUserResponse):
@@ -489,6 +558,7 @@ class TeamResponse(BaseModel):
     id: int
     owner_id: Optional[int] = None
     owner_name: str
+    owner_is_premium: bool = False
     name: str
     sport_id: str
     sport_name: str
@@ -511,6 +581,7 @@ class TeamMemberResponse(BaseModel):
     user_id: int
     full_name: Optional[str] = None
     avatar_url: Optional[str] = None
+    is_premium: bool = False
     email: Optional[str] = None
     status: str
     joined_at: datetime
@@ -653,6 +724,7 @@ class SocialPostResponse(BaseModel):
     author_name: str
     author_avatar_url: Optional[str] = None
     author_owner_status: str = "none"
+    author_is_premium: bool = False
     friendship_status: str = "none"
     friendship_id: Optional[int] = None
     content: Optional[str] = None

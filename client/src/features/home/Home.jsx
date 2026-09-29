@@ -149,11 +149,11 @@ function Home() {
 
           <div className="relative px-5 sm:px-8 pb-6">
             <div className="-mt-12 sm:-mt-14 flex flex-col lg:flex-row lg:items-end gap-4 lg:gap-6">
-              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full p-1.5 shadow-xl shrink-0 bg-gradient-to-tr from-[#5e87f7] to-[#83a6ff]">
+              <div className={`w-24 h-24 sm:w-28 sm:h-28 rounded-full p-1.5 shadow-xl shrink-0 bg-gradient-to-tr from-[#5e87f7] to-[#83a6ff] ${user?.isPremium ? 'sg-premium-avatar-shell' : ''}`}>
                 <div className="w-full h-full overflow-hidden rounded-full bg-white dark:bg-[#001F3F] flex items-center justify-center font-black text-4xl sm:text-5xl text-[#5e87f7] dark:text-[#83a6ff]">{user?.profile?.avatar_url ? <img src={user.profile.avatar_url} alt="Ảnh đại diện" className="h-full w-full object-cover" /> : avatarLetter}</div>
               </div>
               <div className="min-w-0 flex-1 lg:pb-1 lg:translate-y-1.5">
-                <h2 className="text-slate-900 dark:text-white text-xl sm:text-2xl font-black leading-tight break-words">{displayName}</h2>
+                <h2 className={`text-slate-900 dark:text-white text-xl sm:text-2xl font-black leading-tight break-words ${user?.isPremium ? 'sg-premium-name' : ''}`}>{displayName}</h2>
                 <p className="text-sm text-slate-500 dark:text-slate-400 break-all mt-1">{email}</p>
                 {user?.profile?.bio && <p className="sg-profile-bio">{user.profile.bio}</p>}
               </div>
