@@ -1,12 +1,16 @@
+import { Text } from '@/components/ui/text';
 import { Check, Trash2, X } from 'lucide-react-native';
-import { Alert, FlatList, Modal, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, Modal, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Badge } from '@/components/ui/badge';
+import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/brand/empty-state';
 import { LoadingState } from '@/components/brand/loading-state';
-import { useRemoveTeamMutation, useSetTeamMemberStatusMutation, useTeamMembersQuery } from '@/hooks/queries/use-teams';
+import { useRemoveTeamMemberMutation, useRemoveTeamMutation, useSetTeamMemberStatusMutation, useTeamMembersQuery } from '@/hooks/queries/use-teams';
+import { resolveMediaUrl } from '@/api/resolve-media-url';
+import { useAuthStore } from '@/stores/auth-store';
 
 interface TeamMembersModalProps {
   visible: boolean;
@@ -18,7 +22,9 @@ interface TeamMembersModalProps {
 export function TeamMembersModal({ visible, teamId, canManage, onClose }: TeamMembersModalProps) {
   const { data, isLoading } = useTeamMembersQuery(teamId);
   const setStatus = useSetTeamMemberStatusMutation(teamId);
+  const removeMember = useRemoveTeamMemberMutation(teamId);
   const removeTeam = useRemoveTeamMutation();
+  const currentUserId = useAuthStore((state) => state.user?.id);
 
   const handleDisband = () => {
     Alert.alert('Giải thể CLB', 'Bạn có chắc muốn giải thể CLB này? Hành động này không thể hoàn tác.', [
@@ -31,6 +37,19 @@ export function TeamMembersModal({ visible, teamId, canManage, onClose }: TeamMe
             onSuccess: onClose,
             onError: (e) => Alert.alert('Lỗi', e.message),
           }),
+      },
+    ]);
+  };
+
+  const handleRemoveMember = (userId: number, name: string) => {
+    Alert.alert('Xóa thành viên', `Bạn có chắc muốn xóa ${name} khỏi CLB?`, [
+      { text: 'Hủy', style: 'cancel' },
+      {
+        text: 'Xóa',
+        style: 'destructive',
+        onPress: () => removeMember.mutate(userId, {
+          onError: (error) => Alert.alert('Lỗi', error.message),
+        }),
       },
     ]);
   };
@@ -54,6 +73,11 @@ export function TeamMembersModal({ visible, teamId, canManage, onClose }: TeamMe
             contentContainerClassName="gap-2.5 p-4"
             renderItem={({ item }) => (
               <View className="flex-row items-center gap-3 rounded-2xl border border-border p-3 dark:border-border-dark">
+                <Avatar
+                  uri={resolveMediaUrl(item.avatar_url)}
+                  fallback={item.full_name || 'Người chơi'}
+                  size={42}
+                />
                 <View className="flex-1">
                   <Text className="text-sm font-bold text-slate-900 dark:text-white" numberOfLines={1}>
                     {item.full_name || item.email || `Thành viên #${item.user_id}`}
@@ -82,6 +106,16 @@ export function TeamMembersModal({ visible, teamId, canManage, onClose }: TeamMe
                       <X size={14} color="#fff" />
                     </Button>
                   </View>
+                ) : null}
+                {canManage && item.status === 'APPROVED' && item.user_id !== currentUserId ? (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    loading={removeMember.isPending && removeMember.variables === item.user_id}
+                    onPress={() => handleRemoveMember(item.user_id, item.full_name || 'thành viên này')}
+                  >
+                    <Trash2 size={14} color="#fff" />
+                  </Button>
                 ) : null}
               </View>
             )}

@@ -1,7 +1,7 @@
+import { Text } from '@/components/ui/text';
 import { router } from 'expo-router';
 import { ArrowLeft, Bell } from 'lucide-react-native';
-import { FlatList, Pressable, Text, View } from 'react-native';
-
+import { FlatList, Pressable, View } from 'react-native';
 import { EmptyState } from '@/components/brand/empty-state';
 import { LoadingState } from '@/components/brand/loading-state';
 import { ScreenContainer } from '@/components/brand/screen-container';
@@ -21,6 +21,7 @@ export default function NotificationsScreen() {
 
   const handlePress = (item: NotificationResponse) => {
     if (!item.is_read) markRead.mutate(item.id);
+    if (item.type.startsWith('team_')) router.push('/(tabs)/teams');
   };
 
   return (

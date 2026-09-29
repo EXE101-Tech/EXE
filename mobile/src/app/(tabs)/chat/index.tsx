@@ -1,8 +1,8 @@
+import { Text } from '@/components/ui/text';
 import { router } from 'expo-router';
 import { Check, MessageCircle, MessageSquare, Search, UserCheck, UserPlus } from 'lucide-react-native';
 import { useState } from 'react';
-import { Alert, FlatList, Text, TextInput, TouchableOpacity, View } from 'react-native';
-
+import { Alert, FlatList, TextInput, TouchableOpacity, View } from 'react-native';
 import { resolveMediaUrl } from '@/api/resolve-media-url';
 import { EmptyState } from '@/components/brand/empty-state';
 import { LoadingState } from '@/components/brand/loading-state';

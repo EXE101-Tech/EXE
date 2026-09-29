@@ -1,6 +1,7 @@
+import { Text } from '@/components/ui/text';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AlertTriangle, Ban, CheckCircle2, Trash2 } from 'lucide-react-native';
-import { ActivityIndicator, Modal, Pressable, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useOwnerVenuesQuery } from '@/hooks/queries/use-owner-venues';

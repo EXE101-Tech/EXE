@@ -2,7 +2,7 @@ from urllib.parse import quote_plus
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app import auth_utils, database, models, schemas
 
@@ -51,14 +51,14 @@ def search_everything(
         ),
     ).order_by(models.Team.name.asc()).limit(limit).all()
 
-    posts = db.query(models.LfgPost).filter(
-        func.upper(func.coalesce(models.LfgPost.status, "OPEN")) != "CANCELLED",
-        or_(
-            _contains(models.LfgPost.title, term),
-            _contains(models.LfgPost.location, term),
-            _contains(models.LfgPost.description, term),
-        ),
-    ).order_by(models.LfgPost.created_at.desc()).limit(limit).all()
+    social_posts = db.query(models.SocialPost).options(
+        joinedload(models.SocialPost.author).joinedload(models.User.profile),
+    ).join(models.SocialPost.author).outerjoin(
+        models.UserProfile, models.UserProfile.user_id == models.User.id,
+    ).filter(or_(
+        _contains(models.SocialPost.content, term),
+        _contains(models.UserProfile.full_name, term),
+    )).order_by(models.SocialPost.created_at.desc()).limit(limit).all()
 
     encoded_term = quote_plus(term)
     result_groups = [[
@@ -83,11 +83,12 @@ def search_everything(
         for team in teams
     ], [
         schemas.SearchResult(
-            kind="lfg", id=post.id, title=post.title,
-            subtitle=post.location,
-            href=f"/tournaments?search={quote_plus(post.title)}",
+            kind="social_post", id=post.id,
+            title=f"Bài viết của {post.author.profile.full_name if post.author and post.author.profile and post.author.profile.full_name else 'người chơi'}",
+            subtitle=(post.content or "Ảnh/video")[:100],
+            href=f"/tournaments?search={encoded_term}",
         )
-        for post in posts
+        for post in social_posts
     ]]
     results = []
     for index in range(limit):

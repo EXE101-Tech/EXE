@@ -8,6 +8,7 @@ export default function PostCard({ post, onJoin, onChat, onCancel, onEdit, onMan
   const isFull = post.currentMembers >= post.totalMembers;
   const isPending = post.membership_status === 'PENDING';
   const needed = post.totalMembers - post.currentMembers;
+  const postDescription = post.description?.trim() || post.title?.trim() || '';
 
   React.useEffect(() => {
     if (!isImageOpen) return undefined;
@@ -50,11 +51,11 @@ export default function PostCard({ post, onJoin, onChat, onCancel, onEdit, onMan
         type="button"
         onClick={() => setIsImageOpen(true)}
         className="group/image w-full md:w-72 lg:w-80 aspect-[16/9] md:aspect-auto md:h-[260px] lg:h-[280px] rounded-xl sm:rounded-2xl overflow-hidden relative shrink-0 shadow-sm border border-gray-100 dark:border-white/5 cursor-zoom-in focus:outline-none focus:ring-2 focus:ring-[#589470]"
-        aria-label={`Xem ảnh đầy đủ: ${post.title}`}
+        aria-label={`Xem ảnh đầy đủ: ${postDescription || post.sportName}`}
       >
         <img 
           src={post.image} 
-          alt={post.title} 
+          alt={postDescription || post.sportName}
           className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
@@ -89,13 +90,13 @@ export default function PostCard({ post, onJoin, onChat, onCancel, onEdit, onMan
             {/* Top Row: Avatar + Name + Status Badge on 1 line */}
             <div className="flex items-center justify-between gap-2 mb-1 sm:mb-1.5">
               <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-                <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full ${post.authorIsCourtOwner ? 'owner-avatar-ring-active' : 'bg-gradient-to-tr from-[#589470] to-[#74C365]'} p-[2px] shadow-sm shrink-0 flex items-center justify-center aspect-square overflow-hidden`}>
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-tr from-[#589470] to-[#74C365] p-[2px] shadow-sm shrink-0 flex items-center justify-center aspect-square overflow-hidden">
                   <div className="w-full h-full rounded-full bg-white dark:bg-[#001F3F] flex items-center justify-center font-black text-xs sm:text-sm text-[#589470] dark:text-[#74C365] overflow-hidden">
                     {post.authorAvatar ? <img src={post.authorAvatar} alt="" className="h-full w-full object-cover" /> : post.authorName.charAt(0).toUpperCase()}
                   </div>
                 </div>
                 <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
-                  <h4 className={`font-bold ${post.authorIsCourtOwner ? 'owner-water-text' : 'text-slate-900 dark:text-white'} text-sm sm:text-base leading-tight break-words`}>
+                  <h4 className="font-bold text-slate-900 dark:text-white text-sm sm:text-base leading-tight break-words">
                     {post.authorName}
                   </h4>
                   {post.isVerified && (
@@ -129,15 +130,12 @@ export default function PostCard({ post, onJoin, onChat, onCancel, onEdit, onMan
             </div>
           </div>
 
-          {/* Title & Description */}
-          <h3 className="text-base sm:text-xl font-black text-slate-900 dark:text-white mb-1.5 sm:mb-2 leading-snug group-hover:text-[#589470] dark:group-hover:text-[#74C365] transition-colors">
-            {post.title}
-          </h3>
-          <div className="mb-4 sm:mb-5">
-            <p className={`text-slate-800 dark:text-slate-100 font-medium text-xs sm:text-sm leading-relaxed ${isExpanded ? '' : 'line-clamp-2'}`}>
-              {post.description}
+          {/* Description is the only user-facing post text; title is a legacy API field. */}
+          {postDescription && <div className="mb-4 sm:mb-5">
+            <p className={`text-slate-800 dark:text-slate-100 font-semibold text-sm sm:text-base leading-relaxed ${isExpanded ? '' : 'line-clamp-2'}`}>
+              {postDescription}
             </p>
-            {post.description && post.description.length > 60 && (
+            {postDescription.length > 60 && (
               <button
                 type="button"
                 onClick={() => setIsExpanded(!isExpanded)}
@@ -146,7 +144,7 @@ export default function PostCard({ post, onJoin, onChat, onCancel, onEdit, onMan
                 {isExpanded ? 'Thu gọn ▲' : 'Xem thêm ▼'}
               </button>
             )}
-          </div>
+          </div>}
         </div>
 
         {/* Info Grid (Clean layout without background boxes - fully visible on mobile) */}
@@ -243,7 +241,7 @@ export default function PostCard({ post, onJoin, onChat, onCancel, onEdit, onMan
           </button>
           <img
             src={post.image}
-            alt={post.title}
+            alt={postDescription || post.sportName}
             className="max-h-[90vh] max-w-full rounded-xl object-contain shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           />

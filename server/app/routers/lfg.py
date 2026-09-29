@@ -9,6 +9,10 @@ from app.notification_utils import create_notification, display_name
 router = APIRouter(prefix="/lfg/posts", tags=["Forum & Find-a-game"])
 
 
+def _post_label(post: models.LfgPost) -> str:
+    return (post.description or post.title or "").strip()[:200] or "bài tìm người chơi"
+
+
 def _post_payload(post: models.LfgPost, user_id: Optional[int] = None):
     author_name = post.author.profile.full_name if post.author and post.author.profile else None
     participants = post.participants or []
@@ -23,7 +27,7 @@ def _post_payload(post: models.LfgPost, user_id: Optional[int] = None):
         "author_owner_status": post.author.owner_status if post.author else "none",
         "sport_id": post.sport_id,
         "sport_name": post.sport_name,
-        "title": post.title,
+        "title": post.title or "",
         "description": post.description,
         "location": post.location,
         "time_slot": post.time_slot,
@@ -85,6 +89,10 @@ def create_post(
     db: Session = Depends(database.get_db),
 ):
     fields = data.model_dump()
+    description = (fields.get("description") or "").strip()
+    # Keep the database/API title field for clients that still read it, without requiring
+    # users to provide a separate title in the current posting flow.
+    fields["title"] = (description or (fields.get("title") or "").strip())[:200]
     # The author is always the first member; do not accept a client-supplied count.
     fields["current_members"] = 1
     post = models.LfgPost(
@@ -119,6 +127,9 @@ def update_post(
     if post.status == "CANCELLED":
         raise HTTPException(status_code=409, detail="Không thể chỉnh sửa bài đăng đã hủy")
     fields = data.model_dump(exclude_unset=True)
+    if "description" in fields and "title" not in fields:
+        description = (fields.get("description") or "").strip()
+        fields["title"] = description[:200]
     next_total = fields.get("total_members", post.total_members)
     if next_total < post.current_members:
         raise HTTPException(status_code=400, detail="Tổng số người không được ít hơn số thành viên hiện tại")
@@ -135,7 +146,7 @@ def update_post(
                     actor=current_user,
                     notification_type="lfg_post_updated",
                     title="Bài tìm người chơi đã được cập nhật",
-                    body=f'{display_name(current_user)} đã cập nhật bài “{post.title}”.',
+                    body=f'{display_name(current_user)} đã cập nhật bài “{_post_label(post)}”.',
                     target_url="/tournaments",
                     entity_type="lfg_post",
                     entity_id=post.id,
@@ -177,7 +188,7 @@ def join_post(
         actor=current_user,
         notification_type="lfg_join_request",
         title="Có yêu cầu tham gia mới",
-        body=f'{display_name(current_user)} muốn tham gia bài “{post.title}”.',
+        body=f'{display_name(current_user)} muốn tham gia bài “{_post_label(post)}”.',
         target_url="/tournaments",
         entity_type="lfg_post",
         entity_id=post.id,
@@ -258,9 +269,9 @@ def moderate_post_participant(
         notification_type="lfg_join_approved" if next_status == "APPROVED" else "lfg_join_rejected",
         title="Yêu cầu tham gia đã được xử lý",
         body=(
-            f'{display_name(current_user)} đã chấp nhận bạn vào bài “{post.title}”.'
+            f'{display_name(current_user)} đã chấp nhận bạn vào bài “{_post_label(post)}”.'
             if next_status == "APPROVED"
-            else f'{display_name(current_user)} đã từ chối hoặc gỡ bạn khỏi bài “{post.title}”.'
+            else f'{display_name(current_user)} đã từ chối hoặc gỡ bạn khỏi bài “{_post_label(post)}”.'
         ),
         target_url="/tournaments",
         entity_type="lfg_post",
@@ -303,7 +314,7 @@ def leave_post(
         actor=current_user,
         notification_type="lfg_participant_left",
         title="Người chơi đã rút khỏi bài đăng",
-        body=f'{display_name(current_user)} đã rút khỏi bài “{post.title}”.',
+        body=f'{display_name(current_user)} đã rút khỏi bài “{_post_label(post)}”.',
         target_url="/tournaments",
         entity_type="lfg_post",
         entity_id=post.id,
@@ -335,7 +346,7 @@ def cancel_post(
                 actor=current_user,
                 notification_type="lfg_post_cancelled",
                 title="Bài tìm người chơi đã bị hủy",
-                body=f'{display_name(current_user)} đã hủy bài “{post.title}”.',
+                body=f'{display_name(current_user)} đã hủy bài “{_post_label(post)}”.',
                 target_url="/tournaments",
                 entity_type="lfg_post",
                 entity_id=post.id,

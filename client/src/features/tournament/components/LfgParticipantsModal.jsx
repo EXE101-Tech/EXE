@@ -64,7 +64,7 @@ export default function LfgParticipantsModal({ isOpen, post, onClose, onChanged 
             <span className="mt-0.5 rounded-xl bg-white/20 p-2"><Users className="h-5 w-5" /></span>
             <div className="min-w-0">
               <h2 id="lfg-participants-title" className="font-black">Kiểm duyệt người tham gia</h2>
-              <p className="mt-0.5 truncate text-sm text-white/85">{post.title}</p>
+              <p className="mt-0.5 truncate text-sm text-white/85">{post.description?.trim() || post.title?.trim() || 'Bài tìm người chơi'}</p>
             </div>
           </div>
           <button type="button" onClick={onClose} aria-label="Đóng" className="rounded-full bg-black/10 p-2 hover:bg-black/20"><X className="h-5 w-5" /></button>

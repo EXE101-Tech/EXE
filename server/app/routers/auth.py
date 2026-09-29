@@ -1,4 +1,12 @@
+import os
+import secrets
+import requests
 from fastapi import APIRouter, Depends, HTTPException, status, Request
+from google.auth.exceptions import GoogleAuthError, TransportError
+from google.auth.transport.requests import Request as GoogleRequest
+from google.oauth2 import id_token
+from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from app import database, schemas, crud, auth_utils, models
 from datetime import datetime, timezone, timedelta
@@ -54,6 +62,104 @@ def login(request: Request, login_data: schemas.UserLogin, db: Session = Depends
     access_token = auth_utils.create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer"}
 
+
+@router.post("/google", response_model=schemas.Token)
+def login_with_google(request: Request, login_data: schemas.GoogleLoginRequest, db: Session = Depends(database.get_db)):
+    client_id = os.getenv("GOOGLE_CLIENT_ID")
+    client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
+    if not client_id or not client_secret:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Đăng nhập Google chưa được cấu hình")
+
+    if request.headers.get("X-Requested-With") != "XmlHttpRequest":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Yêu cầu đăng nhập Google không hợp lệ")
+
+    origin = (request.headers.get("origin") or "").rstrip("/")
+    allowed_origins = {
+        item.strip().rstrip("/")
+        for item in os.getenv(
+            "GOOGLE_ALLOWED_ORIGINS",
+            "http://localhost:5173,http://127.0.0.1:5173",
+        ).split(",")
+        if item.strip()
+    }
+    if not origin or origin not in allowed_origins:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Nguồn đăng nhập Google không được phép")
+
+    try:
+        token_response = requests.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "code": login_data.code,
+                "grant_type": "authorization_code",
+                "redirect_uri": origin,
+            },
+            timeout=10,
+        )
+    except requests.RequestException:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Không thể kết nối với Google lúc này")
+
+    try:
+        token_data = token_response.json()
+    except ValueError:
+        token_data = {}
+    google_id_token = token_data.get("id_token") if token_response.ok else None
+    if not google_id_token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Mã đăng nhập Google không hợp lệ hoặc đã hết hạn")
+
+    try:
+        claims = id_token.verify_oauth2_token(google_id_token, GoogleRequest(), audience=client_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Thông tin đăng nhập Google không hợp lệ")
+    except (GoogleAuthError, TransportError):
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Không thể xác minh với Google lúc này")
+
+    subject = claims.get("sub")
+    email = (claims.get("email") or "").strip().lower()
+    if not subject or not email or claims.get("email_verified") is not True:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Google chưa xác minh địa chỉ email này")
+
+    identity = db.query(models.OAuthIdentity).filter_by(provider="google", subject=subject).first()
+    if identity:
+        user = db.query(models.User).filter_by(id=identity.user_id).first()
+    else:
+        user = db.query(models.User).filter(func.lower(models.User.email) == email).first()
+        if user and user.status != "active":
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Tài khoản SportGo này hiện không thể đăng nhập")
+
+        if user:
+            linked_identity = db.query(models.OAuthIdentity).filter_by(user_id=user.id, provider="google").first()
+            if linked_identity and linked_identity.subject != subject:
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Tài khoản SportGo này đã liên kết với một tài khoản Google khác")
+        else:
+            from app.auth_utils import get_password_hash
+            user = models.User(email=email, password_hash=get_password_hash(secrets.token_urlsafe(32)))
+            db.add(user)
+            db.flush()
+            db.add(models.UserProfile(
+                user_id=user.id,
+                full_name=claims.get("name") or email.split("@", 1)[0],
+                avatar_url=claims.get("picture"),
+            ))
+
+        if not db.query(models.OAuthIdentity).filter_by(user_id=user.id, provider="google").first():
+            db.add(models.OAuthIdentity(user_id=user.id, provider="google", subject=subject))
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            identity = db.query(models.OAuthIdentity).filter_by(provider="google", subject=subject).first()
+            if not identity:
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Tài khoản Google vừa được liên kết. Vui lòng thử lại")
+            user = db.query(models.User).filter_by(id=identity.user_id).first()
+
+    if not user or user.status != "active":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Tài khoản SportGo này hiện không thể đăng nhập")
+
+    access_token = auth_utils.create_access_token(data={"sub": user.email})
+    return {"access_token": access_token, "token_type": "bearer"}
+
 @router.post("/register", response_model=schemas.Token, status_code=status.HTTP_201_CREATED)
 def register(register_data: schemas.UserCreate, db: Session = Depends(database.get_db)):
     user = crud.get_user_by_email(db, email=register_data.email)
@@ -74,8 +180,26 @@ def logout(credentials = Depends(auth_utils.security), db: Session = Depends(dat
     return {"message": "Logged out successfully"}
 
 @router.get("/me", response_model=schemas.UserResponse)
-def get_me(current_user = Depends(auth_utils.get_current_user)):
-    return current_user
+def get_me(
+    current_user = Depends(auth_utils.get_current_user),
+    db: Session = Depends(database.get_db),
+):
+    response = schemas.UserResponse.model_validate(current_user)
+    attendance_by_sport = db.query(
+        models.Match.sport_id,
+        func.count(models.MatchParticipant.id),
+    ).join(
+        models.MatchParticipant,
+        models.MatchParticipant.match_id == models.Match.id,
+    ).filter(
+        models.MatchParticipant.user_id == current_user.id,
+        models.MatchParticipant.status == "APPROVED",
+        models.MatchParticipant.attendance_status == "ATTENDED",
+    ).group_by(models.Match.sport_id).all()
+    confirmed_counts = {sport_id: int(count) for sport_id, count in attendance_by_sport}
+    for user_sport in response.sports:
+        user_sport.games_played = int(user_sport.games_played or 0) + confirmed_counts.get(user_sport.sport_id, 0)
+    return response
 
 
 @router.get("/me/stats", response_model=schemas.UserStatsResponse)
@@ -83,9 +207,26 @@ def get_my_stats(
     current_user = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db),
 ):
-    games_played = db.query(func.coalesce(func.sum(models.UserSport.games_played), 0)).filter(
-        models.UserSport.user_id == current_user.id
-    ).scalar()
+    legacy_games_by_sport = db.query(
+        models.UserSport.sport_id,
+        func.coalesce(func.sum(models.UserSport.games_played), 0),
+    ).filter(
+        models.UserSport.user_id == current_user.id,
+    ).group_by(models.UserSport.sport_id).all()
+    confirmed_games_by_sport = db.query(
+        models.Match.sport_id,
+        func.count(models.MatchParticipant.id),
+    ).join(
+        models.MatchParticipant,
+        models.MatchParticipant.match_id == models.Match.id,
+    ).filter(
+        models.MatchParticipant.user_id == current_user.id,
+        models.MatchParticipant.status == "APPROVED",
+        models.MatchParticipant.attendance_status == "ATTENDED",
+    ).group_by(models.Match.sport_id).all()
+    games_by_sport = {sport_id: int(count) for sport_id, count in legacy_games_by_sport}
+    for sport_id, count in confirmed_games_by_sport:
+        games_by_sport[sport_id] = games_by_sport.get(sport_id, 0) + int(count)
     teams_joined = db.query(models.TeamMembership).filter_by(
         user_id=current_user.id, status="APPROVED"
     ).count()
@@ -97,7 +238,8 @@ def get_my_stats(
         models.UserSport.user_id == current_user.id
     ).scalar()
     return {
-        "games_played": int(games_played or 0),
+        "games_played": sum(games_by_sport.values()),
+        "games_by_sport": games_by_sport,
         "teams_joined": teams_joined,
         "bookings_count": bookings_count,
         "average_skill_rating": round(float(average_rating), 1) if average_rating is not None else None,
@@ -108,4 +250,4 @@ def update_me(profile_data: schemas.UserProfileWithSportsUpdate, current_user = 
     updated_user = crud.update_user_profile_with_sports(db, current_user.id, profile_data)
     if not updated_user:
         raise HTTPException(status_code=404, detail="User not found")
-    return updated_user
+    return get_me(current_user=updated_user, db=db)

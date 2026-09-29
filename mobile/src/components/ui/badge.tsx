@@ -1,4 +1,5 @@
-import { Text, View, type ViewProps } from 'react-native';
+import { Text } from '@/components/ui/text';
+import {  View, type ViewProps } from 'react-native';
 import { cva, type VariantProps } from 'class-variance-authority';
 
 import { cn } from '@/lib/utils';

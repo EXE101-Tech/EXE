@@ -1,8 +1,8 @@
+import { Text } from '@/components/ui/text';
 import { router } from 'expo-router';
 import { Award, Calendar, DollarSign, Gamepad2, MapPin, Plus, Trophy, UserRound } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { Alert, FlatList, Text, TouchableOpacity, View } from 'react-native';
-
+import { Alert, FlatList, TouchableOpacity, View } from 'react-native';
 import { EmptyState } from '@/components/brand/empty-state';
 import { LoadingState } from '@/components/brand/loading-state';
 import { ScreenContainer } from '@/components/brand/screen-container';
@@ -16,7 +16,7 @@ import type { SelectOption } from '@/components/ui/select-dropdown';
 import { useStartConversationMutation } from '@/hooks/queries/use-chat';
 import { useSportsQuery } from '@/hooks/queries/use-courts';
 import { useGameroomsQuery, useJoinGameroomMutation, useLeaveGameroomMutation } from '@/hooks/queries/use-gamerooms';
-import { SKILL_REQUIREMENT_OPTIONS } from '@/lib/constants';
+import { isActiveSportName, SKILL_REQUIREMENT_OPTIONS } from '@/lib/constants';
 import { parseStoredCostToVnd } from '@/lib/price';
 import { getVietnamDate } from '@/lib/slots';
 import { useAuthStore } from '@/stores/auth-store';
@@ -105,7 +105,7 @@ export default function GameroomsScreen() {
   const sportOptions: SelectOption[] = useMemo(
     () => [
       { value: 'all', label: 'Tất cả môn' },
-      ...(sports ?? []).filter((s) => s.id != null).map((s) => ({ value: String(s.id), label: s.name })),
+      ...(sports ?? []).filter((s) => s.id != null && isActiveSportName(s.name)).map((s) => ({ value: String(s.id), label: s.name })),
     ],
     [sports],
   );
@@ -129,6 +129,7 @@ export default function GameroomsScreen() {
 
   const filteredRooms = useMemo(() => {
     return (rooms ?? []).filter((room) => {
+      if (!isActiveSportName(room.sport.name)) return false;
       if (sportFilter !== 'all' && room.sport_id !== Number(sportFilter)) return false;
       if (scopeFilter === 'mine' && room.host_id !== currentUserId) return false;
       const location = room.location || room.court?.venue?.name || room.court?.venue?.address || '';

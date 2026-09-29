@@ -1,5 +1,5 @@
-import { Modal, Text, View } from 'react-native';
-
+import { Text } from '@/components/ui/text';
+import { Modal, View } from 'react-native';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 

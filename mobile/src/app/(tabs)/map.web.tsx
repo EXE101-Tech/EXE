@@ -1,6 +1,8 @@
+import { Text } from '@/components/ui/text';
 import { router } from 'expo-router';
 import { ArrowLeft, MapPin } from 'lucide-react-native';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenContainer } from '@/components/brand/screen-container';
 

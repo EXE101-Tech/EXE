@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, ConfigDict, model_validator, field_validator
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Literal
 from datetime import datetime, timezone
 import re
 
@@ -27,6 +27,10 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     email: Optional[str] = None
+
+
+class GoogleLoginRequest(BaseModel):
+    code: str = Field(min_length=1, max_length=4096)
 
 # Sport Schemas
 class SportBase(BaseModel):
@@ -105,15 +109,17 @@ class UserCreate(UserBase):
 class UserLogin(UserBase):
     password: str
 
-class UserResponse(BaseModel):
+class UserBasicResponse(BaseModel):
     id: int
     email: str
     status: str
     owner_status: str = "none"
     created_at: datetime
     profile: Optional[UserProfileResponse] = None
-    sports: List[UserSportResponse] = []
     model_config = ConfigDict(from_attributes=True)
+
+class UserResponse(UserBasicResponse):
+    sports: List[UserSportResponse] = []
 
 # Venue / Court Schemas
 class VenueBase(BaseModel):
@@ -203,6 +209,7 @@ class OwnerScheduleItem(BaseModel):
 
 class UserStatsResponse(BaseModel):
     games_played: int = 0
+    games_by_sport: Dict[int, int] = Field(default_factory=dict)
     teams_joined: int = 0
     bookings_count: int = 0
     average_skill_rating: Optional[float] = None
@@ -287,9 +294,10 @@ class MatchParticipantResponse(BaseModel):
     user_id: int
     role: str
     status: str
+    attendance_status: Optional[str] = None
     note: Optional[str] = None
     joined_at: datetime
-    user: UserResponse
+    user: UserBasicResponse
     model_config = ConfigDict(from_attributes=True)
 
 class MatchCreate(BaseModel):
@@ -343,7 +351,7 @@ class MatchResponse(BaseModel):
     max_players: int
     status: str
     created_at: datetime
-    host: UserResponse
+    host: UserBasicResponse
     sport: SportResponse
     court: Optional[CourtResponse] = None
     participants: List[MatchParticipantResponse] = []
@@ -359,6 +367,10 @@ class ParticipantStatusUpdate(BaseModel):
         if v not in valid_statuses:
             raise ValueError("Trạng thái phải là APPROVED hoặc REJECTED")
         return v
+
+
+class MatchAttendanceUpdate(BaseModel):
+    attendance_status: Literal["ATTENDED", "ABSENT"]
 
 
 class MatchJoinRequest(BaseModel):
@@ -419,10 +431,13 @@ class ChatConversationResponse(BaseModel):
     last_message: Optional[str] = None
     updated_at: Optional[datetime] = None
     unread_count: int = 0
+    friendship_status: str = "none"
+    friendship_id: Optional[int] = None
 
 
 class ChatConversationDetailResponse(ChatConversationResponse):
     messages: List[ChatMessageResponse] = Field(default_factory=list)
+    has_more: bool = False
 
 
 class NotificationResponse(BaseModel):
@@ -495,6 +510,7 @@ class TeamMemberResponse(BaseModel):
     team_id: int
     user_id: int
     full_name: Optional[str] = None
+    avatar_url: Optional[str] = None
     email: Optional[str] = None
     status: str
     joined_at: datetime
@@ -529,7 +545,8 @@ class TeamReviewResponse(BaseModel):
 class LfgPostCreate(BaseModel):
     sport_id: str = Field(..., min_length=2, max_length=40)
     sport_name: str = Field(..., min_length=2, max_length=80)
-    title: str = Field(..., min_length=3, max_length=200)
+    # Kept optional for older clients; new posts use the description as their visible text.
+    title: Optional[str] = Field(None, min_length=3, max_length=200)
     description: Optional[str] = None
     location: str = Field(..., min_length=2, max_length=255)
     time_slot: str = Field(..., min_length=1, max_length=100)
@@ -598,6 +615,110 @@ class LfgPostResponse(BaseModel):
     pending_participants_count: int = 0
     approved_participants_count: int = 0
     created_at: datetime
+
+
+class SocialPostCreate(BaseModel):
+    content: Optional[str] = Field(None, max_length=5000)
+    media_url: Optional[str] = Field(None, max_length=2000)
+    media_type: Optional[Literal["image", "video"]] = None
+
+    @field_validator("content")
+    @classmethod
+    def clean_content(cls, value: Optional[str]) -> Optional[str]:
+        return value.strip() if value is not None else None
+
+    @model_validator(mode="after")
+    def require_content_or_media(self):
+        if not self.content and not self.media_url:
+            raise ValueError("Hãy nhập nội dung hoặc chọn ảnh/video")
+        if bool(self.media_url) != bool(self.media_type):
+            raise ValueError("Thông tin ảnh/video không hợp lệ")
+        return self
+
+
+class SocialPostUpdate(BaseModel):
+    content: Optional[str] = Field(None, max_length=5000)
+    media_url: Optional[str] = Field(None, max_length=2000)
+    media_type: Optional[Literal["image", "video"]] = None
+
+    @field_validator("content")
+    @classmethod
+    def clean_content(cls, value: Optional[str]) -> Optional[str]:
+        return value.strip() if value is not None else None
+
+
+class SocialPostResponse(BaseModel):
+    id: int
+    author_id: int
+    author_name: str
+    author_avatar_url: Optional[str] = None
+    author_owner_status: str = "none"
+    friendship_status: str = "none"
+    friendship_id: Optional[int] = None
+    content: Optional[str] = None
+    media_url: Optional[str] = None
+    media_type: Optional[Literal["image", "video"]] = None
+    like_count: int = 0
+    comment_count: int = 0
+    liked_by_me: bool = False
+    created_at: datetime
+    updated_at: datetime
+
+
+class SocialPostLikeResponse(BaseModel):
+    liked: bool
+    like_count: int
+
+
+class SocialPostCommentContent(BaseModel):
+    content: str = Field(..., min_length=1, max_length=1000)
+
+    @field_validator("content")
+    @classmethod
+    def clean_comment(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("Bình luận không được để trống")
+        return cleaned
+
+
+class SocialPostCommentCreate(SocialPostCommentContent):
+    parent_id: Optional[int] = None
+
+
+class SocialPostCommentUpdate(SocialPostCommentContent):
+    pass
+
+
+class SocialPostCommentReactionCreate(BaseModel):
+    reaction: str
+
+    @field_validator("reaction")
+    @classmethod
+    def validate_reaction(cls, value: str) -> str:
+        if value not in {"like", "love", "laugh", "wow", "sad", "angry"}:
+            raise ValueError("Cảm xúc bình luận không hợp lệ")
+        return value
+
+
+class SocialPostCommentResponse(BaseModel):
+    id: int
+    post_id: int
+    author_id: int
+    parent_id: Optional[int] = None
+    author_name: str
+    author_avatar_url: Optional[str] = None
+    content: str
+    created_at: datetime
+    reply_count: int = 0
+    reaction_counts: Dict[str, int] = Field(default_factory=dict)
+    my_reaction: Optional[str] = None
+
+
+class SocialPostCommentReactionResponse(BaseModel):
+    comment_id: int
+    reaction_counts: Dict[str, int] = Field(default_factory=dict)
+    my_reaction: Optional[str] = None
 
 
 class LfgParticipantStatusUpdate(BaseModel):

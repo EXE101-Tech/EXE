@@ -1,5 +1,6 @@
+import { Text } from '@/components/ui/text';
 import * as React from 'react';
-import { ActivityIndicator, Pressable, type PressableProps, Text } from 'react-native';
+import { ActivityIndicator, Pressable, type PressableProps } from 'react-native';
 import { cva, type VariantProps } from 'class-variance-authority';
 
 import { cn } from '@/lib/utils';

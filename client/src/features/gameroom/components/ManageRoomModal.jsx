@@ -1,11 +1,12 @@
 import React from 'react';
-import { X, Check, UserCheck, UserX, ShieldCheck, Crown, Users, Clock, AlertCircle } from 'lucide-react';
+import { X, Check, UserCheck, UserX, ShieldCheck, Crown, Users, Clock, AlertCircle, Pencil, Trash2 } from 'lucide-react';
 
-function ManageRoomModal({ isOpen, onClose, room, onUpdateStatus, isLoading = false }) {
+function ManageRoomModal({ isOpen, onClose, room, onUpdateStatus, onUpdateAttendance, onEdit, onDelete, isLoading = false }) {
   if (!isOpen || !room) return null;
 
   const {
     title,
+    end_time,
     max_players = 6,
     host = { name: 'Bạn (Trưởng phòng)' },
     participants = [],
@@ -13,6 +14,33 @@ function ManageRoomModal({ isOpen, onClose, room, onUpdateStatus, isLoading = fa
 
   const pendingList = participants.filter((p) => p.status === 'PENDING' || !p.status);
   const approvedList = participants.filter((p) => p.status === 'APPROVED');
+  const hasEnded = Boolean(end_time) && new Date(end_time).getTime() <= Date.now() && room.status !== 'CANCELLED';
+  const isClosed = ['CLOSED', 'CANCELLED', 'FINISHED'].includes(room.status) || hasEnded;
+  const canConfirmAttendance = hasEnded && room.status !== 'CANCELLED';
+
+  const renderAttendanceControls = (userId, attendanceStatus) => canConfirmAttendance && (
+    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+      <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 mr-0.5">Kết quả:</span>
+      <button
+        type="button"
+        onClick={() => onUpdateAttendance?.(room.id, userId, 'ATTENDED')}
+        disabled={isLoading}
+        aria-pressed={attendanceStatus === 'ATTENDED'}
+        className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-colors disabled:opacity-60 ${attendanceStatus === 'ATTENDED' ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400' : 'border-slate-300 dark:border-white/15 text-slate-600 dark:text-slate-300 hover:bg-emerald-500/10'}`}
+      >
+        Đã tham gia
+      </button>
+      <button
+        type="button"
+        onClick={() => onUpdateAttendance?.(room.id, userId, 'ABSENT')}
+        disabled={isLoading}
+        aria-pressed={attendanceStatus === 'ABSENT'}
+        className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-colors disabled:opacity-60 ${attendanceStatus === 'ABSENT' ? 'bg-rose-500/15 border-rose-500/40 text-rose-600 dark:text-rose-400' : 'border-slate-300 dark:border-white/15 text-slate-600 dark:text-slate-300 hover:bg-rose-500/10'}`}
+      >
+        Không tham gia
+      </button>
+    </div>
+  );
 
   return (
     <div className="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
@@ -27,7 +55,7 @@ function ManageRoomModal({ isOpen, onClose, room, onUpdateStatus, isLoading = fa
               <UserCheck className="w-6 h-6 stroke-[2.5]" />
             </div>
             <div>
-              <h3 className="text-xl font-black">Quản Lý Thành Viên Phòng Chờ</h3>
+              <h3 className="text-xl font-black">Quản lý phòng chờ</h3>
               <p className="text-xs opacity-90 break-words max-w-md">{title}</p>
             </div>
           </div>
@@ -93,7 +121,7 @@ function ManageRoomModal({ isOpen, onClose, room, onUpdateStatus, isLoading = fa
                       <div className="flex items-center gap-2 shrink-0">
                         <button
                           onClick={() => onUpdateStatus(room.id, userId, 'REJECTED')}
-                          disabled={isLoading}
+                          disabled={isLoading || isClosed}
                           className="px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 font-bold text-xs transition-all flex items-center gap-1"
                           title="Từ chối"
                         >
@@ -103,7 +131,7 @@ function ManageRoomModal({ isOpen, onClose, room, onUpdateStatus, isLoading = fa
 
                         <button
                           onClick={() => onUpdateStatus(room.id, userId, 'APPROVED')}
-                          disabled={isLoading || approvedList.length + 1 >= max_players}
+                          disabled={isLoading || isClosed || approvedList.length + 1 >= max_players}
                           className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-500/20 active:scale-95 transition-all flex items-center gap-1"
                           title="Chấp nhận vào phòng"
                         >
@@ -138,13 +166,10 @@ function ManageRoomModal({ isOpen, onClose, room, onUpdateStatus, isLoading = fa
                       {host.name || 'Bạn'}
                     </span>
                     <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400">
-                      👑 Trưởng phòng (Chủ phòng)
+                      👑 Chủ phòng
                     </span>
                   </div>
                 </div>
-                <span className="text-xs font-bold text-slate-400 px-3 py-1 rounded-full bg-slate-200 dark:bg-white/10">
-                  Host
-                </span>
               </div>
 
               {/* Other approved members */}
@@ -168,16 +193,18 @@ function ManageRoomModal({ isOpen, onClose, room, onUpdateStatus, isLoading = fa
                         <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
                           ✔ Thành viên chính thức
                         </span>
+                        {renderAttendanceControls(userId, participant.attendance_status)}
                       </div>
                     </div>
 
-                    <button
+                    {!isClosed && <button
                       onClick={() => onUpdateStatus(room.id, userId, 'REJECTED')}
-                      className="px-3 py-1.5 rounded-xl text-rose-500 hover:bg-rose-500/10 text-xs font-semibold transition-all"
+                      disabled={isLoading}
+                      className="px-3 py-1.5 rounded-xl text-rose-500 hover:bg-rose-500/10 text-xs font-semibold transition-all disabled:opacity-50"
                       title="Xóa khỏi phòng"
                     >
                       Xóa
-                    </button>
+                    </button>}
                   </div>
                 );
               })}
@@ -186,7 +213,23 @@ function ManageRoomModal({ isOpen, onClose, room, onUpdateStatus, isLoading = fa
         </div>
 
         {/* Modal Footer */}
-        <div className="p-4 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] flex items-center justify-end shrink-0">
+        <div className="p-4 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] flex flex-wrap items-center justify-between gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2">
+            {!isClosed && <button
+              onClick={() => onEdit?.(room)}
+              disabled={isLoading}
+              className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-white/15 text-slate-700 dark:text-slate-200 font-bold text-xs hover:bg-white/70 dark:hover:bg-white/10 transition-all flex items-center gap-2 disabled:opacity-50"
+            >
+              <Pencil className="w-4 h-4" /> Chỉnh sửa phòng
+            </button>}
+            <button
+              onClick={() => onDelete?.(room)}
+              disabled={isLoading}
+              className="px-4 py-2.5 rounded-xl border border-rose-300/70 dark:border-rose-500/30 text-rose-600 dark:text-rose-400 font-bold text-xs hover:bg-rose-500/10 transition-all flex items-center gap-2 disabled:opacity-50"
+            >
+              <Trash2 className="w-4 h-4" /> Xóa phòng
+            </button>
+          </div>
           <button
             onClick={onClose}
             className="px-6 py-2.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold text-xs shadow-md hover:bg-slate-800 dark:hover:bg-slate-100 transition-all active:scale-95"

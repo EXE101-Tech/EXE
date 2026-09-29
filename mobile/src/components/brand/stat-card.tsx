@@ -1,6 +1,6 @@
+import { Text } from '@/components/ui/text';
 import type { LucideIcon } from 'lucide-react-native';
-import { Text, View } from 'react-native';
-
+import {  View } from 'react-native';
 import { cn } from '@/lib/utils';
 
 interface StatCardProps {

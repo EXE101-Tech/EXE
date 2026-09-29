@@ -2,56 +2,98 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app import auth_utils, database, models, schemas
+from app.notification_utils import create_notification, display_name
 from app.sport_catalog import SPORTS, resolve_sport, sport_key_for
 
 router = APIRouter(prefix="/teams", tags=["Teams & Clubs"])
 
+def _team_payloads(db: Session, teams: List[models.Team], user_id: Optional[int] = None):
+    if not teams:
+        return []
+
+    team_ids = [team.id for team in teams]
+    owner_ids = {team.owner_id for team in teams if team.owner_id is not None}
+    sport_ids = {team.sport_id for team in teams if team.sport_id is not None}
+
+    approved_counts = dict(db.query(
+        models.TeamMembership.team_id,
+        func.count(models.TeamMembership.id),
+    ).filter(
+        models.TeamMembership.team_id.in_(team_ids),
+        models.TeamMembership.status == "APPROVED",
+    ).group_by(models.TeamMembership.team_id).all())
+
+    review_stats = {
+        team_id: (average, count)
+        for team_id, average, count in db.query(
+            models.TeamReview.team_id,
+            func.avg(models.TeamReview.rating),
+            func.count(models.TeamReview.id),
+        ).filter(models.TeamReview.team_id.in_(team_ids)).group_by(models.TeamReview.team_id).all()
+    }
+    memberships = {
+        membership.team_id: membership
+        for membership in db.query(models.TeamMembership).filter(
+            models.TeamMembership.team_id.in_(team_ids),
+            models.TeamMembership.user_id == user_id,
+        ).all()
+    }
+    owners = {
+        owner.id: owner
+        for owner in db.query(models.User).options(
+            joinedload(models.User.profile)
+        ).filter(models.User.id.in_(owner_ids)).all()
+    } if owner_ids else {}
+    sports = {
+        sport.id: sport
+        for sport in db.query(models.Sport).filter(models.Sport.id.in_(sport_ids)).all()
+    } if sport_ids else {}
+
+    payloads = []
+    for team in teams:
+        approved_count = int(approved_counts.get(team.id, 0))
+        average, rating_count = review_stats.get(team.id, (None, 0))
+        membership = memberships.get(team.id)
+        owner = owners.get(team.owner_id)
+        sport = sports.get(team.sport_id)
+        sport_key = team.sport_key or sport_key_for(sport.name if sport else "")
+        review_average = round(float(average), 1) if rating_count else round(float(team.rating or 0), 1)
+
+        payloads.append({
+            "id": team.id,
+            "owner_id": team.owner_id,
+            "owner_name": owner.profile.full_name if owner and owner.profile and owner.profile.full_name else (owner.email if owner else "Người mở CLB chưa cập nhật"),
+            "name": team.name,
+            "sport_id": sport_key,
+            "sport_name": team.sport_name or (sport.name if sport else "Môn thể thao"),
+            "description": team.description,
+            "location": team.location or "Chưa cập nhật",
+            "total_slots": team.total_slots,
+            "member_count": max(approved_count, 1),
+            "rating": review_average,
+            "rating_count": int(rating_count or team.rating_count or 0),
+            "image_url": team.image_url,
+            "tags": team.tags or [],
+            "membership_status": membership.status if membership else None,
+            "is_captain": team.owner_id == user_id if user_id is not None else False,
+            "is_member": bool(membership and membership.status == "APPROVED"),
+            "created_at": team.created_at,
+        })
+    return payloads
+
 
 def _team_payload(db: Session, team: models.Team, user_id: Optional[int] = None):
-    approved_count = db.query(models.TeamMembership).filter(
-        models.TeamMembership.team_id == team.id,
-        models.TeamMembership.status == "APPROVED",
-    ).count()
-    rating, rating_count = db.query(
-        func.avg(models.TeamReview.rating), func.count(models.TeamReview.id)
-    ).filter(models.TeamReview.team_id == team.id).one()
-    membership = None
-    if user_id is not None:
-        membership = db.query(models.TeamMembership).filter(
-            models.TeamMembership.team_id == team.id,
-            models.TeamMembership.user_id == user_id,
-        ).first()
-    owner_name = team.owner.profile.full_name if team.owner and team.owner.profile else None
-    sport = db.query(models.Sport).filter(models.Sport.id == team.sport_id).first()
-    sport_key = team.sport_key or sport_key_for(sport.name if sport else "")
-    review_average = round(float(rating), 1) if rating_count else round(float(team.rating or 0), 1)
-    return {
-        "id": team.id,
-        "owner_id": team.owner_id,
-        "owner_name": owner_name or (team.owner.email if team.owner else "Trưởng CLB chưa cập nhật"),
-        "name": team.name,
-        "sport_id": sport_key,
-        "sport_name": team.sport_name or (sport.name if sport else "Môn thể thao"),
-        "description": team.description,
-        "location": team.location or "Chưa cập nhật",
-        "total_slots": team.total_slots,
-        "member_count": max(approved_count, 1),
-        "rating": review_average,
-        "rating_count": int(rating_count or team.rating_count or 0),
-        "image_url": team.image_url,
-        "tags": team.tags or [],
-        "membership_status": membership.status if membership else None,
-        "is_captain": team.owner_id == user_id if user_id is not None else False,
-        "is_member": bool(membership and membership.status == "APPROVED"),
-        "created_at": team.created_at,
-    }
+    results = _team_payloads(db, [team], user_id=user_id)
+    return results[0] if results else None
 
 
 def _get_team_or_404(db: Session, team_id: int):
-    team = db.query(models.Team).filter(models.Team.id == team_id).first()
+    team = db.query(models.Team).options(
+        joinedload(models.Team.owner).joinedload(models.User.profile)
+    ).filter(models.Team.id == team_id).first()
     if not team:
         raise HTTPException(status_code=404, detail="Không tìm thấy CLB")
     return team
@@ -64,7 +106,9 @@ def list_teams(
     current_user: models.User = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db),
 ):
-    query = db.query(models.Team)
+    query = db.query(models.Team).options(
+        joinedload(models.Team.owner).joinedload(models.User.profile)
+    )
     if sport_id:
         definition = SPORTS.get(sport_id.strip().casefold())
         if not definition:
@@ -84,7 +128,7 @@ def list_teams(
             models.TeamMembership.status == "APPROVED",
         )
     teams = query.order_by(models.Team.created_at.desc()).all()
-    return [_team_payload(db, team, current_user.id) for team in teams]
+    return _team_payloads(db, teams, current_user.id)
 
 
 @router.post("", response_model=schemas.TeamResponse, status_code=status.HTTP_201_CREATED)
@@ -193,6 +237,18 @@ def request_to_join_team(
     else:
         membership = models.TeamMembership(team_id=team.id, user_id=current_user.id, status="PENDING")
         db.add(membership)
+    if team.owner_id is not None:
+        create_notification(
+            db,
+            recipient_id=team.owner_id,
+            actor=current_user,
+            notification_type="team_join_request",
+            title="Có yêu cầu tham gia CLB",
+            body=f'{display_name(current_user)} muốn tham gia CLB “{team.name}”.',
+            target_url="/team",
+            entity_type="team",
+            entity_id=team.id,
+        )
     db.commit()
     db.refresh(membership)
     return _member_payload(membership)
@@ -206,7 +262,7 @@ def leave_team(
 ):
     team = _get_team_or_404(db, team_id)
     if team.owner_id == current_user.id:
-        raise HTTPException(status_code=409, detail="Trưởng CLB cần xóa CLB hoặc chuyển quyền trước")
+        raise HTTPException(status_code=409, detail="Người mở CLB cần xóa CLB hoặc chuyển quyền trước")
     membership = db.query(models.TeamMembership).filter_by(team_id=team.id, user_id=current_user.id).first()
     if not membership:
         raise HTTPException(status_code=404, detail="Bạn chưa tham gia CLB")
@@ -216,12 +272,13 @@ def leave_team(
 
 def _member_payload(membership: models.TeamMembership):
     user = membership.user
-    full_name = user.profile.full_name if user.profile else None
+    profile = user.profile
     return {
         "id": membership.id,
         "team_id": membership.team_id,
         "user_id": membership.user_id,
-        "full_name": full_name,
+        "full_name": profile.full_name if profile else None,
+        "avatar_url": profile.avatar_url if profile else None,
         "email": None,
         "status": membership.status,
         "joined_at": membership.joined_at,
@@ -239,12 +296,35 @@ def list_team_members(
     own_membership = db.query(models.TeamMembership).filter_by(team_id=team.id, user_id=current_user.id).first()
     if team.owner_id != current_user.id and not (own_membership and own_membership.status == "APPROVED"):
         raise HTTPException(status_code=403, detail="Bạn không có quyền xem danh sách thành viên")
-    query = db.query(models.TeamMembership).filter(models.TeamMembership.team_id == team.id)
+    query = db.query(models.TeamMembership).options(
+        joinedload(models.TeamMembership.user).joinedload(models.User.profile)
+    ).filter(models.TeamMembership.team_id == team.id)
     if status_filter:
         if team.owner_id != current_user.id:
             raise HTTPException(status_code=403, detail="Chỉ trưởng CLB được xem yêu cầu đang chờ")
         query = query.filter(models.TeamMembership.status == status_filter)
     return [_member_payload(item) for item in query.order_by(models.TeamMembership.joined_at.asc()).all()]
+
+
+@router.delete("/{team_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_team_member(
+    team_id: int,
+    user_id: int,
+    current_user: models.User = Depends(auth_utils.get_current_user),
+    db: Session = Depends(database.get_db),
+):
+    team = _get_team_or_404(db, team_id)
+    if team.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Chỉ người mở CLB mới được xóa thành viên")
+    if user_id == team.owner_id:
+        raise HTTPException(status_code=409, detail="Không thể xóa người mở CLB khỏi CLB")
+    member = db.query(models.TeamMembership).filter_by(team_id=team.id, user_id=user_id).first()
+    if not member:
+        raise HTTPException(status_code=404, detail="Không tìm thấy thành viên trong CLB")
+    if member.status != "APPROVED":
+        raise HTTPException(status_code=409, detail="Chỉ có thể xóa thành viên đã được duyệt")
+    db.delete(member)
+    db.commit()
 
 
 @router.patch("/{team_id}/members/{user_id}", response_model=schemas.TeamMemberResponse)
@@ -261,11 +341,24 @@ def set_member_status(
     member = db.query(models.TeamMembership).filter_by(team_id=team.id, user_id=user_id).first()
     if not member:
         raise HTTPException(status_code=404, detail="Không tìm thấy yêu cầu thành viên")
+    previous_status = member.status
     if data.status == "APPROVED" and member.status != "APPROVED":
         approved = db.query(models.TeamMembership).filter_by(team_id=team.id, status="APPROVED").count()
         if approved >= team.total_slots:
             raise HTTPException(status_code=409, detail="CLB đã đủ thành viên")
     member.status = data.status
+    if previous_status == "PENDING" and data.status == "APPROVED":
+        create_notification(
+            db,
+            recipient_id=member.user_id,
+            actor=current_user,
+            notification_type="team_join_approved",
+            title="Yêu cầu tham gia CLB đã được duyệt",
+            body=f'{display_name(current_user)} đã duyệt bạn tham gia CLB “{team.name}”.',
+            target_url="/team",
+            entity_type="team",
+            entity_id=team.id,
+        )
     db.commit()
     db.refresh(member)
     return _member_payload(member)

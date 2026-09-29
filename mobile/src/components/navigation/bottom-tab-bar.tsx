@@ -1,6 +1,6 @@
+import { Text } from '@/components/ui/text';
 import { router, usePathname, type Href } from 'expo-router';
 import {
-  Calendar,
   Crown,
   Gamepad2,
   MessageCircle,
@@ -11,7 +11,7 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, Pressable, TouchableOpacity, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -33,7 +33,7 @@ interface BarItem {
 
 const LEFT_ITEMS: BarItem[] = [
   { routeName: 'forum', href: '/(tabs)/forum', label: 'Diễn đàn', icon: MessageSquare },
-  { routeName: 'bookings', href: '/(tabs)/bookings', label: 'Đặt sân', icon: Calendar },
+  { routeName: 'teams', href: '/(tabs)/teams', label: 'Teams', icon: Users },
 ];
 
 const RIGHT_ITEMS: BarItem[] = [
@@ -43,9 +43,8 @@ const RIGHT_ITEMS: BarItem[] = [
 
 // Fan spread above the FAB: left-most to right-most, in standard math degrees (90° = straight up).
 const EXPAND_ITEMS: { item: BarItem; angleDeg: number }[] = [
-  { item: { routeName: 'chat', href: '/(tabs)/chat', label: 'Chat', icon: MessageCircle }, angleDeg: 145 },
-  { item: { routeName: 'premium', href: '/(tabs)/premium', label: 'Premium', icon: Crown }, angleDeg: 90 },
-  { item: { routeName: 'teams', href: '/(tabs)/teams', label: 'Teams', icon: Users }, angleDeg: 35 },
+  { item: { routeName: 'chat', href: '/(tabs)/chat', label: 'Chat', icon: MessageCircle }, angleDeg: 135 },
+  { item: { routeName: 'premium', href: '/(tabs)/premium', label: 'Premium', icon: Crown }, angleDeg: 45 },
 ];
 
 const FAN_RADIUS = 80;
@@ -106,7 +105,7 @@ export function BottomTabBar() {
     progress.value = withTiming(expanded ? 1 : 0, { duration: ANIM_DURATION });
   }, [expanded, progress]);
 
-  // First path segment, e.g. "/bookings/5" -> "bookings", "/forum" -> "forum".
+  // First path segment, e.g. "/gamerooms" -> "gamerooms", "/forum" -> "forum".
   const activeName = pathname.split('/').filter(Boolean)[0];
 
   const goTo = (item: BarItem) => {
@@ -117,12 +116,6 @@ export function BottomTabBar() {
   const fabStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${progress.value * 45}deg` }],
   }));
-
-  // The owner venue setup screens and the venue detail/booking screen render as their own
-  // full-screen flow (gradient header + fixed footer, like the create-post modals), so the
-  // tab bar shouldn't float on top of them. Matches "/bookings/owner/…" and "/bookings/<id>",
-  // but not the "/bookings" or "/bookings/my" list screens.
-  if (/^\/bookings\/(owner\/|\d)/.test(pathname)) return null;
 
   const renderItem = (item: BarItem) => {
     const active = activeName === item.routeName;

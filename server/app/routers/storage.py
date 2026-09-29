@@ -14,10 +14,11 @@ from starlette.background import BackgroundTask
 
 from app import auth_utils, models
 
-router = APIRouter(prefix="/storage", tags=["Image storage"])
+router = APIRouter(prefix="/storage", tags=["Media storage"])
 logger = logging.getLogger(__name__)
 MAX_IMAGE_BYTES = 8 * 1024 * 1024
-MEDIA_KEY_PATTERN = re.compile(r"^sportgo/[0-9]+/[a-f0-9]{32}\.(jpg|png|webp|avif)$")
+MAX_VIDEO_BYTES = 50 * 1024 * 1024
+MEDIA_KEY_PATTERN = re.compile(r"^sportgo/[0-9]+/[a-f0-9]{32}\.(jpg|png|webp|avif|mp4|webm)$")
 
 
 @lru_cache(maxsize=1)
@@ -51,6 +52,14 @@ def _detect_image(data: bytes):
         return "webp", "image/webp"
     if len(data) >= 12 and data[4:8] == b"ftyp" and data[8:12] in (b"avif", b"avis"):
         return "avif", "image/avif"
+    return None, None
+
+
+def _detect_video(data: bytes):
+    if len(data) >= 12 and data[4:8] == b"ftyp":
+        return "mp4", "video/mp4"
+    if data.startswith(b"\x1a\x45\xdf\xa3"):
+        return "webm", "video/webm"
     return None, None
 
 
@@ -109,8 +118,50 @@ async def upload_image(
     return {"url": f"/api/storage/media/{key}"}
 
 
+@router.post("/videos")
+async def upload_video(
+    file: UploadFile = File(...),
+    current_user: models.User = Depends(auth_utils.get_current_user),
+):
+    content = await file.read(MAX_VIDEO_BYTES + 1)
+    await file.close()
+    if not content or len(content) > MAX_VIDEO_BYTES:
+        raise HTTPException(status_code=413, detail="Video phải có dung lượng tối đa 50 MB")
+    extension, content_type = _detect_video(content)
+    if not extension:
+        raise HTTPException(status_code=415, detail="Chỉ hỗ trợ video MP4 hoặc WebM")
+
+    client, bucket = _storage_config()
+    key = f"sportgo/{current_user.id}/{uuid.uuid4().hex}.{extension}"
+    try:
+        client.put_object(
+            Bucket=bucket,
+            Key=key,
+            Body=BytesIO(content),
+            ContentLength=len(content),
+            ContentType=content_type,
+            CacheControl="public, max-age=31536000, immutable",
+        )
+    except ClientError as error:
+        response = error.response
+        code = response.get("Error", {}).get("Code", "Unknown")
+        status_code = response.get("ResponseMetadata", {}).get("HTTPStatusCode", "unknown")
+        request_id = response.get("ResponseMetadata", {}).get("RequestId", "unknown")
+        logger.warning(
+            "Object storage rejected video upload (code=%s status=%s request_id=%s)",
+            code,
+            status_code,
+            request_id,
+        )
+        raise HTTPException(status_code=502, detail="Không thể lưu video lên dịch vụ lưu trữ")
+    except BotoCoreError as error:
+        logger.warning("Object storage transport error during video upload (type=%s)", type(error).__name__)
+        raise HTTPException(status_code=502, detail="Không thể lưu video lên dịch vụ lưu trữ")
+    return {"url": f"/api/storage/media/{key}"}
+
+
 @router.get("/media/{key:path}")
-def get_image(key: str):
+def get_media(key: str):
     if not MEDIA_KEY_PATTERN.fullmatch(key):
         raise HTTPException(status_code=404, detail="Không tìm thấy ảnh")
     client, bucket = _storage_config()

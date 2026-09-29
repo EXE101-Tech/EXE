@@ -1,5 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
-import { Search, Sun, Moon, Crown, MessageSquare, MapPin, Gamepad2, Users } from 'lucide-react';
+import { Search, Sun, Moon, Crown, MessageSquare, Gamepad2, Users } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useChat } from '../context/ChatContext';
@@ -8,15 +8,15 @@ import useChatUnreadCount from '../hooks/useChatUnreadCount';
 import PremiumInfoModal from '../../features/premium/PremiumInfoModal';
 import { searchService } from '../services/api';
 import forumMobileIcon from '../../../icons/diendan.png';
-import bookingsMobileIcon from '../../../icons/datsan.png';
 import gameRoomMobileIcon from '../../../icons/phonggame.png';
 import teamsMobileIcon from '../../../icons/teams.png';
+import sportGoLogoIcon from '../../../icons/logo.png';
 
 const SEARCH_KIND_LABELS = {
   venue: 'Sân',
   gameroom: 'Phòng chơi',
   team: 'CLB',
-  lfg: 'Tìm người chơi',
+  social_post: 'Bài viết',
 };
 
 export function SearchResults({ results, loading, error, hasSearched, onSelect }) {
@@ -58,7 +58,8 @@ export function SearchResults({ results, loading, error, hasSearched, onSelect }
 
 export default function Navbar() {
   const [isDark, setIsDark] = useState(() => {
-    return localStorage.getItem('theme') === 'dark' || document.documentElement.classList.contains('dark');
+    const savedTheme = localStorage.getItem('theme');
+    return savedTheme ? savedTheme === 'dark' : document.documentElement.classList.contains('dark');
   });
   const navigate = useNavigate();
   const location = useLocation();
@@ -108,7 +109,6 @@ export default function Navbar() {
 
   const navItems = [
     { label: 'Diễn Đàn', path: '/tournaments', icon: MessageSquare, mobileIcon: forumMobileIcon },
-    { label: 'Đặt Sân', path: '/bookings', match: (p) => p.startsWith('/bookings') || p.startsWith('/courts'), icon: MapPin, mobileIcon: bookingsMobileIcon },
     { label: 'Phòng game', path: '/matches', icon: Gamepad2, mobileIcon: gameRoomMobileIcon },
     { label: 'Teams', path: '/team', icon: Users, mobileIcon: teamsMobileIcon },
     { label: 'Hồ Sơ', path: '/home', isAvatar: true },
@@ -133,7 +133,8 @@ export default function Navbar() {
     setSearchError('');
     setHasSearched(true);
     try {
-      setSearchResults(await searchService.search(query));
+      const results = await searchService.search(query);
+      setSearchResults(results.filter((result) => result.kind !== 'venue'));
     } catch (error) {
       setSearchResults([]);
       setSearchError(error.message || 'Không thể tìm kiếm lúc này.');
@@ -172,7 +173,7 @@ export default function Navbar() {
         }
       }
     });
-  }, [activeIndex]);
+  }, [activeIndex, setIndicator, setIsInitialRender]);
 
   useEffect(() => {
     updateIndicator();
@@ -186,15 +187,8 @@ export default function Navbar() {
   }, [updateIndicator]);
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-      setIsDark(true);
-    } else {
-      document.documentElement.classList.remove('dark');
-      setIsDark(false);
-    }
-  }, []);
+    document.documentElement.classList.toggle('dark', isDark);
+  }, [isDark]);
 
   useEffect(() => {
     if (!isSearchOpen) return undefined;
@@ -257,17 +251,24 @@ export default function Navbar() {
   };
 
   return (
-    <header ref={headerRef} className="w-full bg-gradient-to-r from-[#589470] to-[#74C365] dark:from-[#122A25] dark:to-[#1B3A31] border-b border-transparent dark:border-[#65E6A0]/15 fixed top-0 left-0 right-0 z-[999] shadow-md dark:shadow-[0_8px_30px_rgba(3,10,20,0.35)] transition-colors duration-500">
-      <div className="max-w-7xl mx-auto px-2.5 sm:px-6 h-14 sm:h-20 flex items-center justify-between gap-1 sm:gap-6">
-        <div className="flex items-center shrink-0">
-          <div
+    <header ref={headerRef} className="w-full bg-gradient-to-r from-[#589470] to-[#74C365] dark:from-[#122A25] dark:to-[#1B3A31] fixed top-0 left-0 right-0 z-[999] shadow-md dark:shadow-[0_8px_30px_rgba(3,10,20,0.35)] transition-colors duration-500">
+      <div className="max-w-7xl mx-auto px-2.5 sm:px-6 h-14 sm:h-20 flex items-center justify-between gap-1 sm:gap-6 border-b border-white/20 dark:border-white/5">
+        <div className="flex min-w-0 flex-1 items-center justify-center sm:flex-none sm:justify-start">
+          <button
+            type="button"
             onClick={() => { closeChat(); navigate('/home'); }}
-            className="cursor-pointer group select-none flex items-center gap-1.5"
+            aria-label="SportGo - về trang chủ"
+            className="cursor-pointer group select-none flex w-full items-center justify-center gap-1.5 sm:w-auto sm:justify-start"
           >
-            <span className="text-xl sm:text-3xl font-black tracking-tight text-white transition-transform group-hover:scale-105">
-              Sport<span className={user?.isCourtOwner ? 'owner-water-go' : ''}>Go</span>
+            <span className="hidden sm:inline text-3xl font-black tracking-tight text-white transition-transform group-hover:scale-105">
+              SportGo
             </span>
-          </div>
+            <img
+              src={sportGoLogoIcon}
+              alt=""
+              className="sm:hidden h-9 w-9 object-contain transition-transform group-hover:scale-105 drop-shadow-[0_2px_3px_rgba(0,0,0,0.25)]"
+            />
+          </button>
         </div>
 
         <div className="hidden sm:flex flex-1 max-w-3xl mx-1.5 sm:mx-3 items-center">
@@ -293,7 +294,7 @@ export default function Navbar() {
           </form>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-1.5 shrink-0">
+        <div className="flex items-center gap-2.5 sm:gap-1.5 shrink-0">
           <button
             onClick={() => setIsSearchOpen(true)}
             className="sm:hidden w-8 h-8 p-0 bg-white hover:bg-gray-50 rounded-full text-black shadow-sm border border-gray-200 transition-colors flex items-center justify-center"
@@ -348,8 +349,8 @@ export default function Navbar() {
         </div>
       </div>
 
-      <div className={`w-full max-w-7xl mx-auto px-2 sm:px-6 border-t border-white/20 dark:border-white/5 py-1 sm:py-0 flex items-center justify-between relative overflow-hidden transition-[max-height,opacity,transform] duration-300 ease-out ${isSubNavVisible ? 'max-h-16 opacity-100 translate-y-0' : 'max-h-0 opacity-0 -translate-y-2 pointer-events-none'}`}>
-        <nav ref={navContainerRef} className="grid grid-cols-5 md:flex items-center justify-center gap-0 md:gap-10 overflow-x-auto no-scrollbar relative flex-1">
+      <div className={`w-full max-w-7xl mx-auto px-2 sm:px-6 flex items-center justify-between relative overflow-hidden transition-[max-height,opacity,transform,padding] duration-300 ease-out ${isSubNavVisible ? 'max-h-16 py-1 sm:py-0 opacity-100 translate-y-0' : 'max-h-0 py-0 opacity-0 -translate-y-2 pointer-events-none'}`}>
+        <nav ref={navContainerRef} className="grid grid-cols-4 md:flex items-center justify-center gap-0 md:gap-10 overflow-x-auto no-scrollbar relative flex-1">
           <div
             className={`absolute bottom-0 h-0.5 sm:h-1 bg-white rounded-t-full ${
               isInitialRender ? 'transition-none' : 'transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]'
@@ -373,7 +374,7 @@ export default function Navbar() {
                 onClick={closeChat}
               >
                 {item.isAvatar ? (
-                  <div className={`h-7 w-7 rounded-full flex items-center justify-center font-black text-xs transition-colors shadow-sm ${user?.isCourtOwner ? 'owner-avatar-ring-active p-[2px]' : isActive ? 'bg-white p-px' : 'bg-white/80 p-px group-hover:bg-white'}`}>
+                  <div className={`h-7 w-7 rounded-full flex items-center justify-center font-black text-xs transition-colors shadow-sm ${isActive ? 'bg-white p-px' : 'bg-white/80 p-px group-hover:bg-white'}`}>
                     <span className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-white text-[#589470]">
                       {avatarUrl ? (
                         <img src={avatarUrl} alt="" className="h-full w-full object-cover" />

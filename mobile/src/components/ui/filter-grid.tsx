@@ -1,6 +1,6 @@
+import { Text } from '@/components/ui/text';
 import type { LucideIcon } from 'lucide-react-native';
-import { Text, TouchableOpacity, View } from 'react-native';
-
+import {  TouchableOpacity, View } from 'react-native';
 import { cn } from '@/lib/utils';
 import { useResolvedColorScheme } from '@/stores/theme-store';
 import { colors } from '@/theme/colors';

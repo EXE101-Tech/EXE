@@ -1,9 +1,10 @@
-import { Camera, Map as MapLibreMap, Marker, RasterSource, UserLocation, Layer, type StyleSpecification, type CameraRef } from '@maplibre/maplibre-react-native';
+import { Text } from '@/components/ui/text';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import { ArrowLeft, LocateFixed, MapPin, Navigation, Search, Star, X } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Pressable, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Pressable, TextInput, View } from 'react-native';
+import MapView, { Marker } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { resolveMediaUrl } from '@/api/resolve-media-url';

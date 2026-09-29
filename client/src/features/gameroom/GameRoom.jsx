@@ -12,14 +12,13 @@ import FilterSelect from '../../shared/components/FilterSelect';
 import { useSearchParams } from 'react-router-dom';
 import { createSportExperienceMap, sortBySportExperience } from '../../shared/utils/sportExperienceSort';
 import { parseStoredCostToVnd } from '../../shared/utils/price';
+import { isActiveSport } from '../../shared/constants/sports';
 
 const SPORTS_TABS = [
   { id: 'all', name: 'Tất cả môn', emoji: '🌟' },
   { id: 'badminton', name: 'Cầu lông', emoji: '🏸' },
-  { id: 'football', name: 'Bóng đá', emoji: '⚽' },
   { id: 'pickleball', name: 'Pickleball', emoji: '🏓' },
-  { id: 'tennis', name: 'Tennis', emoji: '🎾' },
-  { id: 'basketball', name: 'Bóng rổ', emoji: '🏀' },
+  { id: 'football', name: 'Bóng đá', emoji: '⚽' },
 ];
 
 const LEVEL_TABS = [
@@ -49,6 +48,7 @@ function GameRoom() {
 
   // Modals state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingRoom, setEditingRoom] = useState(null);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [joiningRoom, setJoiningRoom] = useState(null);
   const [managingRoom, setManagingRoom] = useState(null);
@@ -56,8 +56,12 @@ function GameRoom() {
   const loadRooms = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [data, sports] = await Promise.all([gameRoomService.getAll(), sportService.getAll()]);
-      const keyById = Object.fromEntries(sports.filter((sport) => sport.id != null).map((sport) => [sport.id, sport.key]));
+      const [data, sports] = await Promise.all([
+        myPostsOnly ? gameRoomService.getMine() : gameRoomService.getAll(),
+        sportService.getAll(),
+      ]);
+      const activeSports = sports.filter((sport) => sport.id != null && isActiveSport(sport));
+      const keyById = Object.fromEntries(activeSports.map((sport) => [sport.id, sport.key]));
       const mapped = data.map((match) => ({
         ...match,
         sportId: keyById[match.sport_id] || '',
@@ -69,6 +73,7 @@ function GameRoom() {
           name: match.host?.profile?.full_name || match.host?.email || 'Người chơi',
           avatar: resolveMediaUrl(match.host?.profile?.avatar_url),
           ownerStatus: match.host?.owner_status || 'none',
+          attendance_status: (match.participants || []).find((participant) => participant.role === 'HOST')?.attendance_status || null,
         },
         participants: (match.participants || []).filter((participant) => participant.role !== 'HOST').map((participant) => ({
           ...participant,
@@ -80,9 +85,11 @@ function GameRoom() {
             ownerStatus: participant.user?.owner_status || 'none',
           },
         })),
-        isMyRoom: match.host_id === user?.id,
+        isMyRoom: Number(match.host_id) === Number(user?.id),
       }));
-      setRooms(mapped.filter((room) => !['CANCELLED', 'FINISHED'].includes(room.status)));
+      setRooms(mapped.filter((room) => isActiveSport(room.sportId) && (
+        myPostsOnly || !['CLOSED', 'CANCELLED', 'FINISHED'].includes(room.status)
+      )));
       setError('');
       return mapped;
     } catch (err) {
@@ -90,7 +97,7 @@ function GameRoom() {
     } finally {
       setIsLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, myPostsOnly]);
 
   useEffect(() => { loadRooms(); }, [loadRooms]);
 
@@ -115,10 +122,7 @@ function GameRoom() {
         const matchSport = room.sportId === s ||
           (s === 'badminton' && room.sportName?.toLowerCase().includes('cầu lông')) ||
           (s === 'football' && room.sportName?.toLowerCase().includes('bóng đá')) ||
-          (s === 'pickleball' && room.sportName?.toLowerCase().includes('pickleball')) ||
-          (s === 'tennis' && room.sportName?.toLowerCase().includes('tennis')) ||
-          (s === 'basketball' && room.sportName?.toLowerCase().includes('bóng rổ')) ||
-          (s === 'volleyball' && room.sportName?.toLowerCase().includes('bóng chuyền'));
+          (s === 'pickleball' && room.sportName?.toLowerCase().includes('pickleball'));
         if (!matchSport) return false;
       }
       // Filter by Level
@@ -150,26 +154,58 @@ function GameRoom() {
   const handleCreateSubmit = async (newRoomData) => {
     setIsLoading(true);
     try {
-      await gameRoomService.create({
+      const payload = {
         title: newRoomData.title.trim(),
         description: newRoomData.description?.trim() || null,
         sport_id: Number(newRoomData.sport_id),
+        court_id: newRoomData.court_id || null,
         required_level: newRoomData.required_level,
         start_time: newRoomData.start_time,
         end_time: newRoomData.end_time,
         max_players: Number(newRoomData.max_players),
         location: newRoomData.location.trim(),
-        price_info: newRoomData.price_info?.trim() || null,
-      });
+        price_info: newRoomData.price_info.trim(),
+      };
+      if (editingRoom) await gameRoomService.update(editingRoom.id, payload);
+      else await gameRoomService.create(payload);
       await loadRooms();
-      showToast('Đã tạo phòng chơi.');
+      showToast(editingRoom ? 'Đã cập nhật phòng chơi.' : 'Đã tạo phòng chơi.');
       setIsCreateOpen(false);
+      setEditingRoom(null);
     } catch (err) {
-      setError(err.message || 'Không tạo được phòng chơi');
-      showToast(err.message || 'Không tạo được phòng chơi');
+      const message = err.message || (editingRoom ? 'Không cập nhật được phòng chơi' : 'Không tạo được phòng chơi');
+      setError(message);
+      showToast(message);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleEditRoom = (room) => {
+    setManagingRoom(null);
+    setEditingRoom(room);
+    setIsCreateOpen(true);
+  };
+
+  const handleDeleteRoom = async (room) => {
+    const confirmed = window.confirm(`Xóa phòng “${room.title}”? Các thành viên đã tham gia sẽ nhận được thông báo.`);
+    if (!confirmed) return;
+    setIsLoading(true);
+    try {
+      await gameRoomService.remove(room.id);
+      setManagingRoom(null);
+      await loadRooms();
+      showToast('Đã xóa phòng. Thành viên trong phòng đã được thông báo.');
+    } catch (err) {
+      showToast(err.message || 'Không xóa được phòng chơi');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const openCreateModal = () => {
+    setEditingRoom(null);
+    setIsCreateOpen(true);
   };
 
   const handleJoinConfirm = async (roomId, note) => {
@@ -200,6 +236,36 @@ function GameRoom() {
     }
   };
 
+  const handleUpdateAttendance = async (roomId, userId, attendanceStatus) => {
+    setIsLoading(true);
+    try {
+      await gameRoomService.updateAttendance(roomId, userId, attendanceStatus);
+      const refreshed = await loadRooms();
+      const refreshedRoom = refreshed?.find((room) => room.id === roomId);
+      if (refreshedRoom) {
+        setManagingRoom(refreshedRoom);
+      } else {
+        setManagingRoom((current) => current?.id === roomId ? {
+          ...current,
+          status: 'CLOSED',
+          host: Number(current.host?.id) === Number(userId)
+            ? { ...current.host, attendance_status: attendanceStatus }
+            : current.host,
+          participants: current.participants.map((participant) =>
+            Number(participant.user_id ?? participant.user?.id) === Number(userId)
+              ? { ...participant, attendance_status: attendanceStatus }
+              : participant
+          ),
+        } : current);
+      }
+      showToast(attendanceStatus === 'ATTENDED' ? 'Đã xác nhận người chơi tham gia trận.' : 'Đã ghi nhận người chơi không tham gia.');
+    } catch (err) {
+      showToast(err.message || 'Không cập nhật được trạng thái tham gia');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Handle Open Chat
   const handleOpenChat = (room) => {
     openChat(room.host);
@@ -218,7 +284,7 @@ function GameRoom() {
 
 
       {/* ── Filter Bar Section ── */}
-      <div className="navbar-filter-bar pb-4 pt-2 px-4 sm:px-6 sticky top-[112px] sm:top-[132px] z-40 transition-all duration-300">
+      <div className="navbar-filter-bar pb-4 pt-0 px-4 sm:px-6 sticky top-[112px] sm:top-[132px] z-40 transition-all duration-300">
         <div className="member-filter-panel max-w-[1600px] mx-auto rounded-xl sm:rounded-2xl p-1.5 sm:p-2.5 flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-2 xl:gap-3 transition-all duration-300">
           
           {/* Mobile Header (Toggle + Action Button) */}
@@ -232,7 +298,7 @@ function GameRoom() {
               <ChevronDown className={`w-4 h-4 transition-transform ${isMobileFilterOpen ? 'rotate-180' : ''}`} />
             </button>
             <button
-              onClick={() => setIsCreateOpen(true)}
+              onClick={openCreateModal}
               className="px-3.5 py-1.5 rounded-lg font-bold text-sm bg-gradient-to-r from-[#74C365] to-[#589470] text-white shadow-md flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap"
             >
               <PlusCircle className="w-4 h-4 shrink-0" />
@@ -251,12 +317,9 @@ function GameRoom() {
               onChange={(e) => setSelectedSport(e.target.value === 'all' ? null : e.target.value)}
             >
               <option value="all">Tất cả môn</option>
-              <option value="football">⚽ Bóng đá</option>
               <option value="badminton">🏸 Cầu lông</option>
               <option value="pickleball">🏓 Pickleball</option>
-              <option value="tennis">🎾 Tennis</option>
-              <option value="basketball">🏀 Bóng rổ</option>
-              <option value="volleyball">🏐 Bóng chuyền</option>
+              <option value="football">⚽ Bóng đá</option>
             </FilterSelect>
 
             <FilterSelect
@@ -266,7 +329,7 @@ function GameRoom() {
               onChange={(event) => setMyPostsOnly(event.target.value === 'mine')}
             >
               <option value="all">Tất cả phòng</option>
-              <option value="mine">Bài của tôi</option>
+              <option value="mine">Phòng của tôi</option>
             </FilterSelect>
 
             {/* 1. Địa điểm (Location) */}
@@ -331,7 +394,7 @@ function GameRoom() {
 
           {/* Right action: Create Button */}
           <button
-            onClick={() => setIsCreateOpen(true)}
+            onClick={openCreateModal}
             className="hidden xl:flex px-3.5 py-2 xl:px-5 xl:py-2.5 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-95 text-white shadow-md hover:shadow-lg items-center justify-center gap-1.5 sm:gap-2 transition-all duration-200 active:scale-95 group shrink-0 whitespace-nowrap"
           >
             <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 group-hover:rotate-90 transition-transform duration-300 shrink-0" />
@@ -364,7 +427,7 @@ function GameRoom() {
               Bạn có thể thử chọn môn thể thao khác, thay đổi bộ lọc trình độ, hoặc tự mở một phòng chờ mới cho riêng bạn ngay!
             </p>
             <button
-              onClick={() => setIsCreateOpen(true)}
+              onClick={openCreateModal}
               className="px-5 py-3 rounded-2xl bg-[#589470] dark:bg-[#DBE64C] text-white dark:text-[#001F3F] font-bold text-xs shadow-lg active:scale-95 transition-all"
             >
               + Mở Phòng Chờ Mới
@@ -391,7 +454,8 @@ function GameRoom() {
       {/* Create Room Modal */}
       <CreateRoomModal
         isOpen={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
+        initialRoom={editingRoom}
+        onClose={() => { setIsCreateOpen(false); setEditingRoom(null); }}
         onSubmit={handleCreateSubmit}
         isLoading={isLoading}
       />
@@ -411,6 +475,9 @@ function GameRoom() {
         room={managingRoom}
         onClose={() => setManagingRoom(null)}
         onUpdateStatus={handleUpdateStatus}
+        onUpdateAttendance={handleUpdateAttendance}
+        onEdit={handleEditRoom}
+        onDelete={handleDeleteRoom}
         isLoading={isLoading}
       />
     </div>

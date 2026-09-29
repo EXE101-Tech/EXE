@@ -1,8 +1,8 @@
+import { Text } from '@/components/ui/text';
 import { router } from 'expo-router';
 import { ArrowLeft, MapPin, Search, Swords, Trophy, Users } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { Alert, FlatList, Pressable, Text, TouchableOpacity, View } from 'react-native';
-
+import { Alert, FlatList, Pressable, TouchableOpacity, View } from 'react-native';
 import { EmptyState } from '@/components/brand/empty-state';
 import { LoadingState } from '@/components/brand/loading-state';
 import { ScreenContainer } from '@/components/brand/screen-container';
@@ -58,7 +58,7 @@ export default function SearchScreen() {
       ) : (
         <FlatList
           className="flex-1"
-          data={results ?? []}
+          data={(results ?? []).filter((item) => item.kind !== 'venue')}
           keyExtractor={(item) => `${item.kind}-${item.id}`}
           contentContainerClassName="gap-2 pb-8"
           renderItem={({ item }) => {

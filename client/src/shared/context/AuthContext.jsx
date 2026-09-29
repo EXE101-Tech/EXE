@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { authService, ownerService, resolveMediaUrl } from '../services/api';
 
 const AuthContext = createContext(null);
@@ -57,8 +57,7 @@ export const AuthProvider = ({ children }) => {
     return () => { active = false; };
   }, [token]);
 
-  const login = async (credentials) => {
-    const response = await authService.login(credentials);
+  const completeLogin = async (response) => {
     if (!response?.access_token) throw new Error('Máy chủ không trả về token đăng nhập');
     localStorage.setItem('token', response.access_token);
     setToken(response.access_token);
@@ -74,6 +73,9 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const login = async (credentials) => completeLogin(await authService.login(credentials));
+  const loginWithGoogle = async (code) => completeLogin(await authService.loginWithGoogle(code));
+
   const register = (data) => authService.register(data);
 
   const logout = () => {
@@ -83,11 +85,11 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     const profile = normalizeUser(await authService.getProfile());
     setUser(profile);
     return profile;
-  };
+  }, []);
 
   const applyOwnerRegistration = async () => {
     const status = await ownerService.register();
@@ -111,6 +113,7 @@ export const AuthProvider = ({ children }) => {
     user,
     token,
     login,
+    loginWithGoogle,
     register,
     logout,
     updateProfile,

@@ -12,13 +12,11 @@ import { lfgService, resolveMediaUrl, storageService } from '../../shared/servic
 import { useAuth } from '../../shared/context/AuthContext';
 import { createSportExperienceMap, sortBySportExperience } from '../../shared/utils/sportExperienceSort';
 import { parseStoredCostToVnd } from '../../shared/utils/price';
+import { isActiveSport } from '../../shared/constants/sports';
 
 import badmintonImg from '../../assets/sports/badminton.avif';
 import footballImg from '../../assets/sports/foodball.avif';
 import pickleballImg from '../../assets/sports/pickleball.jpg';
-import tennisImg from '../../assets/sports/tennis.jpg';
-import basketballImg from '../../assets/sports/bong_ro.jpg';
-import volleyballImg from '../../assets/sports/volleyball.jpg';
 
 export default function Tournament() {
   const [searchParams] = useSearchParams();
@@ -47,8 +45,8 @@ export default function Tournament() {
     setIsLoading(true);
     try {
       const items = await lfgService.getAll({ status: 'ALL', sport_id: selectedSport || undefined });
-      const emojis = { badminton: '🏸', football: '⚽', pickleball: '🏓', tennis: '🎾', basketball: '🏀', volleyball: '🏐' };
-      const images = { badminton: badmintonImg, football: footballImg, pickleball: pickleballImg, tennis: tennisImg, basketball: basketballImg, volleyball: volleyballImg };
+      const emojis = { badminton: '🏸', football: '⚽', pickleball: '🏓' };
+      const images = { badminton: badmintonImg, football: footballImg, pickleball: pickleballImg };
       const mapped = items.filter((post) => post.status !== 'CANCELLED').map((post) => ({
         ...post,
         sportId: post.sport_id,
@@ -56,7 +54,6 @@ export default function Tournament() {
         image: resolveMediaUrl(post.image_url) || images[post.sport_id] || badmintonImg,
         authorName: post.author_name || 'Người chơi',
         authorAvatar: resolveMediaUrl(post.author_avatar_url),
-        authorIsCourtOwner: post.author_owner_status === 'registered',
         teamName: '',
         timeAgo: new Date(post.created_at).toLocaleString('vi-VN'),
         timeSlot: post.time_slot,
@@ -68,7 +65,7 @@ export default function Tournament() {
         hasJoined: post.has_joined,
         isVerified: false,
       }));
-      setPosts(mapped);
+      setPosts(mapped.filter((post) => isActiveSport(post.sportId)));
       setError('');
     } catch (err) {
       setError(err.message || 'Không tải được bài tìm người chơi');
@@ -167,7 +164,7 @@ export default function Tournament() {
 
 
       {/* ── Filter Bar Section ── */}
-      <div className="navbar-filter-bar pb-4 pt-2 px-4 sm:px-6 sticky top-[112px] sm:top-[132px] z-40 transition-all duration-300">
+      <div className="navbar-filter-bar pb-4 pt-0 px-4 sm:px-6 sticky top-[112px] sm:top-[132px] z-40 transition-all duration-300">
         <div className="member-filter-panel max-w-[1600px] mx-auto rounded-xl sm:rounded-2xl p-1.5 sm:p-2.5 flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-2 xl:gap-3 transition-all duration-300">
           
           {/* Mobile Header (Toggle + Action Button) */}
@@ -200,12 +197,9 @@ export default function Tournament() {
               onChange={(e) => setSelectedSport(e.target.value === 'all' ? null : e.target.value)}
             >
               <option value="all">Tất cả môn</option>
-              <option value="football">⚽ Bóng đá</option>
               <option value="badminton">🏸 Cầu lông</option>
               <option value="pickleball">🏓 Pickleball</option>
-              <option value="tennis">🎾 Tennis</option>
-              <option value="basketball">🏀 Bóng rổ</option>
-              <option value="volleyball">🏐 Bóng chuyền</option>
+              <option value="football">⚽ Bóng đá</option>
             </FilterSelect>
 
             <FilterSelect

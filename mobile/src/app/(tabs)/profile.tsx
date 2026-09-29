@@ -1,8 +1,8 @@
+import { Text } from '@/components/ui/text';
 import * as ImagePicker from 'expo-image-picker';
-import { CalendarDays, Eye, ImagePlus, LogOut, Pencil, Star, Trophy, Users } from 'lucide-react-native';
+import { Eye, ImagePlus, LogOut, Pencil, Trophy, Users } from 'lucide-react-native';
 import { useState } from 'react';
-import { Alert, Image, Text, TouchableOpacity, View } from 'react-native';
-
+import { Alert, Image, TouchableOpacity, View } from 'react-native';
 import { storageApi } from '@/api/storage';
 import { Avatar } from '@/components/ui/avatar';
 import { LoadingState } from '@/components/brand/loading-state';
@@ -11,17 +11,8 @@ import { StatCard } from '@/components/brand/stat-card';
 import { TopNavbar } from '@/components/navigation/top-navbar';
 import { EditProfileModal } from '@/components/profile/edit-profile-modal';
 import { ImageLightbox } from '@/components/profile/image-lightbox';
-import { OwnerCancellationModal } from '@/components/profile/owner-cancellation-modal';
-import { OwnerRegistrationModal } from '@/components/profile/owner-registration-modal';
-import {
-  useMeStatsQuery,
-  useOwnerCancellationMutation,
-  useOwnerRegistrationMutation,
-  useOwnerStatusQuery,
-  useUpdateProfileMutation,
-} from '@/hooks/queries/use-auth';
-import { LEVEL_META, SPORT_KEY_BY_NAME, SPORTS, type SkillLevel } from '@/lib/constants';
-import { cn } from '@/lib/utils';
+import { useMeStatsQuery, useUpdateProfileMutation } from '@/hooks/queries/use-auth';
+import { isActiveSportName, LEVEL_META, SPORT_KEY_BY_NAME, SPORTS, type SkillLevel } from '@/lib/constants';
 import { useAuthStore } from '@/stores/auth-store';
 
 export default function ProfileScreen() {
@@ -29,16 +20,10 @@ export default function ProfileScreen() {
   const logout = useAuthStore((s) => s.logout);
   const { data: stats, isLoading: statsLoading } = useMeStatsQuery();
   const updateProfile = useUpdateProfileMutation();
-  const { data: ownerStatus } = useOwnerStatusQuery();
-  const registerOwnership = useOwnerRegistrationMutation();
-  const cancelOwnership = useOwnerCancellationMutation();
-  const isOwner = ownerStatus?.owner_status === 'registered';
 
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isCoverPreviewOpen, setIsCoverPreviewOpen] = useState(false);
   const [isUploadingCover, setIsUploadingCover] = useState(false);
-  const [isRegisterOpen, setIsRegisterOpen] = useState(false);
-  const [isCancelOpen, setIsCancelOpen] = useState(false);
 
   if (!user) return <LoadingState />;
 
@@ -62,51 +47,23 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleToggleOwnership = () => {
-    if (isOwner) setIsCancelOpen(true);
-    else setIsRegisterOpen(true);
-  };
-
-  const handleConfirmRegister = async () => {
-    try {
-      await registerOwnership.mutateAsync();
-      setIsRegisterOpen(false);
-    } catch (error) {
-      Alert.alert('Lỗi', error instanceof Error ? error.message : 'Không thể đăng ký chủ sân');
-    }
-  };
-
-  const handleConfirmCancel = async () => {
-    try {
-      await cancelOwnership.mutateAsync();
-      setIsCancelOpen(false);
-    } catch (error) {
-      Alert.alert('Lỗi', error instanceof Error ? error.message : 'Không thể hủy đăng ký chủ sân');
-    }
-  };
-
   const displayName = user.name;
-  const skills = (user.sports || []).map((item) => {
+  const skills = (user.sports || []).filter((item) => isActiveSportName(item.sport?.name)).map((item) => {
     const sportName = item.sport?.name || 'Môn thể thao';
-    const key = SPORT_KEY_BY_NAME[sportName.toLowerCase()];
+    const key = SPORT_KEY_BY_NAME[sportName.trim().toLowerCase()];
     const sportMeta = SPORTS.find((s) => s.key === key);
-    const level = LEVEL_META[item.skill_level as SkillLevel] ?? { label: item.skill_level, percentage: 0 };
     return {
       id: item.id,
       sport: sportName,
       emoji: sportMeta?.emoji ?? '🏅',
-      level: level.label,
-      percentage: level.percentage,
+      level: LEVEL_META[item.skill_level as SkillLevel]?.label ?? item.skill_level,
       games: item.games_played || 0,
-      rating: Number(item.rating || 0).toFixed(1),
     };
   });
 
   const statsCards = [
     { label: 'Trận đã chơi', value: stats?.games_played ?? 0, icon: Trophy, colorClassName: 'bg-amber-500/10', iconColor: '#D97706' },
     { label: 'CLB tham gia', value: stats?.teams_joined ?? 0, icon: Users, colorClassName: 'bg-blue-500/10', iconColor: '#2563EB' },
-    { label: 'Lần đặt sân', value: stats?.bookings_count ?? 0, icon: CalendarDays, colorClassName: 'bg-emerald-500/10', iconColor: '#059669' },
-    { label: 'Điểm kỹ năng TB', value: stats?.average_skill_rating ?? '—', icon: Star, colorClassName: 'bg-violet-500/10', iconColor: '#7C3AED' },
   ];
 
   return (
@@ -172,22 +129,6 @@ export default function ProfileScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={handleToggleOwnership}
-              disabled={registerOwnership.isPending || cancelOwnership.isPending}
-              className={cn(
-                'flex-1 items-center justify-center rounded-xl px-2 py-3',
-                isOwner ? 'bg-slate-800 dark:bg-white/10' : 'bg-teal-950 dark:bg-teal-500/10',
-              )}
-            >
-              <Text
-                className={cn('text-center text-[11px] font-bold', isOwner ? 'text-white' : 'text-cyan-400')}
-                numberOfLines={2}
-              >
-                {isOwner ? 'Hủy đăng ký chủ sân' : 'Đăng ký làm chủ sân'}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
               onPress={logout}
               className="flex-1 flex-row items-center justify-center gap-1 rounded-xl border border-rose-500/40 px-2 py-3"
             >
@@ -226,12 +167,9 @@ export default function ProfileScreen() {
                         {skill.level}
                       </Text>
                     </View>
-                    <Text className="mb-2 text-xs text-slate-500 dark:text-slate-400">
-                      {skill.games} trận · {skill.rating} rating
+                    <Text className="text-xs text-slate-500 dark:text-slate-400">
+                      {skill.games} trận
                     </Text>
-                    <View className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700/60">
-                      <View className="h-full rounded-full bg-brand dark:bg-brand-dark" style={{ width: `${skill.percentage}%` }} />
-                    </View>
                   </View>
                 ))}
               </View>
@@ -248,18 +186,6 @@ export default function ProfileScreen() {
           onClose={() => setIsCoverPreviewOpen(false)}
         />
       ) : null}
-      <OwnerRegistrationModal
-        visible={isRegisterOpen}
-        onClose={() => setIsRegisterOpen(false)}
-        onConfirm={handleConfirmRegister}
-        isSubmitting={registerOwnership.isPending}
-      />
-      <OwnerCancellationModal
-        visible={isCancelOpen}
-        onClose={() => setIsCancelOpen(false)}
-        onConfirm={handleConfirmCancel}
-        isSubmitting={cancelOwnership.isPending}
-      />
     </ScreenContainer>
   );
 }

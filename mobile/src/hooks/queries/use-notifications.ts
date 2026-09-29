@@ -10,6 +10,7 @@ export function useNotificationsQuery() {
     queryKey: queryKeys.notifications.list(),
     queryFn: notificationsApi.list,
     enabled: isAuthenticated,
+    refetchInterval: isAuthenticated ? 2_000 : false,
   });
 }
 

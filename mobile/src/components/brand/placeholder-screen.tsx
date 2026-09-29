@@ -1,6 +1,6 @@
+import { Text } from '@/components/ui/text';
 import type { LucideIcon } from 'lucide-react-native';
-import { Text, View } from 'react-native';
-
+import {  View } from 'react-native';
 import { ScreenContainer } from './screen-container';
 
 interface PlaceholderScreenProps {

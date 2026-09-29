@@ -1,8 +1,8 @@
+import { Text } from '@/components/ui/text';
 import { router } from 'expo-router';
 import { Crown, Plus, Trophy, UserCheck, Users } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { Alert, FlatList, Text, TouchableOpacity, View } from 'react-native';
-
+import { Alert, FlatList, TouchableOpacity, View } from 'react-native';
 import { EmptyState } from '@/components/brand/empty-state';
 import { LoadingState } from '@/components/brand/loading-state';
 import { ScreenContainer } from '@/components/brand/screen-container';
@@ -15,7 +15,7 @@ import { FilterGrid } from '@/components/ui/filter-grid';
 import type { SelectOption } from '@/components/ui/select-dropdown';
 import { useStartConversationMutation } from '@/hooks/queries/use-chat';
 import { useJoinTeamMutation, useLeaveTeamMutation, useTeamsQuery } from '@/hooks/queries/use-teams';
-import { SPORTS } from '@/lib/constants';
+import { isActiveSportName, SPORTS } from '@/lib/constants';
 import type { TeamResponse } from '@/schemas/teams';
 
 const SPORT_OPTIONS: SelectOption[] = [
@@ -47,6 +47,7 @@ export default function TeamsScreen() {
 
   const filteredTeams = useMemo(() => {
     return (teams ?? []).filter((team) => {
+      if (!isActiveSportName(team.sport_name)) return false;
       if (sportFilter !== 'all' && team.sport_id !== sportFilter) return false;
       if (scope === 'captain') return team.is_captain;
       if (scope === 'member') return team.is_member;
@@ -55,7 +56,10 @@ export default function TeamsScreen() {
   }, [teams, sportFilter, scope]);
 
   const handleChat = async (ownerId: number | null | undefined) => {
-    if (!ownerId) return;
+    if (!ownerId || !Number.isInteger(ownerId) || ownerId <= 0) {
+      Alert.alert('Không thể mở chat', 'CLB này không còn tài khoản người mở để nhắn tin.');
+      return;
+    }
     try {
       const conversation = await startConversation.mutateAsync(ownerId);
       router.push({ pathname: '/chat/[id]', params: { id: String(conversation.id) } });
@@ -142,7 +146,7 @@ export default function TeamsScreen() {
 
       <CreateTeamModal visible={isCreateOpen} onClose={() => setIsCreateOpen(false)} />
       {editingTeam ? (
-        <CreateTeamModal visible team={editingTeam} onClose={() => setEditingTeam(null)} />
+        <CreateTeamModal key={editingTeam.id} visible team={editingTeam} onClose={() => setEditingTeam(null)} />
       ) : null}
       {managingTeam ? (
         <TeamMembersModal

@@ -1,5 +1,5 @@
-import { ScrollView, Text, TouchableOpacity } from 'react-native';
-
+import { Text } from '@/components/ui/text';
+import { ScrollView, TouchableOpacity } from 'react-native';
 import { cn } from '@/lib/utils';
 import { buildDateStrip } from '@/lib/slots';
 

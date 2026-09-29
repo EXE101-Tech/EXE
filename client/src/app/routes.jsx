@@ -2,17 +2,10 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '../shared/context/AuthContext';
 import Login from '../features/auth/Login.jsx';
 import Home from '../features/home/Home.jsx';
-import Tournament from '../features/tournament/Tournament.jsx';
+import SocialFeed from '../features/tournament/SocialFeed.jsx';
 import GameRoom from '../features/gameroom/GameRoom.jsx';
-import Bookings from '../features/bookings/Bookings.jsx';
-import MyBookings from '../features/bookings/MyBookings.jsx';
-import MapPage from '../features/map/Map.jsx';
 import Team from '../features/team/Team.jsx';
-import CourtDetailPage from '../features/courts/pages/CourtDetailPage.jsx';
-import Sidebar from '../shared/components/Sidebar.jsx';
-import TopNavbar from '../shared/components/TopNavbar.jsx';
-import ChatPanel from '../shared/components/ChatPanel.jsx';
-import { ChatProvider, useChat } from '../shared/context/ChatContext.jsx';
+import { ChatProvider } from '../shared/context/ChatContext.jsx';
 import LandingPage from '../features/landing/Landing.jsx';
 import PublicLayout from '../shared/layouts/PublicLayout.jsx';
 import NavbarLayout from '../shared/layouts/NavbarLayout.jsx';
@@ -23,29 +16,6 @@ function GlobalWrapper({ children }) {
         <div className="min-h-screen text-slate-900 dark:text-white overflow-x-clip selection:bg-brand-primary/30 font-sans relative theme-transition">
             <div className="relative z-10 h-full w-full">
                 {children}
-            </div>
-        </div>
-    );
-}
-
-function MainLayout({ children }) {
-    const { isChatOpen } = useChat();
-    return (
-        <div className="member-app-shell flex h-screen overflow-hidden page-fade-in">
-            {/* Sidebar (Desktop) */}
-            <Sidebar />
-
-            {/* Nội dung chính — margin left để tránh Sidebar */}
-            <div
-                className={`flex-1 flex flex-col min-w-0 transition-[margin] duration-300 ease-in-out ml-[292px] relative ${isChatOpen ? 'md:mr-[388px]' : 'md:mr-0'}`}
-            >
-                <TopNavbar />
-                
-                <main className="flex-1 p-6 overflow-y-auto overflow-x-hidden">
-                    {children}
-                </main>
-
-                <ChatPanel />
             </div>
         </div>
     );
@@ -83,14 +53,15 @@ function AppRoutes() {
                             </Route>
                             <Route element={<ProtectedRoute><NavbarLayout /></ProtectedRoute>}>
                                 <Route path="/home" element={<Home />} />
-                                <Route path="/tournaments" element={<Tournament />} />
+                                <Route path="/tournaments" element={<SocialFeed />} />
                                 <Route path="/matches" element={<GameRoom />} />
-                                <Route path="/bookings" element={<Bookings />} />
-                                <Route path="/my-bookings" element={<MyBookings />} />
                                 <Route path="/team" element={<Team />} />
-                                <Route path="/courts/:id" element={<CourtDetailPage />} />
+                                <Route path="/bookings" element={<Navigate to="/home" replace />} />
+                                <Route path="/bookings/*" element={<Navigate to="/home" replace />} />
+                                <Route path="/my-bookings" element={<Navigate to="/home" replace />} />
+                                <Route path="/courts/:id" element={<Navigate to="/home" replace />} />
                             </Route>
-                            <Route path="/map" element={<ProtectedRoute><MainLayout><MapPage /></MainLayout></ProtectedRoute>} />
+                            <Route path="/map" element={<Navigate to="/home" replace />} />
                             <Route path="*" element={<Navigate to="/home" replace />} />
                         </Routes>
                     </GlobalWrapper>
