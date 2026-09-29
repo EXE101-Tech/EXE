@@ -12,10 +12,6 @@ import { useAuth } from '../../shared/context/AuthContext';
 import { createSportExperienceMap, sortBySportExperience } from '../../shared/utils/sportExperienceSort';
 import { isActiveSport } from '../../shared/constants/sports';
 
-import badmintonImg from '../../assets/sports/badminton.avif';
-import footballImg from '../../assets/sports/foodball.avif';
-import pickleballImg from '../../assets/sports/pickleball.jpg';
-
 const TABS = [
   { id: 'discover', label: 'Khám phá CLB', icon: Users, emoji: '🌐' },
   { id: 'captain', label: 'CLB tôi làm chủ', icon: Crown, emoji: '👑' },
@@ -49,13 +45,12 @@ export default function Team() {
     try {
       const items = await teamService.getAll({ scope: 'all', sport_id: selectedSport || undefined });
       const emojis = { badminton: '🏸', football: '⚽', pickleball: '🏓' };
-      const images = { badminton: badmintonImg, football: footballImg, pickleball: pickleballImg };
       setTeams(items.filter((team) => isActiveSport(team.sport_id)).map((team) => ({
         ...team,
         sportId: team.sport_id,
         sportName: team.sport_name || team.sport_id,
         sportEmoji: emojis[team.sport_id] || '🏅',
-        image: resolveMediaUrl(team.image_url) || images[team.sport_id] || badmintonImg,
+        image: team.image_url ? resolveMediaUrl(team.image_url) : '',
         captain: team.owner_name,
         members: team.member_count,
         totalSlots: team.total_slots,
@@ -98,7 +93,7 @@ export default function Team() {
       let matchTab = false;
       if (routeSearch) matchTab = true;
       else if (activeTab === 'captain') matchTab = team.isCaptain;
-      else if (activeTab === 'member') matchTab = team.isMember;
+      else if (activeTab === 'member') matchTab = team.isMember && !team.isCaptain;
       else if (activeTab === 'discover') matchTab = !team.isCaptain && !team.isMember;
       return matchSport && matchTab && matchSearch;
     });

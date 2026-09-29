@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { LoaderCircle, MessageSquareText, Plus } from 'lucide-react';
+import { LoaderCircle, Plus } from 'lucide-react';
 import { socialPostService, storageService } from '../../shared/services/api';
 import { useAuth } from '../../shared/context/AuthContext';
 import SocialPostCard from '../tournament/components/SocialPostCard';
@@ -55,13 +55,10 @@ export default function MySocialPosts() {
   };
 
   return (
-    <section className="mt-7 rounded-3xl border border-slate-200/80 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-slate-900/70 sm:p-7">
+    <section className="mt-7">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md"><MessageSquareText className="h-5 w-5" /></div>
-          <div><h2 className="text-xl font-black text-slate-900 dark:text-white">Bài viết của tôi</h2><p className="text-sm text-slate-500 dark:text-slate-400">Xem và chỉnh sửa những gì bạn đã chia sẻ.</p></div>
-        </div>
-        <button type="button" onClick={() => { setEditingPost(null); setIsComposerOpen(true); }} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-blue-700"><Plus className="h-4 w-4" /> Đăng bài</button>
+        <h2 className="text-xl font-black text-slate-900 dark:text-white">Bài viết của tôi</h2>
+        <button type="button" onClick={() => { setEditingPost(null); setIsComposerOpen(true); }} aria-label="Đăng bài" title="Đăng bài" className="sg-profile-post-create sg-primary-button h-12 w-12 rounded-xl p-0"><Plus size={32} strokeWidth={3.5} /></button>
       </div>
 
       {error && <p role="alert" className="mb-4 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-500/10 dark:text-rose-200">{error}</p>}
