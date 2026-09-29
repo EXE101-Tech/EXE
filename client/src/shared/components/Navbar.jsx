@@ -251,7 +251,7 @@ export default function Navbar() {
   };
 
   return (
-    <header ref={headerRef} className="w-full bg-gradient-to-r from-[#589470] to-[#74C365] dark:from-[#122A25] dark:to-[#1B3A31] fixed top-0 left-0 right-0 z-[999] shadow-md dark:shadow-[0_8px_30px_rgba(3,10,20,0.35)] transition-colors duration-500">
+    <header ref={headerRef} className="member-topbar w-full bg-gradient-to-r from-[#589470] to-[#74C365] dark:from-[#122A25] dark:to-[#1B3A31] fixed top-0 left-0 right-0 z-[999] shadow-md dark:shadow-[0_8px_30px_rgba(3,10,20,0.35)] transition-colors duration-500">
       <div className="max-w-7xl mx-auto px-2.5 sm:px-6 h-14 sm:h-20 flex items-center justify-between gap-1 sm:gap-6 border-b border-white/20 dark:border-white/5">
         <div className="flex min-w-0 flex-1 items-center justify-center sm:flex-none sm:justify-start">
           <button
