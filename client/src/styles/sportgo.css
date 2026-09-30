@@ -335,6 +335,7 @@ html.sg-theme-switching .sg-app *::after {
 .sg-team-meta { display: flex; flex-wrap: wrap; gap: 10px 17px; margin: 15px 0; color: #9cacc3; font-size: 10px; }
 .sg-team-meta span { display: flex; align-items: center; gap: 6px; }
 .sg-team-meta svg { color: #809fea; }
+.sg-team-owner strong { color: #dce7f8; font-weight: 800; }
 .sg-team-footer { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: auto; padding-top: 14px; border-top: 1px solid var(--sg-line); }
 .sg-team-rating { display: flex; align-items: center; gap: 6px; color: #a8b8cf; font-size: 10px; white-space: nowrap; }
 .sg-team-rating svg { color: #eec46d; }
@@ -496,6 +497,7 @@ html:not(.dark) .sg-app .sg-team-member-count { border-color: #d8e0ed; color: #5
 html:not(.dark) .sg-app .sg-team-description { color: #52627a; }
 html:not(.dark) .sg-app .sg-team-meta,
 html:not(.dark) .sg-app .sg-team-rating { color: #63718a; }
+html:not(.dark) .sg-app .sg-team-owner strong { color: #26344d; }
 html:not(.dark) .sg-app .sg-team-footer { border-top-color: #e5eaf2; }
 html:not(.dark) .sg-app .sg-team-icon,
 html:not(.dark) .sg-app .sg-room-chat { border-color: #d7dfec; color: #596981; }
