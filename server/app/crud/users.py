@@ -19,7 +19,11 @@ def create_user(db: Session, user: schemas.UserCreate):
     db.refresh(db_user)
     
     # Create profile with user's name
-    db_profile = models.UserProfile(user_id=db_user.id, full_name=user.name)
+    db_profile = models.UserProfile(
+        user_id=db_user.id,
+        full_name=user.name,
+        district=(user.district or '').strip() or None,
+    )
     db.add(db_profile)
     db.commit()
     db.refresh(db_user)
@@ -46,6 +50,8 @@ def update_user_profile_with_sports(db: Session, user_id: int, data: schemas.Use
         db_profile.avatar_url = data.avatar_url
     if data.cover_url is not None:
         db_profile.cover_url = data.cover_url
+    if data.district is not None:
+        db_profile.district = data.district.strip() or None
         
     if data.sports is not None:
         for sport_name, skill_level in data.sports.items():

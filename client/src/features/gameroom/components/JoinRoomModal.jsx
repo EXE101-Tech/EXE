@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, Sparkles, Trophy, MapPin, Calendar, Users, DollarSign, AlertTriangle, ShieldCheck, MessageSquare } from 'lucide-react';
+import { useState } from 'react';
+import { X, Sparkles, Trophy, MapPin, Calendar, Users, AlertTriangle, ShieldCheck, MessageSquare } from 'lucide-react';
 import { formatStoredCost } from '../../../shared/utils/price';
 import ViewLocationModal from '../../../shared/components/ViewLocationModal';
 
@@ -32,7 +32,7 @@ function JoinRoomModal({ isOpen, onClose, onConfirm, room, isLoading = false }) 
       const startTime = start.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
       const endTime = end.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
       return `${dateStr} (${startTime} - ${endTime})`;
-    } catch (e) {
+    } catch {
       return 'Tối nay 19:00 - 21:00';
     }
   };
@@ -70,8 +70,8 @@ function JoinRoomModal({ isOpen, onClose, onConfirm, room, isLoading = false }) 
               <Sparkles className="w-6 h-6 stroke-[2.5]" />
             </div>
             <div>
-              <h3 className="text-xl font-black">Xác Nhận Tham Gia Phòng</h3>
-              <p className="text-xs opacity-90">Gia nhập nhóm và chuẩn bị thi đấu</p>
+              <h3 className="text-xl font-black">{room.isAutoInvite ? 'Xác nhận lời mời' : 'Xác Nhận Tham Gia Phòng'}</h3>
+              <p className="text-xs opacity-90">{room.isAutoInvite ? 'Bạn được mời tự động vì cùng khu vực hoạt động' : 'Gia nhập nhóm và chuẩn bị thi đấu'}</p>
             </div>
           </div>
           <button
@@ -169,7 +169,7 @@ function JoinRoomModal({ isOpen, onClose, onConfirm, room, isLoading = false }) 
               className="sg-modal-primary flex items-center gap-2 rounded-xl px-6 py-2.5 text-xs font-black shadow-lg active:scale-95 transition-all"
             >
               <ShieldCheck className="w-4 h-4" />
-              <span>{isLoading ? 'Đang gửi yêu cầu...' : 'Xác Nhận Tham Gia'}</span>
+              <span>{isLoading ? 'Đang xử lý...' : room.isAutoInvite ? 'Nhận lời mời' : 'Xác Nhận Tham Gia'}</span>
             </button>
           </div>
         </form>

@@ -150,6 +150,7 @@ export const gameRoomService = {
   getMine: () => apiClient.get('/gamerooms/mine'),
   getById: (id) => apiClient.get(`/gamerooms/${id}`),
   join: (roomId, note = '') => apiClient.post(`/gamerooms/${roomId}/join`, { note }),
+  respondInvite: (roomId, action) => apiClient.post(`/gamerooms/${roomId}/invite-response`, { action }),
   leave: (roomId) => apiClient.post(`/gamerooms/${roomId}/leave`),
   create: (data) => apiClient.post('/gamerooms', data),
   update: (roomId, data) => apiClient.put(`/gamerooms/${roomId}`, data),
@@ -160,11 +161,18 @@ export const gameRoomService = {
     apiClient.patch(`/gamerooms/${roomId}/participants/${userId}/attendance`, { attendance_status }),
 };
 
+export const autoRoomSearchService = {
+  get: () => apiClient.get('/gamerooms/auto-search'),
+  save: (data) => apiClient.put('/gamerooms/auto-search', data),
+  remove: () => apiClient.delete('/gamerooms/auto-search'),
+};
+
 export const teamService = {
   getAll: (filters = {}) => apiClient.get('/teams', { params: filters }),
   getById: (id) => apiClient.get(`/teams/${id}`),
   create: (data) => apiClient.post('/teams', data),
   update: (id, data) => apiClient.patch(`/teams/${id}`, data),
+  updatePremiumSettings: (id, data) => apiClient.patch(`/teams/${id}/premium-settings`, data),
   remove: (id) => apiClient.delete(`/teams/${id}`),
   join: (id) => apiClient.post(`/teams/${id}/join`),
   leave: (id) => apiClient.delete(`/teams/${id}/membership`),

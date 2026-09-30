@@ -101,6 +101,11 @@ def join_match(db: Session, match_id: int, user_id: int, note: str = None):
             exists.status = "PENDING"
             exists.role = "PLAYER"
             exists.note = note
+            # A manual re-join starts a regular host approval request rather
+            # than reviving the previous automatic invitation cycle.
+            exists.invite_source = None
+            exists.invited_at = None
+            exists.invite_round = None
             exists.joined_at = models.utc_now_naive()
             db.commit()
             db.refresh(exists)

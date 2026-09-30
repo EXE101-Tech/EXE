@@ -6,9 +6,9 @@ import LocationPicker from '../../../shared/components/LocationPicker';
 
 const SPORT_EMOJI = { badminton: '🏸', football: '⚽', pickleball: '🏓' };
 
-export default function CreateTeamModal({ isOpen, onClose, onSubmit, initialTeam = null }) {
+export default function CreateTeamModal({ isOpen, onClose, onSubmit, initialTeam = null, isPremium = false }) {
   const [sports, setSports] = useState([]);
-  const [form, setForm] = useState({ name: '', sport_id: 'badminton', location: '', total_slots: 20, description: '', tags: '', image_url: '' });
+  const [form, setForm] = useState({ name: '', sport_id: 'badminton', location: '', total_slots: 15, description: '', tags: '', image_url: '' });
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
   const [error, setError] = useState('');
@@ -30,11 +30,11 @@ export default function CreateTeamModal({ isOpen, onClose, onSubmit, initialTeam
       name: initialTeam.name || '',
       sport_id: initialTeam.sport_id || 'badminton',
       location: initialTeam.location || '',
-      total_slots: initialTeam.total_slots || 20,
+      total_slots: initialTeam.total_slots || 15,
       description: initialTeam.description || '',
       tags: (initialTeam.tags || []).join(', '),
       image_url: initialTeam.image_url || '',
-    } : { name: '', sport_id: 'badminton', location: '', total_slots: 20, description: '', tags: '', image_url: '' });
+    } : { name: '', sport_id: 'badminton', location: '', total_slots: 15, description: '', tags: '', image_url: '' });
     clearPreviewObjectUrl();
     setImageFile(null);
     setImagePreview(initialTeam?.image_url ? resolveMediaUrl(initialTeam.image_url) : '');
@@ -163,7 +163,8 @@ export default function CreateTeamModal({ isOpen, onClose, onSubmit, initialTeam
                 <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5 flex items-center gap-1">
                   <Users className="h-3.5 w-3.5" /> Số thành viên tối đa
                 </label>
-                <input required type="number" min="2" max="500" value={form.total_slots} onChange={(event) => setForm((current) => ({ ...current, total_slots: event.target.value }))} className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-[#589470] dark:border-white/10 dark:bg-white/5 dark:text-white" />
+                <input required type="number" min="2" max={isPremium ? 500 : 15} value={form.total_slots} onChange={(event) => setForm((current) => ({ ...current, total_slots: event.target.value }))} className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-[#589470] dark:border-white/10 dark:bg-white/5 dark:text-white" />
+                <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">{isPremium ? 'Premium có thể mở rộng số thành viên.' : 'Tài khoản thường tối đa 15 thành viên.'}</p>
               </div>
             </div>
             <label className="block text-xs font-bold text-slate-600 dark:text-slate-300">Mô tả và nội quy<textarea rows={4} maxLength={5000} value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} className="mt-1.5 w-full resize-y rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-[#589470] dark:border-white/10 dark:bg-white/5 dark:text-white" placeholder="Lịch tập, trình độ, nội quy…" /></label>

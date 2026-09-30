@@ -4,6 +4,7 @@ import { useSportFilter } from '../../shared/context/SportFilterContext';
 import TeamCard from './components/TeamCard';
 import CreateTeamModal from './components/CreateTeamModal';
 import ReviewTeamModal from './components/ReviewTeamModal';
+import TeamPremiumSettingsModal from './components/TeamPremiumSettingsModal';
 import FilterSelect from '../../shared/components/FilterSelect';
 import { useSearchParams } from 'react-router-dom';
 import { resolveMediaUrl, teamService } from '../../shared/services/api';
@@ -36,6 +37,7 @@ export default function Team() {
   const [reviewTeam, setReviewTeam] = useState(null);
   const [memberDialog, setMemberDialog] = useState(null);
   const [members, setMembers] = useState([]);
+  const [premiumSettingsTeam, setPremiumSettingsTeam] = useState(null);
   const [alertMessage, setAlertMessage] = useState('');
 
   const loadTeams = useCallback(async (silent = false) => {
@@ -52,6 +54,7 @@ export default function Team() {
         sportEmoji: emojis[team.sport_id] || '🏅',
         image: team.image_url ? resolveMediaUrl(team.image_url) : '',
         captain: team.owner_name,
+        ownerAvatar: team.owner_avatar_url ? resolveMediaUrl(team.owner_avatar_url) : '',
         members: team.member_count,
         totalSlots: team.total_slots,
         ratingCount: team.rating_count,
@@ -148,6 +151,10 @@ export default function Team() {
       setMembers([]);
       showToast(err.message || 'Không tải được danh sách thành viên');
     }
+  };
+
+  const openPremiumSettings = (team) => {
+    setPremiumSettingsTeam(team);
   };
 
   const updateMember = async (member, status) => {
@@ -290,6 +297,8 @@ export default function Team() {
                 onReview={() => setReviewTeam(team)}
                 onJoin={handleJoinTeam}
                 onManageMembers={openMembers}
+                onManagePremium={openPremiumSettings}
+                onViewPremium={openPremiumSettings}
                 onEdit={(item) => { setEditingTeam(item); setIsCreateModalOpen(true); }}
                 onChat={handleChatWithOpener}
               />
@@ -303,6 +312,7 @@ export default function Team() {
       <CreateTeamModal
         isOpen={isCreateModalOpen}
         initialTeam={editingTeam}
+        isPremium={Boolean(user?.isPremium)}
         onClose={() => { setIsCreateModalOpen(false); setEditingTeam(null); }}
         onSubmit={handleSaveTeam}
       />
@@ -341,6 +351,16 @@ export default function Team() {
             )}
           </section>
         </div>
+      )}
+
+      {premiumSettingsTeam && (
+        <TeamPremiumSettingsModal
+          isOpen={!!premiumSettingsTeam}
+          team={premiumSettingsTeam}
+          canEdit={Boolean(premiumSettingsTeam.isCaptain && user?.isPremium)}
+          onClose={() => setPremiumSettingsTeam(null)}
+          onSaved={async () => { await loadTeams(true); showToast('Đã lưu thiết lập Premium của CLB.'); }}
+        />
       )}
 
     </div>

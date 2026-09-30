@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { PlusCircle, Trophy, Award, Filter, RefreshCw, CheckCircle2, MapPin, Calendar, DollarSign, ChevronDown, UserRound } from 'lucide-react';
+import { PlusCircle, Trophy, Award, Filter, RefreshCw, CheckCircle2, MapPin, DollarSign, ChevronDown, UserRound, Sparkles } from 'lucide-react';
 import { gameRoomService, resolveMediaUrl, sportService } from '../../shared/services/api';
 import { useSportFilter } from '../../shared/context/SportFilterContext';
 import { useChat } from '../../shared/context/ChatContext';
@@ -8,6 +8,7 @@ import RoomCard from './components/RoomCard';
 import CreateRoomModal from './components/CreateRoomModal';
 import JoinRoomModal from './components/JoinRoomModal';
 import ManageRoomModal from './components/ManageRoomModal';
+import AutoRoomSearchModal from './components/AutoRoomSearchModal';
 import FilterSelect from '../../shared/components/FilterSelect';
 import { useSearchParams } from 'react-router-dom';
 import { createSportExperienceMap, sortBySportExperience } from '../../shared/utils/sportExperienceSort';
@@ -26,7 +27,6 @@ function GameRoom() {
   const [rooms, setRooms] = useState([]);
   const [selectedLevel, setSelectedLevel] = useState('all');
   const [selectedLocation, setSelectedLocation] = useState('all');
-  const [selectedTime, setSelectedTime] = useState('all');
   const [selectedPrice, setSelectedPrice] = useState('all');
   const [myPostsOnly, setMyPostsOnly] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -39,6 +39,7 @@ function GameRoom() {
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [joiningRoom, setJoiningRoom] = useState(null);
   const [managingRoom, setManagingRoom] = useState(null);
+  const [isAutoSearchOpen, setIsAutoSearchOpen] = useState(false);
 
   const loadRooms = useCallback(async () => {
     setIsLoading(true);
@@ -122,18 +123,6 @@ function GameRoom() {
       if (selectedLocation !== 'all' && !room.location?.toLowerCase().includes(selectedLocation.toLowerCase())) {
         return false;
       }
-      // Filter by Time
-      if (selectedTime !== 'all') {
-        const start = new Date(room.start_time);
-        if (Number.isNaN(start.getTime())) return false;
-        const today = new Date();
-        const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-        const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
-        if (selectedTime === 'today' && !sameDay(start, today)) return false;
-        if (selectedTime === 'tomorrow' && !sameDay(start, tomorrow)) return false;
-        if (selectedTime === 'evening' && start.getHours() < 18) return false;
-        if (selectedTime === 'weekend' && ![0, 6].includes(start.getDay())) return false;
-      }
       // Filter by Price
       if (selectedPrice !== 'all') {
         const priceVnd = parseStoredCostToVnd(room.price_info);
@@ -146,7 +135,7 @@ function GameRoom() {
       return true;
     });
     return sortBySportExperience(visibleRooms, sportExperience, (room) => room.sportId || room.sportName);
-  }, [rooms, selectedSport, selectedLevel, selectedLocation, selectedTime, selectedPrice, searchQuery, sportExperience, myPostsOnly, user?.id]);
+  }, [rooms, selectedSport, selectedLevel, selectedLocation, selectedPrice, searchQuery, sportExperience, myPostsOnly, user?.id]);
 
   const handleCreateSubmit = async (newRoomData) => {
     setIsLoading(true);
@@ -205,15 +194,36 @@ function GameRoom() {
     setIsCreateOpen(true);
   };
 
+  const openAutoSearchModal = () => {
+    if (!user?.isPremium) {
+      showToast('Tự động tìm phòng là tính năng dành cho tài khoản Premium.');
+      return;
+    }
+    setIsAutoSearchOpen(true);
+  };
+
   const handleJoinConfirm = async (roomId, note) => {
     setIsLoading(true);
     try {
       await gameRoomService.join(roomId, note);
       await loadRooms();
-      showToast('Đã gửi yêu cầu tham gia phòng.');
+      showToast(joiningRoom?.isAutoInvite ? 'Đã nhận lời mời vào phòng.' : 'Đã gửi yêu cầu tham gia phòng.');
       setJoiningRoom(null);
     } catch (err) {
       showToast(err.message || 'Không gửi được yêu cầu tham gia');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeclineInvite = async (room) => {
+    setIsLoading(true);
+    try {
+      await gameRoomService.respondInvite(room.id, 'REJECT');
+      await loadRooms();
+      showToast('Đã từ chối lời mời tự động.');
+    } catch (err) {
+      showToast(err.message || 'Không thể từ chối lời mời');
     } finally {
       setIsLoading(false);
     }
@@ -294,13 +304,16 @@ function GameRoom() {
               <span>Bộ lọc</span>
               <ChevronDown className={`w-4 h-4 transition-transform ${isMobileFilterOpen ? 'rotate-180' : ''}`} />
             </button>
-            <button
-              onClick={openCreateModal}
-              className="sg-action-button flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap"
-            >
-              <PlusCircle className="w-4 h-4 shrink-0" />
-              <span>Tạo phòng</span>
-            </button>
+            <div className="flex shrink-0 items-center gap-1.5">
+              <button type="button" onClick={openAutoSearchModal} className="sg-auto-search-button sg-action-button flex items-center justify-center gap-1.5 whitespace-nowrap" title="Thiết lập tự động tìm phòng">
+                <Sparkles className="h-4 w-4 shrink-0" />
+                <span>Thiết lập</span>
+              </button>
+              <button type="button" onClick={openCreateModal} className="sg-action-button flex items-center justify-center gap-1.5 whitespace-nowrap">
+                <PlusCircle className="h-4 w-4 shrink-0" />
+                <span>Mở phòng</span>
+              </button>
+            </div>
           </div>
 
           {/* Filter Boxes Grid */}
@@ -344,21 +357,7 @@ function GameRoom() {
               <option value="Quận 3">Quận 3</option>
             </FilterSelect>
 
-            {/* 2. Thời gian (Time) */}
-            <FilterSelect
-              icon={Calendar}
-              iconColor="text-blue-500"
-              value={selectedTime}
-              onChange={(e) => setSelectedTime(e.target.value)}
-            >
-              <option value="all">Tất cả giờ</option>
-              <option value="today">Hôm nay</option>
-              <option value="tomorrow">Ngày mai</option>
-              <option value="evening">Buổi tối</option>
-              <option value="weekend">Cuối tuần</option>
-            </FilterSelect>
-
-            {/* 3. Phí giao lưu (Price) */}
+            {/* 2. Phí giao lưu (Price) */}
             <FilterSelect
               icon={DollarSign}
               iconColor="text-amber-500"
@@ -372,7 +371,7 @@ function GameRoom() {
               <option value="Trên 100k">Trên 100.000đ</option>
             </FilterSelect>
 
-            {/* 4. Trình độ (Skill) */}
+            {/* 3. Trình độ (Skill) */}
             <FilterSelect
               icon={Award}
               iconColor="text-[#589470] dark:text-[#74C365]"
@@ -389,14 +388,16 @@ function GameRoom() {
           </div>
 
           {/* Right action: Create Button */}
-          <button
-            onClick={openCreateModal}
-            className="sg-action-button hidden xl:flex items-center justify-center gap-1.5 sm:gap-2 group shrink-0 whitespace-nowrap"
-          >
-            <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 group-hover:rotate-90 transition-transform duration-300 shrink-0" />
-            <span className="sm:hidden">Mở phòng</span>
-            <span className="hidden sm:inline">Mở phòng chờ</span>
-          </button>
+          <div className="hidden shrink-0 items-center gap-2 xl:flex">
+            <button type="button" onClick={openAutoSearchModal} className="sg-auto-search-button sg-action-button flex items-center justify-center gap-1.5 whitespace-nowrap" title="Thiết lập tự động tìm phòng">
+              <Sparkles className="h-4 w-4 shrink-0" />
+              <span>Thiết lập</span>
+            </button>
+            <button type="button" onClick={openCreateModal} className="sg-action-button flex items-center justify-center gap-1.5 group whitespace-nowrap">
+              <PlusCircle className="h-4 w-4 shrink-0 transition-transform duration-300 group-hover:rotate-90" />
+              <span>Mở phòng</span>
+            </button>
+          </div>
 
         </div>
       </div>
@@ -437,6 +438,7 @@ function GameRoom() {
                 room={room}
                 currentUserId={user?.id || 0}
                 onJoin={(r) => setJoiningRoom(r)}
+                onDecline={handleDeclineInvite}
                 onChat={(r) => handleOpenChat(r)}
                 onManage={(r) => setManagingRoom(r)}
               />
@@ -475,6 +477,12 @@ function GameRoom() {
         onEdit={handleEditRoom}
         onDelete={handleDeleteRoom}
         isLoading={isLoading}
+      />
+
+      <AutoRoomSearchModal
+        isOpen={isAutoSearchOpen}
+        onClose={() => setIsAutoSearchOpen(false)}
+        onSaved={() => showToast('Đã lưu thiết lập tự động tìm phòng. Bạn sẽ nhận thông báo khi có phòng phù hợp.')}
       />
     </div>
   );

@@ -9,6 +9,12 @@ from app.notification_utils import create_notification, display_name
 from app.sport_catalog import SPORTS, resolve_sport, sport_key_for
 
 router = APIRouter(prefix="/teams", tags=["Teams & Clubs"])
+BASIC_TEAM_MAX_MEMBERS = 15
+
+
+def _team_capacity(team: models.Team) -> int:
+    """Premium owners can use the configured expansion; others are capped at 15."""
+    return team.total_slots if team.owner and team.owner.is_premium else min(team.total_slots, BASIC_TEAM_MAX_MEMBERS)
 
 def _team_payloads(db: Session, teams: List[models.Team], user_id: Optional[int] = None):
     if not teams:
@@ -61,23 +67,33 @@ def _team_payloads(db: Session, teams: List[models.Team], user_id: Optional[int]
         sport = sports.get(team.sport_id)
         sport_key = team.sport_key or sport_key_for(sport.name if sport else "")
         review_average = round(float(average), 1) if rating_count else round(float(team.rating or 0), 1)
+        owner_is_premium = bool(owner and owner.is_premium)
+        effective_capacity = team.total_slots if owner_is_premium else min(team.total_slots, BASIC_TEAM_MAX_MEMBERS)
+        can_view_premium_settings = bool(
+            user_id is not None
+            and (team.owner_id == user_id or (membership and membership.status == "APPROVED"))
+        )
 
         payloads.append({
             "id": team.id,
             "owner_id": team.owner_id,
             "owner_name": owner.profile.full_name if owner and owner.profile and owner.profile.full_name else (owner.email if owner else "Người mở CLB chưa cập nhật"),
-            "owner_is_premium": bool(owner and owner.is_premium),
+            "owner_avatar_url": owner.profile.avatar_url if owner and owner.profile else None,
+            "owner_is_premium": owner_is_premium,
             "name": team.name,
             "sport_id": sport_key,
             "sport_name": team.sport_name or (sport.name if sport else "Môn thể thao"),
             "description": team.description,
             "location": team.location or "Chưa cập nhật",
-            "total_slots": team.total_slots,
+            "total_slots": effective_capacity,
             "member_count": max(approved_count, 1),
             "rating": review_average,
             "rating_count": int(rating_count or team.rating_count or 0),
             "image_url": team.image_url,
             "tags": team.tags or [],
+            "fee_reminder_day": team.fee_reminder_day if can_view_premium_settings else None,
+            "fee_reminder_frequency": team.fee_reminder_frequency if can_view_premium_settings else None,
+            "activity_schedule": (team.activity_schedule or []) if can_view_premium_settings else [],
             "membership_status": membership.status if membership else None,
             "is_captain": team.owner_id == user_id if user_id is not None else False,
             "is_member": bool(membership and membership.status == "APPROVED"),
@@ -140,6 +156,8 @@ def create_team(
 ):
     if current_user.is_admin:
         raise HTTPException(status_code=403, detail="Tài khoản quản trị chỉ dùng để kiểm duyệt")
+    if not current_user.is_premium and data.total_slots > BASIC_TEAM_MAX_MEMBERS:
+        raise HTTPException(status_code=403, detail=f"Tài khoản chưa Premium chỉ được mở CLB tối đa {BASIC_TEAM_MAX_MEMBERS} thành viên")
     sport_key = data.sport_id.strip().casefold()
     sport = resolve_sport(db, sport_key)
     team = models.Team(
@@ -187,6 +205,8 @@ def update_team(
     sport_key = changes.pop("sport_id", None)
     changes.pop("sport_name", None)
     if "total_slots" in changes:
+        if not current_user.is_premium and changes["total_slots"] > BASIC_TEAM_MAX_MEMBERS:
+            raise HTTPException(status_code=403, detail=f"Tài khoản chưa Premium chỉ được mở CLB tối đa {BASIC_TEAM_MAX_MEMBERS} thành viên")
         approved = db.query(models.TeamMembership).filter(
             models.TeamMembership.team_id == team.id,
             models.TeamMembership.status == "APPROVED",
@@ -201,6 +221,29 @@ def update_team(
         team.sport_id = sport.id
         team.sport_key = sport_key
         team.sport_name = SPORTS[sport_key]["name"]
+    db.commit()
+    db.refresh(team)
+    return _team_payload(db, team, current_user.id)
+
+
+@router.patch("/{team_id}/premium-settings", response_model=schemas.TeamResponse)
+def update_team_premium_settings(
+    team_id: int,
+    data: schemas.TeamPremiumSettingsUpdate,
+    current_user: models.User = Depends(auth_utils.get_current_user),
+    db: Session = Depends(database.get_db),
+):
+    if current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Tài khoản quản trị chỉ dùng để kiểm duyệt")
+    team = _get_team_or_404(db, team_id)
+    if team.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Chỉ trưởng CLB mới được chỉnh sửa thiết lập Premium")
+    if not current_user.is_premium:
+        raise HTTPException(status_code=403, detail="Thiết lập quản lý CLB chỉ dành cho chủ CLB Premium")
+    team.fee_reminder_day = data.fee_reminder_day if data.fee_reminder_frequency else None
+    team.fee_reminder_frequency = data.fee_reminder_frequency
+    team.activity_schedule = [slot.model_dump() for slot in data.activity_schedule]
+    team.fee_reminder_last_sent_at = None
     db.commit()
     db.refresh(team)
     return _team_payload(db, team, current_user.id)
@@ -236,7 +279,7 @@ def request_to_join_team(
     if existing and existing.status == "PENDING":
         raise HTTPException(status_code=409, detail="Yêu cầu tham gia đang chờ duyệt")
     approved = db.query(models.TeamMembership).filter_by(team_id=team.id, status="APPROVED").count()
-    if approved >= team.total_slots:
+    if approved >= _team_capacity(team):
         raise HTTPException(status_code=409, detail="CLB đã đủ thành viên")
     if existing:
         existing.status = "PENDING"
@@ -354,7 +397,7 @@ def set_member_status(
     previous_status = member.status
     if data.status == "APPROVED" and member.status != "APPROVED":
         approved = db.query(models.TeamMembership).filter_by(team_id=team.id, status="APPROVED").count()
-        if approved >= team.total_slots:
+        if approved >= _team_capacity(team):
             raise HTTPException(status_code=409, detail="CLB đã đủ thành viên")
     member.status = data.status
     if previous_status == "PENDING" and data.status == "APPROVED":

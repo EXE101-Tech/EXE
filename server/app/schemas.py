@@ -93,6 +93,7 @@ class UserProfileWithSportsUpdate(BaseModel):
     sports: Optional[Dict[str, str]] = None
     avatar_url: Optional[str] = None
     cover_url: Optional[str] = None
+    district: Optional[str] = Field(None, max_length=120)
 
 class UserProfileResponse(UserProfileBase):
     user_id: int
@@ -105,6 +106,15 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str
     name: str
+    district: str = Field(..., min_length=1, max_length=120)
+
+    @field_validator("district")
+    @classmethod
+    def normalize_district(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Khu vực hoạt động không được để trống")
+        return value
 
 class UserLogin(UserBase):
     password: str
@@ -364,6 +374,9 @@ class MatchParticipantResponse(BaseModel):
     status: str
     attendance_status: Optional[str] = None
     note: Optional[str] = None
+    invite_source: Optional[str] = None
+    invited_at: Optional[datetime] = None
+    invite_round: Optional[int] = None
     joined_at: datetime
     user: UserBasicResponse
     model_config = ConfigDict(from_attributes=True)
@@ -418,11 +431,67 @@ class MatchResponse(BaseModel):
     end_time: datetime
     max_players: int
     status: str
+    is_priority: bool = False
     created_at: datetime
     host: UserBasicResponse
     sport: SportResponse
     court: Optional[CourtResponse] = None
     participants: List[MatchParticipantResponse] = []
+    model_config = ConfigDict(from_attributes=True)
+
+class MatchInviteResponse(BaseModel):
+    action: Literal["ACCEPT", "REJECT"]
+
+
+class RoomSearchTimeSlot(BaseModel):
+    """A selectable 30-minute local-time cell (weekday: Monday=0 … Sunday=6)."""
+    weekday: int = Field(..., ge=0, le=6)
+    time: str = Field(..., pattern=r"^(?:[01]\d|2[0-3]):(?:00|30)$")
+
+
+class RoomSearchPreferenceBase(BaseModel):
+    sport_id: Optional[int] = Field(None, gt=0)
+    required_level: Optional[str] = None
+    max_price: Optional[int] = Field(None, ge=0, description="Maximum room cost per player in VND")
+    location: Optional[str] = Field(None, max_length=255)
+    time_slots: List[RoomSearchTimeSlot] = Field(default_factory=list, max_length=252)
+    is_active: bool = True
+
+    @field_validator("required_level")
+    @classmethod
+    def validate_required_level(cls, value: Optional[str]) -> Optional[str]:
+        if value is None or value == "":
+            return None
+        valid_levels = {"Beginner", "Intermediate", "Advanced", "Expert"}
+        if value not in valid_levels:
+            raise ValueError("Mức độ kỹ năng không hợp lệ")
+        return value
+
+    @field_validator("location")
+    @classmethod
+    def normalize_location(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        value = value.strip()
+        return value or None
+
+    @model_validator(mode="after")
+    def validate_slots(self) -> "RoomSearchPreferenceBase":
+        unique_slots = {(slot.weekday, slot.time) for slot in self.time_slots}
+        if len(unique_slots) != len(self.time_slots):
+            raise ValueError("Các khung giờ không được trùng nhau")
+        return self
+
+
+class RoomSearchPreferenceCreate(RoomSearchPreferenceBase):
+    pass
+
+
+class RoomSearchPreferenceResponse(RoomSearchPreferenceBase):
+    id: int
+    user_id: int
+    created_at: datetime
+    updated_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
 class ParticipantStatusUpdate(BaseModel):
@@ -540,7 +609,7 @@ class TeamCreate(BaseModel):
     sport_name: str = Field(..., min_length=2, max_length=80)
     description: Optional[str] = None
     location: str = Field(..., min_length=2, max_length=255)
-    total_slots: int = Field(20, ge=2, le=500)
+    total_slots: int = Field(15, ge=2, le=500)
     image_url: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
 
@@ -558,6 +627,7 @@ class TeamResponse(BaseModel):
     id: int
     owner_id: Optional[int] = None
     owner_name: str
+    owner_avatar_url: Optional[str] = None
     owner_is_premium: bool = False
     name: str
     sport_id: str
@@ -570,6 +640,9 @@ class TeamResponse(BaseModel):
     rating_count: int
     image_url: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
+    fee_reminder_day: Optional[int] = Field(None, ge=0, le=6)
+    fee_reminder_frequency: Optional[Literal["WEEKLY", "MONTHLY"]] = None
+    activity_schedule: List[Dict[str, object]] = Field(default_factory=list)
     membership_status: Optional[str] = None
     is_captain: bool = False
     is_member: bool = False
@@ -610,6 +683,26 @@ class TeamReviewResponse(BaseModel):
     tags: List[str] = Field(default_factory=list)
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
+
+class TeamActivityTimeSlot(BaseModel):
+    weekday: int = Field(..., ge=0, le=4)
+    time: str = Field(..., pattern=r"^(?:[01]\d|2[0-3]):(?:00|30)$")
+
+class TeamPremiumSettingsUpdate(BaseModel):
+    fee_reminder_day: Optional[int] = Field(None, ge=0, le=6)
+    fee_reminder_frequency: Optional[Literal["WEEKLY", "MONTHLY"]] = None
+    activity_schedule: List[TeamActivityTimeSlot] = Field(default_factory=list, max_length=180)
+
+    @model_validator(mode="after")
+    def validate_settings(self) -> "TeamPremiumSettingsUpdate":
+        if self.fee_reminder_frequency and self.fee_reminder_day is None:
+            raise ValueError("Hãy chọn ngày nhắc thu phí")
+        if self.fee_reminder_frequency is None and self.fee_reminder_day is not None:
+            raise ValueError("Hãy chọn loại nhắc thu phí hoặc để trống cả hai")
+        unique_slots = {(slot.weekday, slot.time) for slot in self.activity_schedule}
+        if len(unique_slots) != len(self.activity_schedule):
+            raise ValueError("Lịch hoạt động không được có khung giờ trùng nhau")
+        return self
 
 
 # Forum / find-a-game (LFG) schemas

@@ -45,6 +45,13 @@ export function sortBySportExperience(items, experienceBySport, getSport, getCre
     const rightRank = experienceBySport.get(normalizeSportKey(getSport(right))) || 0;
     if (leftRank !== rightRank) return rightRank - leftRank;
 
+    // A Premium room that is close to starting and still has empty slots is
+    // boosted only inside the same experience tier. It can never jump ahead
+    // of a sport the viewer has ranked higher.
+    const leftPriority = left.is_priority ? 1 : 0;
+    const rightPriority = right.is_priority ? 1 : 0;
+    if (leftPriority !== rightPriority) return rightPriority - leftPriority;
+
     const leftCreatedAt = Date.parse(getCreatedAt(left) || '') || 0;
     const rightCreatedAt = Date.parse(getCreatedAt(right) || '') || 0;
     return rightCreatedAt - leftCreatedAt;

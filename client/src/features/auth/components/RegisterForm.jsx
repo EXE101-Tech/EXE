@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { UserPlus, CheckCircle, Mail, Eye, EyeOff } from 'lucide-react';
+import { UserPlus, CheckCircle, Eye, EyeOff } from 'lucide-react';
 import { validateEmail, validatePassword } from '../../../shared/utils/validators';
+import { ACTIVITY_DISTRICTS } from '../../../shared/constants/districts';
 
 import { useAuth } from '../../../shared/context/AuthContext';
 
 function RegisterForm({ onShowLogin }) {
   const { register } = useAuth();
-  const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '' });
+  const [form, setForm] = useState({ name: '', district: '', email: '', password: '', confirmPassword: '' });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -22,6 +23,7 @@ function RegisterForm({ onShowLogin }) {
     e.preventDefault();
     const errs = {};
     if (!form.name.trim()) errs.name = 'Vui lòng nhập họ và tên';
+    if (!form.district) errs.district = 'Vui lòng chọn quận/khu vực hoạt động';
     
     const emailErr = validateEmail(form.email);
     if (emailErr) errs.email = emailErr;
@@ -42,7 +44,8 @@ function RegisterForm({ onShowLogin }) {
       await register({
         email: form.email,
         password: form.password,
-        name: form.name
+        name: form.name,
+        district: form.district,
       });
       setIsSuccess(true);
     } catch (err) {
@@ -102,6 +105,20 @@ function RegisterForm({ onShowLogin }) {
               className={inputCls('name')}
             />
             {errors.name && <p className="text-red-300 text-[10px] mt-0.5 sm:mt-1 pl-1 font-medium">{errors.name}</p>}
+          </div>
+
+          {/* Khu vực hoạt động */}
+          <div>
+            <label className="block text-[11px] sm:text-xs font-semibold text-slate-700 dark:text-gray-300 mb-0.5 sm:mb-1">Khu vực hoạt động</label>
+            <select
+              value={form.district}
+              onChange={onChange('district')}
+              className={inputCls('district')}
+            >
+              <option value="">Chọn quận/khu vực</option>
+              {ACTIVITY_DISTRICTS.map((district) => <option key={district} value={district}>{district}</option>)}
+            </select>
+            {errors.district && <p className="text-red-300 text-[10px] mt-0.5 sm:mt-1 pl-1 font-medium">{errors.district}</p>}
           </div>
 
           {/* Email */}
