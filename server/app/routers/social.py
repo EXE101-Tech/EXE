@@ -11,6 +11,11 @@ from app.notification_utils import display_name
 router = APIRouter(prefix="/social/posts", tags=["Social feed"])
 
 
+def _ensure_interaction_allowed(current_user: models.User) -> None:
+    if current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Tài khoản quản trị chỉ dùng để kiểm duyệt")
+
+
 def _post_or_404(db: Session, post_id: int) -> models.SocialPost:
     post = db.query(models.SocialPost).options(
         joinedload(models.SocialPost.author).joinedload(models.User.profile),
@@ -69,6 +74,7 @@ def _post_payloads(db: Session, posts: list[models.SocialPost], current_user_id:
             "author_name": display_name(post.author) if post.author else "Người dùng SportGo",
             "author_avatar_url": profile.avatar_url if profile else None,
             "author_owner_status": post.author.owner_status if post.author else "none",
+            "author_is_premium": bool(post.author and post.author.is_premium),
             "friendship_status": friendship_states.get(post.author_id, {}).get("status", "none"),
             "friendship_id": friendship_states.get(post.author_id, {}).get("id"),
             "content": post.content,
@@ -208,6 +214,7 @@ def create_social_post(
     current_user: models.User = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db),
 ):
+    _ensure_interaction_allowed(current_user)
     post = models.SocialPost(author_id=current_user.id, **data.model_dump())
     db.add(post)
     db.commit()
@@ -222,6 +229,7 @@ def update_social_post(
     current_user: models.User = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db),
 ):
+    _ensure_interaction_allowed(current_user)
     post = _post_or_404(db, post_id)
     if post.author_id != current_user.id:
         raise HTTPException(status_code=403, detail="Chỉ tác giả mới được chỉnh sửa bài viết")
@@ -247,7 +255,7 @@ def delete_social_post(
     db: Session = Depends(database.get_db),
 ):
     post = _post_or_404(db, post_id)
-    if post.author_id != current_user.id:
+    if not current_user.is_admin and post.author_id != current_user.id:
         raise HTTPException(status_code=403, detail="Chỉ tác giả mới được xóa bài viết")
     db.delete(post)
     db.commit()
@@ -260,6 +268,7 @@ def like_social_post(
     current_user: models.User = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db),
 ):
+    _ensure_interaction_allowed(current_user)
     _post_or_404(db, post_id)
     like = db.query(models.SocialPostLike).filter_by(post_id=post_id, user_id=current_user.id).first()
     if not like:
@@ -278,6 +287,7 @@ def unlike_social_post(
     current_user: models.User = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db),
 ):
+    _ensure_interaction_allowed(current_user)
     _post_or_404(db, post_id)
     db.query(models.SocialPostLike).filter_by(post_id=post_id, user_id=current_user.id).delete(synchronize_session=False)
     db.commit()
@@ -307,6 +317,7 @@ def create_social_post_comment(
     current_user: models.User = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db),
 ):
+    _ensure_interaction_allowed(current_user)
     _post_or_404(db, post_id)
     parent_id = data.parent_id
     if parent_id is not None:
@@ -336,6 +347,7 @@ def update_social_post_comment(
     current_user: models.User = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db),
 ):
+    _ensure_interaction_allowed(current_user)
     comment = db.query(models.SocialPostComment).filter_by(id=comment_id, post_id=post_id).first()
     if not comment:
         raise HTTPException(status_code=404, detail="Không tìm thấy bình luận")
@@ -361,6 +373,7 @@ def set_social_post_comment_reaction(
     current_user: models.User = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db),
 ):
+    _ensure_interaction_allowed(current_user)
     comment = db.query(models.SocialPostComment).filter_by(id=comment_id, post_id=post_id).first()
     if not comment:
         raise HTTPException(status_code=404, detail="Không tìm thấy bình luận")
@@ -401,6 +414,7 @@ def remove_social_post_comment_reaction(
     current_user: models.User = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db),
 ):
+    _ensure_interaction_allowed(current_user)
     comment = db.query(models.SocialPostComment).filter_by(id=comment_id, post_id=post_id).first()
     if not comment:
         raise HTTPException(status_code=404, detail="Không tìm thấy bình luận")
@@ -423,7 +437,7 @@ def delete_social_post_comment(
     if not comment:
         raise HTTPException(status_code=404, detail="Không tìm thấy bình luận")
     post = db.query(models.SocialPost.author_id).filter(models.SocialPost.id == post_id).scalar()
-    if current_user.id not in {comment.author_id, post}:
+    if not current_user.is_admin and current_user.id not in {comment.author_id, post}:
         raise HTTPException(status_code=403, detail="Bạn không thể xóa bình luận này")
     db.delete(comment)
     db.commit()

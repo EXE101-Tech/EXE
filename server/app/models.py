@@ -14,8 +14,17 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     status = Column(String, default="active")  # active, banned
     owner_status = Column(String, default="none", nullable=False)  # none, registered
+    # Moderators are separate from club/court ownership.  Keep this flag server-side
+    # so the UI cannot grant itself moderation permissions.
+    is_admin = Column(Boolean, nullable=False, default=False, server_default="false", index=True)
+    premium_until = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=utc_now_naive)
     updated_at = Column(DateTime, default=utc_now_naive, onupdate=utc_now_naive)
+
+    @property
+    def is_premium(self):
+        """Whether the account currently has an active Premium entitlement."""
+        return bool(self.premium_until and self.premium_until > utc_now_naive())
 
     # Relationships
     profile = relationship("UserProfile", uselist=False, back_populates="user", cascade="all, delete-orphan")
@@ -34,6 +43,18 @@ class User(Base):
     conversations_as_user1 = relationship("Conversation", foreign_keys="Conversation.user1_id", back_populates="user1")
     conversations_as_user2 = relationship("Conversation", foreign_keys="Conversation.user2_id", back_populates="user2")
     sent_messages = relationship("Message", back_populates="sender")
+    premium_payments = relationship(
+        "PremiumPayment",
+        foreign_keys="PremiumPayment.user_id",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    room_search_preference = relationship(
+        "RoomSearchPreference",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
 
 
 class OAuthIdentity(Base):
@@ -186,6 +207,18 @@ class Match(Base):
     court = relationship("Court", back_populates="matches")
     participants = relationship("MatchParticipant", back_populates="match", cascade="all, delete-orphan")
 
+    @property
+    def is_priority(self):
+        """Whether this Premium-hosted room should be boosted while filling."""
+        if not self.host or not self.host.is_premium or self.status != "OPEN":
+            return False
+        now = utc_now_naive()
+        remaining = self.start_time - now
+        if remaining.total_seconds() <= 0 or remaining.total_seconds() >= 4 * 60 * 60:
+            return False
+        approved_count = sum(1 for participant in (self.participants or []) if participant.status == "APPROVED")
+        return approved_count < (self.max_players or 0)
+
 class MatchParticipant(Base):
     __tablename__ = "match_participants"
 
@@ -196,15 +229,42 @@ class MatchParticipant(Base):
     status = Column(String, default="APPROVED")  # PENDING, APPROVED, REJECTED
     attendance_status = Column(String(16), nullable=True)  # ATTENDED, ABSENT; set by host after match ends
     note = Column(Text, nullable=True)
+    invite_source = Column(String(20), nullable=True)  # AUTO for Premium automatic invitations
+    invited_at = Column(DateTime, nullable=True)
+    invite_round = Column(Integer, nullable=True)
     joined_at = Column(DateTime, default=utc_now_naive)
 
     __table_args__ = (
         Index("ix_match_participants_user_attendance", "user_id", "attendance_status"),
+        Index("ix_match_participants_invite_source", "invite_source"),
+        Index("ix_match_participants_invited_at", "invited_at"),
     )
 
     # Relationships
     match = relationship("Match", back_populates="participants")
     user = relationship("User", back_populates="participations")
+
+
+class RoomSearchPreference(Base):
+    """Premium user's saved criteria for automatic game-room matching."""
+    __tablename__ = "room_search_preferences"
+    __table_args__ = (
+        UniqueConstraint("user_id", name="uq_room_search_preferences_user_id"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    sport_id = Column(Integer, ForeignKey("sports.id", ondelete="SET NULL"), nullable=True, index=True)
+    required_level = Column(String(20), nullable=True)
+    max_price = Column(Integer, nullable=True)
+    location = Column(String(255), nullable=True)
+    time_slots = Column(JSON, nullable=False, default=list)
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
+    created_at = Column(DateTime, nullable=False, default=utc_now_naive)
+    updated_at = Column(DateTime, nullable=False, default=utc_now_naive, onupdate=utc_now_naive)
+
+    user = relationship("User", back_populates="room_search_preference")
+    sport = relationship("Sport")
 
 class BlacklistedToken(Base):
     __tablename__ = "blacklisted_tokens"
@@ -232,9 +292,13 @@ class Team(Base):
     sport_name = Column(String(80), nullable=True)
     description = Column(Text, nullable=True)
     location = Column(String(255), nullable=True)
-    total_slots = Column(Integer, nullable=False, default=20)
+    total_slots = Column(Integer, nullable=False, default=15)
     image_url = Column(Text, nullable=True)
     tags = Column(JSON, nullable=False, default=list)
+    fee_reminder_day = Column(Integer, nullable=True)  # Monday=0 … Sunday=6
+    fee_reminder_frequency = Column(String(16), nullable=True)  # WEEKLY or MONTHLY
+    fee_reminder_last_sent_at = Column(DateTime, nullable=True)
+    activity_schedule = Column(JSON, nullable=False, default=list)
     rating = Column(Float, nullable=True, default=0.0)
     rating_count = Column(Integer, nullable=False, default=0)
     avatar_badge = Column(String, nullable=True)
@@ -382,6 +446,44 @@ class SocialPostCommentReaction(Base):
 
     comment = relationship("SocialPostComment", back_populates="reactions")
     user = relationship("User")
+
+
+class PremiumPayment(Base):
+    """Manual Premium payment submitted with a QR transfer proof."""
+    __tablename__ = "premium_payments"
+    __table_args__ = (
+        UniqueConstraint("payment_code", name="uq_premium_payments_payment_code"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    payment_code = Column(String(32), nullable=False, index=True)
+    amount = Column(Integer, nullable=False, default=30000)
+    proof_url = Column(Text, nullable=True)
+    status = Column(String(20), nullable=False, default="PENDING", index=True)  # PENDING, APPROVED, REJECTED
+    submitted_at = Column(DateTime, nullable=False, default=utc_now_naive, index=True)
+    reviewed_at = Column(DateTime, nullable=True)
+    reviewed_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    review_note = Column(Text, nullable=True)
+
+    user = relationship("User", foreign_keys=[user_id], back_populates="premium_payments")
+    reviewer = relationship("User", foreign_keys=[reviewed_by])
+
+
+class ModerationWarning(Base):
+    """A warning issued by an admin to a team owner or game-room host."""
+    __tablename__ = "moderation_warnings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    admin_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    recipient_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    target_type = Column(String(20), nullable=False)  # team, game_room
+    target_id = Column(Integer, nullable=False, index=True)
+    message = Column(Text, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=utc_now_naive, index=True)
+
+    admin = relationship("User", foreign_keys=[admin_id])
+    recipient = relationship("User", foreign_keys=[recipient_id])
 
 
 class Notification(Base):

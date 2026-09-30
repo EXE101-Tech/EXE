@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { CheckCircle, ImagePlus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { storageService } from '../../shared/services/api';
+import { ACTIVITY_DISTRICTS } from '../../shared/constants/districts';
 
 const ALL_SPORTS = [
   { key: 'badminton', label: 'Cầu lông' },
@@ -24,6 +25,7 @@ function EditProfileModal({ isOpen, onClose, user, onSave }) {
 
   const [formData, setFormData] = useState({
     name: '',
+    district: '',
     sports: {},
     avatar_url: '',
   });
@@ -51,6 +53,7 @@ function EditProfileModal({ isOpen, onClose, user, onSave }) {
 
         setFormData({
           name: user?.profile?.full_name || user?.name || '',
+          district: user?.profile?.district || '',
           sports: initialSports,
           avatar_url: user?.profile?.avatar_url || '',
         });
@@ -179,6 +182,20 @@ function EditProfileModal({ isOpen, onClose, user, onSave }) {
                 className="w-full bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 rounded-2xl px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all" 
                 placeholder={t('profile.enterFullName')}
               />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5 ml-1">Khu vực hoạt động</label>
+              <select
+                name="district"
+                value={formData.district}
+                onChange={handleChange}
+                className="w-full bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 rounded-2xl px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+              >
+                <option value="">Chọn quận/khu vực</option>
+                {ACTIVITY_DISTRICTS.map((district) => <option key={district} value={district}>{district}</option>)}
+              </select>
+              <p className="mt-1 ml-1 text-[11px] text-gray-500 dark:text-gray-400">Dùng để ghép lời mời phòng gần bạn.</p>
             </div>
 
             <div className="pt-2">

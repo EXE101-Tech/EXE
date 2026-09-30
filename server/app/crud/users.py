@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from app import models, schemas
 from app.sport_catalog import resolve_sport, sport_key_for
 
@@ -6,18 +7,23 @@ def get_user_by_id(db: Session, user_id: int):
     return db.query(models.User).filter(models.User.id == user_id).first()
 
 def get_user_by_email(db: Session, email: str):
-    return db.query(models.User).filter(models.User.email == email).first()
+    normalized = email.strip().lower()
+    return db.query(models.User).filter(func.lower(models.User.email) == normalized).first()
 
 def create_user(db: Session, user: schemas.UserCreate):
     from app.auth_utils import get_password_hash
     hashed_password = get_password_hash(user.password)
-    db_user = models.User(email=user.email, password_hash=hashed_password)
+    db_user = models.User(email=user.email.strip().lower(), password_hash=hashed_password)
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
     
     # Create profile with user's name
-    db_profile = models.UserProfile(user_id=db_user.id, full_name=user.name)
+    db_profile = models.UserProfile(
+        user_id=db_user.id,
+        full_name=user.name,
+        district=(user.district or '').strip() or None,
+    )
     db.add(db_profile)
     db.commit()
     db.refresh(db_user)
@@ -44,6 +50,8 @@ def update_user_profile_with_sports(db: Session, user_id: int, data: schemas.Use
         db_profile.avatar_url = data.avatar_url
     if data.cover_url is not None:
         db_profile.cover_url = data.cover_url
+    if data.district is not None:
+        db_profile.district = data.district.strip() or None
         
     if data.sports is not None:
         for sport_name, skill_level in data.sports.items():

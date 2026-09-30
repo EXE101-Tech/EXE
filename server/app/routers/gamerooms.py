@@ -4,11 +4,71 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from app import database, schemas, crud, auth_utils, models
 from app.notification_utils import create_notification, display_name
+from app.auto_room_search import notify_matching_users_for_match, notify_matches_for_preference
+from app.auto_room_invites import process_auto_room_invite_for_match
 
 router = APIRouter(
     prefix="/gamerooms",
     tags=["Game Rooms"]
 )
+
+
+def _require_premium(current_user):
+    if not current_user.is_premium:
+        raise HTTPException(status_code=403, detail="Tính năng tự động tìm phòng chỉ dành cho tài khoản Premium")
+
+
+@router.get("/auto-search", response_model=Optional[schemas.RoomSearchPreferenceResponse])
+def get_auto_search_preference(
+    current_user = Depends(auth_utils.get_current_user),
+    db: Session = Depends(database.get_db),
+):
+    _require_premium(current_user)
+    return db.query(models.RoomSearchPreference).filter(
+        models.RoomSearchPreference.user_id == current_user.id,
+    ).first()
+
+
+@router.put("/auto-search", response_model=schemas.RoomSearchPreferenceResponse)
+def save_auto_search_preference(
+    preference_data: schemas.RoomSearchPreferenceCreate,
+    current_user = Depends(auth_utils.get_current_user),
+    db: Session = Depends(database.get_db),
+):
+    _require_premium(current_user)
+    if preference_data.sport_id and not db.query(models.Sport.id).filter(models.Sport.id == preference_data.sport_id).first():
+        raise HTTPException(status_code=404, detail="Không tìm thấy môn thể thao")
+
+    preference = db.query(models.RoomSearchPreference).filter(
+        models.RoomSearchPreference.user_id == current_user.id,
+    ).first()
+    if preference is None:
+        preference = models.RoomSearchPreference(user_id=current_user.id)
+        db.add(preference)
+    for field in ("sport_id", "required_level", "max_price", "location", "is_active"):
+        setattr(preference, field, getattr(preference_data, field))
+    preference.time_slots = [slot.model_dump() for slot in preference_data.time_slots]
+    preference.updated_at = models.utc_now_naive()
+    db.commit()
+    db.refresh(preference)
+    notify_matches_for_preference(db, preference)
+    db.commit()
+    return preference
+
+
+@router.delete("/auto-search", status_code=status.HTTP_204_NO_CONTENT)
+def delete_auto_search_preference(
+    current_user = Depends(auth_utils.get_current_user),
+    db: Session = Depends(database.get_db),
+):
+    _require_premium(current_user)
+    preference = db.query(models.RoomSearchPreference).filter(
+        models.RoomSearchPreference.user_id == current_user.id,
+    ).first()
+    if preference:
+        db.delete(preference)
+        db.commit()
+    return None
 
 @router.get("", response_model=List[schemas.MatchResponse])
 def get_all_matches(
@@ -44,7 +104,11 @@ def create_new_match(
         if not court:
             raise HTTPException(status_code=404, detail="Court not found")
             
-    return crud.create_match(db, host_id=current_user.id, match=match_data)
+    match = crud.create_match(db, host_id=current_user.id, match=match_data)
+    notify_matching_users_for_match(db, match, actor=current_user)
+    process_auto_room_invite_for_match(db, match)
+    db.commit()
+    return match
 
 @router.get("/{id}", response_model=schemas.MatchResponse)
 def get_match_by_id(
@@ -52,6 +116,8 @@ def get_match_by_id(
     current_user = Depends(auth_utils.get_optional_current_user),
     db: Session = Depends(database.get_db),
 ):
+    if current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Tài khoản quản trị chỉ dùng để kiểm duyệt")
     crud.close_expired_matches(db)
     match = crud.get_match_by_id(db, match_id=id)
     if not match:
@@ -67,6 +133,8 @@ def update_existing_match(
     current_user = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db),
 ):
+    if current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Tài khoản quản trị chỉ dùng để kiểm duyệt")
     crud.close_expired_matches(db)
     match = crud.get_match_by_id(db, match_id=id)
     if not match:
@@ -86,7 +154,11 @@ def update_existing_match(
     approved_count = db.query(models.MatchParticipant).filter_by(match_id=id, status="APPROVED").count()
     if match_data.max_players < approved_count:
         raise HTTPException(status_code=409, detail="Số người tối đa không thể ít hơn số thành viên đã tham gia")
-    return crud.update_match(db, match_id=id, data=match_data)
+    updated_match = crud.update_match(db, match_id=id, data=match_data)
+    notify_matching_users_for_match(db, updated_match, actor=current_user)
+    process_auto_room_invite_for_match(db, updated_match)
+    db.commit()
+    return updated_match
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_existing_match(
@@ -97,7 +169,7 @@ def delete_existing_match(
     match = crud.get_match_by_id(db, match_id=id)
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
-    if match.host_id != current_user.id:
+    if not current_user.is_admin and match.host_id != current_user.id:
         raise HTTPException(status_code=403, detail="Only the host can delete this match")
 
     approved_members = db.query(models.MatchParticipant.user_id).filter(
@@ -128,6 +200,8 @@ def join_existing_match(
     current_user = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db)
 ):
+    if current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Tài khoản quản trị chỉ dùng để kiểm duyệt")
     crud.close_expired_matches(db)
     # Check if match exists
     match = crud.get_match_by_id(db, match_id=id)
@@ -142,6 +216,33 @@ def join_existing_match(
     if existing and existing.status == "APPROVED":
         raise HTTPException(status_code=409, detail="Bạn đã tham gia phòng này")
     if existing and existing.status == "PENDING":
+        if existing.invite_source == "AUTO":
+            approved_count = db.query(models.MatchParticipant).filter_by(
+                match_id=id,
+                status="APPROVED",
+            ).count()
+            if approved_count >= match.max_players:
+                raise HTTPException(status_code=409, detail="Phòng vừa đủ người")
+            existing.status = "APPROVED"
+            existing.role = "PLAYER"
+            existing.note = data.note or existing.note
+            existing.joined_at = models.utc_now_naive()
+            if approved_count + 1 >= match.max_players:
+                match.status = "FULL"
+            create_notification(
+                db,
+                recipient_id=match.host_id,
+                actor=current_user,
+                notification_type="gameroom_auto_invite_accepted",
+                title="Lời mời tự động đã được nhận",
+                body=f'{display_name(current_user)} đã nhận lời mời vào phòng “{match.title}”.',
+                target_url="/matches",
+                entity_type="game_room",
+                entity_id=match.id,
+            )
+            db.commit()
+            db.refresh(existing)
+            return existing
         raise HTTPException(status_code=409, detail="Yêu cầu tham gia của bạn đang chờ duyệt")
 
     participant = crud.join_match(db, match_id=id, user_id=current_user.id, note=data.note)
@@ -166,6 +267,8 @@ def leave_existing_match(
     current_user = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db)
 ):
+    if current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Tài khoản quản trị chỉ dùng để kiểm duyệt")
     crud.close_expired_matches(db)
     # Check if match exists
     match = crud.get_match_by_id(db, match_id=id)
@@ -268,6 +371,72 @@ def update_participant_attendance(
         raise HTTPException(status_code=404, detail="Không tìm thấy thành viên đã được duyệt trong phòng")
 
     participant.attendance_status = attendance_data.attendance_status
+    db.commit()
+    db.refresh(participant)
+    return participant
+
+
+@router.post("/{id}/invite-response", response_model=schemas.MatchParticipantResponse)
+def respond_to_auto_invite(
+    id: int,
+    response_data: schemas.MatchInviteResponse,
+    current_user = Depends(auth_utils.get_current_user),
+    db: Session = Depends(database.get_db),
+):
+    if current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Tài khoản quản trị chỉ dùng để kiểm duyệt")
+    match = crud.get_match_by_id(db, match_id=id)
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    participant = db.query(models.MatchParticipant).filter_by(
+        match_id=id,
+        user_id=current_user.id,
+        invite_source="AUTO",
+    ).first()
+    if not participant or participant.status != "PENDING":
+        raise HTTPException(status_code=404, detail="Không tìm thấy lời mời đang chờ")
+
+    if response_data.action == "REJECT":
+        participant.status = "REJECTED"
+        create_notification(
+            db,
+            recipient_id=match.host_id,
+            actor=current_user,
+            notification_type="gameroom_auto_invite_rejected",
+            title="Lời mời tự động bị từ chối",
+            body=f'{display_name(current_user)} đã từ chối lời mời vào phòng “{match.title}”.',
+            target_url="/matches",
+            entity_type="game_room",
+            entity_id=match.id,
+        )
+        db.commit()
+        db.refresh(participant)
+        return participant
+
+    if match.status in ["FULL", "CLOSED", "FINISHED", "CANCELLED"]:
+        raise HTTPException(status_code=409, detail="Phòng không còn chỗ trống")
+    approved_count = db.query(models.MatchParticipant).filter_by(
+        match_id=id,
+        status="APPROVED",
+    ).count()
+    if approved_count >= match.max_players:
+        raise HTTPException(status_code=409, detail="Phòng vừa đủ người")
+    participant.status = "APPROVED"
+    participant.role = "PLAYER"
+    participant.joined_at = models.utc_now_naive()
+    if approved_count + 1 >= match.max_players:
+        match.status = "FULL"
+    create_notification(
+        db,
+        recipient_id=match.host_id,
+        actor=current_user,
+        notification_type="gameroom_auto_invite_accepted",
+        title="Lời mời tự động đã được nhận",
+        body=f'{display_name(current_user)} đã nhận lời mời vào phòng “{match.title}”.',
+        target_url="/matches",
+        entity_type="game_room",
+        entity_id=match.id,
+    )
     db.commit()
     db.refresh(participant)
     return participant

@@ -51,7 +51,7 @@ def login(request: Request, login_data: schemas.UserLogin, db: Session = Depends
         )
         
     user = crud.get_user_by_email(db, email=login_data.email)
-    if not user or not auth_utils.verify_password(login_data.password, user.password_hash):
+    if not user or user.status != "active" or not auth_utils.verify_password(login_data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Email hoặc mật khẩu không chính xác",

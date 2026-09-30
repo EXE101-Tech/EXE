@@ -19,13 +19,13 @@ const Particles = memo(function Particles() {
 
   return (
     <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-      {/* Central turquoise green background glow fixed in exact viewport center */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[650px] h-[450px] bg-gradient-to-tr from-emerald-500/25 via-green-500/25 to-lime-400/25 blur-[110px] rounded-full pointer-events-none theme-transition"></div>
+      {/* Central ocean blue background glow fixed in exact viewport center */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[650px] h-[450px] bg-gradient-to-tr from-sky-500/25 via-cyan-500/25 to-blue-400/25 blur-[110px] rounded-full pointer-events-none theme-transition"></div>
 
       {particles.map((p) => (
         <div
           key={p.id}
-          className="absolute rounded-full bg-sky-400 dark:bg-[#74C365] shadow-[0_0_10px_#38BDF8,0_0_18px_rgba(0,240,255,0.5)] dark:shadow-[0_0_10px_#74C365,0_0_18px_rgba(116,195,101,0.6)] theme-transition"
+          className="absolute rounded-full bg-sky-400 dark:bg-cyan-400 shadow-[0_0_10px_#38BDF8,0_0_18px_rgba(0,240,255,0.5)] dark:shadow-[0_0_10px_#22D3EE,0_0_18px_rgba(34,211,238,0.5)] theme-transition"
           style={{
             left: p.left,
             top: p.top,

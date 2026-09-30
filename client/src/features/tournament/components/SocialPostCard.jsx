@@ -2,9 +2,26 @@ import { useEffect, useRef, useState } from 'react';
 import { Heart, LoaderCircle, MessageCircle, Pencil, Send, Trash2, UserPlus, UserRoundCheck, X } from 'lucide-react';
 import { chatService, resolveMediaUrl, socialPostService } from '../../../shared/services/api';
 
+const normalizeUtcTimestamp = (value) => {
+  if (typeof value !== 'string' || !value) return value;
+  return /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value) ? value : `${value}Z`;
+};
+
 const formatDate = (value) => {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? '' : date.toLocaleString('vi-VN', { dateStyle: 'medium', timeStyle: 'short' });
+  const date = new Date(normalizeUtcTimestamp(value));
+  if (Number.isNaN(date.getTime())) return '';
+
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).formatToParts(date).map(({ type, value: partValue }) => [type, partValue]));
+
+  return `${parts.hour}:${parts.minute} | ${parts.day}/${parts.month}/${parts.year}`;
 };
 
 const COMMENT_REACTIONS = [
@@ -259,7 +276,7 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
     const commentReactions = comment.reaction_counts || {};
     const selectedReaction = COMMENT_REACTIONS.find((reaction) => reaction.key === comment.my_reaction);
     const replies = repliesByParent.get(comment.id) || [];
-    return <div key={comment.id} className={isReply ? 'ml-9 border-l border-slate-200 pl-3 dark:border-white/10' : ''}>
+    return <div key={comment.id} className={isReply ? 'ml-9 mt-3 border-l border-slate-200 pl-3 dark:border-white/10' : ''}>
       <div className="flex items-start gap-2.5">
         <Avatar src={comment.author_avatar_url} name={comment.author_name} className={isReply ? 'h-7 w-7 text-[10px]' : 'h-8 w-8 text-xs'} />
         <div className="min-w-0 flex-1 rounded-2xl bg-slate-50 px-3 py-2 dark:bg-white/5">
@@ -279,7 +296,7 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
             {!isReply && <button type="button" onClick={() => { setReplyingToId((current) => current === comment.id ? null : comment.id); setReplyText(''); }} className="text-[11px] font-semibold text-slate-500 hover:text-emerald-600 dark:text-slate-400">Trả lời{replies.length ? ` · ${replies.length}` : ''}</button>}
             <button type="button" disabled={reactionBusyId === comment.id} onClick={() => setReactionPickerId((current) => current === comment.id ? null : comment.id)} aria-label="Thả cảm xúc" className={`inline-flex items-center gap-1 text-[11px] font-semibold disabled:opacity-50 ${selectedReaction ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-500 hover:text-emerald-600 dark:text-slate-400'}`}>
-              <span>{selectedReaction?.emoji || '😊'}</span>{selectedReaction?.label || 'Cảm xúc'}
+              {selectedReaction && <span>{selectedReaction.emoji}</span>}{selectedReaction?.label || 'Cảm xúc'}
             </button>
             {COMMENT_REACTIONS.filter(({ key }) => commentReactions[key]).map((reaction) => <button key={reaction.key} type="button" disabled={reactionBusyId === comment.id} onClick={() => setCommentReaction(comment, reaction.key)} title={reaction.label} className={`rounded-full bg-white/80 px-1.5 py-0.5 text-[10px] dark:bg-white/10 ${comment.my_reaction === reaction.key ? 'ring-1 ring-emerald-500' : ''}`}>
               {reaction.emoji} {commentReactions[reaction.key]}
@@ -290,9 +307,9 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
             {COMMENT_REACTIONS.map((reaction) => <button key={reaction.key} type="button" disabled={reactionBusyId === comment.id} onClick={() => setCommentReaction(comment, reaction.key)} title={reaction.label} aria-label={reaction.label} className="rounded-full p-1.5 text-base transition hover:scale-125 hover:bg-slate-100 disabled:opacity-50 dark:hover:bg-white/10">{reaction.emoji}</button>)}
           </div>}
 
-          {replyingToId === comment.id && <form onSubmit={(event) => sendReply(event, comment)} className="mt-2 flex items-center gap-2">
+          {replyingToId === comment.id && <form onSubmit={(event) => sendReply(event, comment)} className="mt-3 flex w-full min-w-0 items-center gap-2">
             <input autoFocus value={replyText} onChange={(event) => setReplyText(event.target.value)} maxLength={1000} placeholder={`Trả lời ${comment.author_name}…`} className="min-w-0 flex-1 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-slate-800 dark:text-white" />
-            <button type="submit" disabled={!replyText.trim() || isReplying} aria-label="Gửi trả lời" className="rounded-full bg-emerald-600 p-2 text-white disabled:opacity-50"><Send className="h-3.5 w-3.5" /></button>
+            <button type="submit" disabled={!replyText.trim() || isReplying} aria-label="Gửi trả lời" className="shrink-0 rounded-full bg-emerald-600 p-2 text-white disabled:opacity-50"><Send className="h-3.5 w-3.5" /></button>
           </form>}
         </div>
       </div>
@@ -301,14 +318,14 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
   };
 
   return (
-    <article className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-sm transition-shadow hover:shadow-lg dark:border-white/10 dark:bg-slate-900/80">
+    <article className="sg-panel sg-post-card overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-sm transition-shadow hover:shadow-lg dark:border-white/10 dark:bg-slate-900/80">
       <header className="flex items-center gap-3 px-4 py-4 sm:px-5">
-        <div className="rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500 p-[2px]">
+        <div className={`rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500 p-[2px] ${post.author_is_premium ? 'sg-premium-avatar-shell' : ''}`}>
           <div className="rounded-full bg-white p-[2px] dark:bg-slate-900"><Avatar src={post.author_avatar_url} name={post.author_name} className="h-10 w-10" /></div>
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-extrabold text-slate-900 dark:text-white">{post.author_name}</p>
-          <time className="text-xs text-slate-500 dark:text-slate-400" dateTime={post.created_at}>{formatDate(post.created_at)}</time>
+          <p className={`truncate text-sm font-extrabold text-slate-900 dark:text-white ${post.author_is_premium ? 'sg-premium-name' : ''}`}>{post.author_name}</p>
+          <time className="text-xs text-slate-500 dark:text-slate-400" dateTime={normalizeUtcTimestamp(post.created_at)}>{formatDate(post.created_at)}</time>
         </div>
         {!isMine && <button type="button" onClick={connectOrMessage} disabled={friendBusy || post.friendship_status === 'outgoing'} className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-default disabled:opacity-65 dark:bg-white/10 dark:text-slate-200 dark:hover:bg-emerald-400/10 dark:hover:text-emerald-200">
           {friendBusy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : post.friendship_status === 'accepted' ? <MessageCircle className="h-4 w-4" /> : post.friendship_status === 'outgoing' ? <UserRoundCheck className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
@@ -321,11 +338,11 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
       {mediaUrl && (post.media_type === 'video' ? (
         <video src={mediaUrl} controls playsInline preload="metadata" className="max-h-[min(75vh,720px)] w-full bg-black object-contain" />
       ) : (
-        <img src={mediaUrl} alt={`Ảnh trong bài viết của ${post.author_name}`} loading="lazy" className="max-h-[min(75vh,720px)] w-full bg-slate-50 object-contain dark:bg-black/20" />
+        <img src={mediaUrl} alt={`Ảnh trong bài viết của ${post.author_name}`} loading="lazy" className="sg-post-media max-h-[min(75vh,720px)] w-full bg-slate-50 object-contain dark:bg-black/20" />
       ))}
 
       <div className="px-4 sm:px-5">
-        <div className="flex items-center justify-between border-b border-slate-100 py-3 dark:border-white/10">
+        <div className="flex items-center justify-between py-3">
           <div className="flex items-center gap-4">
             <button type="button" onClick={toggleLike} disabled={isLiking} aria-pressed={liked} className={`inline-flex items-center gap-2 text-sm font-bold transition ${liked ? 'text-rose-600 dark:text-rose-400' : 'text-slate-600 hover:text-rose-600 dark:text-slate-300'}`}>
               <Heart className={`h-5 w-5 ${liked ? 'fill-current' : ''}`} /> Thích <span className="tabular-nums">{likeCount}</span>
@@ -334,10 +351,12 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
               <MessageCircle className="h-5 w-5" /> Bình luận <span className="tabular-nums">{commentCount}</span>
             </button>
           </div>
-          {canManage && isMine && <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1">
+          {canManage && isMine && <>
             <button type="button" onClick={() => onEdit?.(post)} title="Chỉnh sửa bài viết" aria-label="Chỉnh sửa bài viết" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-emerald-700 dark:hover:bg-white/10"><Pencil className="h-4 w-4" /></button>
             <button type="button" onClick={() => onDelete?.(post)} title="Xóa bài viết" aria-label="Xóa bài viết" className="rounded-lg p-2 text-slate-500 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10"><Trash2 className="h-4 w-4" /></button>
-          </div>}
+          </>}
+          </div>
         </div>
 
         {actionError && <p role="alert" className="py-2 text-xs text-rose-600 dark:text-rose-300">{actionError}</p>}

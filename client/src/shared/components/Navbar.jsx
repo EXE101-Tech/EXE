@@ -1,446 +1,187 @@
-import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
-import { Search, Sun, Moon, Crown, MessageSquare, Gamepad2, Users } from 'lucide-react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Check, ClipboardList, Crown, Gamepad2, Home, LoaderCircle, Menu, MessageCircle, Moon, Search, Sun, UserCheck, UserPlus, Users, X } from 'lucide-react';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useChat } from '../context/ChatContext';
-import NotificationBell from './NotificationBell';
 import useChatUnreadCount from '../hooks/useChatUnreadCount';
-import PremiumInfoModal from '../../features/premium/PremiumInfoModal';
-import { searchService } from '../services/api';
-import forumMobileIcon from '../../../icons/diendan.png';
-import gameRoomMobileIcon from '../../../icons/phonggame.png';
-import teamsMobileIcon from '../../../icons/teams.png';
-import sportGoLogoIcon from '../../../icons/logo.png';
+import NotificationBell from './NotificationBell';
+import { chatService, resolveMediaUrl, searchService } from '../services/api';
+import brandLogo from '../../../icons/logo.png';
 
-const SEARCH_KIND_LABELS = {
-  venue: 'Sân',
-  gameroom: 'Phòng chơi',
-  team: 'CLB',
-  social_post: 'Bài viết',
-};
-
-export function SearchResults({ results, loading, error, hasSearched, onSelect }) {
-  if (!hasSearched) return null;
-
-  return (
-    <div className="absolute left-0 right-0 top-full z-[1001] mt-2 max-h-[min(65vh,28rem)] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl dark:border-white/10 dark:bg-slate-900">
-      {loading ? (
-        <p className="px-3 py-4 text-sm text-slate-500 dark:text-slate-300">Đang tìm kiếm…</p>
-      ) : error ? (
-        <p className="px-3 py-4 text-sm text-red-600 dark:text-red-300">{error}</p>
-      ) : results.length === 0 ? (
-        <p className="px-3 py-4 text-sm text-slate-500 dark:text-slate-300">Không tìm thấy kết quả phù hợp.</p>
-      ) : (
-        <div className="space-y-1" role="listbox" aria-label="Kết quả tìm kiếm">
-          {results.map((result) => (
-            <button
-              key={`${result.kind}-${result.id}`}
-              type="button"
-              role="option"
-              aria-selected="false"
-              onClick={() => onSelect(result)}
-              className="flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left hover:bg-slate-100 dark:hover:bg-white/10"
-            >
-              <span className="mt-0.5 shrink-0 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200">
-                {SEARCH_KIND_LABELS[result.kind] || 'Kết quả'}
-              </span>
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-bold text-slate-900 dark:text-white">{result.title}</span>
-                <span className="mt-0.5 block truncate text-xs text-slate-500 dark:text-slate-400">{result.subtitle}</span>
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
+const links = [
+  { to: '/tournaments', label: 'Bảng tin', icon: Home },
+  { to: '/matches', label: 'Tìm trận', icon: Gamepad2 },
+  { to: '/team', label: 'Team', icon: Users },
+];
+const kindLabels = { gameroom: 'Phòng chơi', team: 'CLB', social_post: 'Bài viết', user: 'Người chơi', sport: 'Môn thể thao' };
+const sports = [{ id: 'badminton', name: 'Cầu lông' }, { id: 'pickleball', name: 'Pickleball' }, { id: 'football', name: 'Bóng đá' }];
 
 export default function Navbar() {
-  const [isDark, setIsDark] = useState(() => {
-    const savedTheme = localStorage.getItem('theme');
-    return savedTheme ? savedTheme === 'dark' : document.documentElement.classList.contains('dark');
-  });
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { isChatOpen, toggleChat, closeChat } = useChat();
-  const chatUnreadCount = useChatUnreadCount();
   const { user } = useAuth();
-  const [isPremiumOpen, setIsPremiumOpen] = useState(false);
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [searchError, setSearchError] = useState('');
-  const [isSearchLoading, setIsSearchLoading] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
-  const [isSubNavVisible, setIsSubNavVisible] = useState(true);
-  const searchInputRef = useRef(null);
-  const headerRef = useRef(null);
-  const lastScrollYRef = useRef(0);
+  const { isChatOpen, toggleChat, openChat } = useChat();
+  const unreadChats = useChatUnreadCount();
+  const navigate = useNavigate();
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState([]);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [friendActionId, setFriendActionId] = useState(null);
+  const [friendActionError, setFriendActionError] = useState('');
+  const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') !== 'light');
+  const searchRef = useRef(null);
+  const themeReadyRef = useRef(false);
+  const themeTimerRef = useRef(null);
+  const avatar = user?.profile?.avatar_url || user?.avatar;
+  const name = user?.profile?.full_name || user?.name || 'Người chơi';
+  const isAdmin = Boolean(user?.isAdmin);
 
-  useLayoutEffect(() => {
-    const header = headerRef.current;
-    if (!header) return undefined;
-
+  useEffect(() => {
     const root = document.documentElement;
-    const previousChatTop = root.style.getPropertyValue('--mobile-chat-top');
-    const updateChatTop = () => {
-      root.style.setProperty('--mobile-chat-top', `${header.getBoundingClientRect().bottom}px`);
-    };
-
-    updateChatTop();
-    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateChatTop) : null;
-    observer?.observe(header);
-    window.addEventListener('resize', updateChatTop);
-
-    return () => {
-      observer?.disconnect();
-      window.removeEventListener('resize', updateChatTop);
-      if (previousChatTop) root.style.setProperty('--mobile-chat-top', previousChatTop);
-      else root.style.removeProperty('--mobile-chat-top');
-    };
-  }, []);
-
-  const getAvatarLetter = () => {
-    const name = user?.profile?.full_name || user?.email || 'U';
-    return name.charAt(0).toUpperCase();
-  };
-  const avatarUrl = user?.profile?.avatar_url || user?.avatar || '';
-
-  const navItems = [
-    { label: 'Diễn Đàn', path: '/tournaments', icon: MessageSquare, mobileIcon: forumMobileIcon },
-    { label: 'Phòng game', path: '/matches', icon: Gamepad2, mobileIcon: gameRoomMobileIcon },
-    { label: 'Teams', path: '/team', icon: Users, mobileIcon: teamsMobileIcon },
-    { label: 'Hồ Sơ', path: '/home', isAvatar: true },
-  ];
-  const navRefs = useRef([]);
-  const navContainerRef = useRef(null);
-  const [indicator, setIndicator] = useState({ left: 0, width: 0 });
-  const [isInitialRender, setIsInitialRender] = useState(true);
-
-  const handleSearchSubmit = async (event) => {
-    event.preventDefault();
-    const query = searchQuery.trim();
-    if (isSearchLoading) return;
-    if (query.length < 2) {
-      setSearchResults([]);
-      setSearchError('Nhập ít nhất 2 ký tự để tìm kiếm.');
-      setHasSearched(true);
-      return;
+    if (themeReadyRef.current) {
+      root.classList.add('sg-theme-switching');
+      if (themeTimerRef.current) window.clearTimeout(themeTimerRef.current);
+      themeTimerRef.current = window.setTimeout(() => {
+        root.classList.remove('sg-theme-switching');
+        themeTimerRef.current = null;
+      }, 460);
+    } else {
+      themeReadyRef.current = true;
     }
-
-    setIsSearchLoading(true);
-    setSearchError('');
-    setHasSearched(true);
-    try {
-      const results = await searchService.search(query);
-      setSearchResults(results.filter((result) => result.kind !== 'venue'));
-    } catch (error) {
-      setSearchResults([]);
-      setSearchError(error.message || 'Không thể tìm kiếm lúc này.');
-    } finally {
-      setIsSearchLoading(false);
-    }
-  };
-
-  const handleSearchResult = (result) => {
-    navigate(result.href);
-    closeChat();
-    setIsSearchOpen(false);
-    setSearchQuery('');
-    setSearchResults([]);
-    setHasSearched(false);
-  };
-
-  const activeIndex = navItems.findIndex(item => item.match ? item.match(location.pathname) : location.pathname.startsWith(item.path));
-
-  const updateIndicator = useCallback(() => {
-    requestAnimationFrame(() => {
-      const idx = activeIndex >= 0 ? activeIndex : 0;
-      const el = navRefs.current[idx];
-      const container = navContainerRef.current;
-      if (el && container) {
-        setIndicator({
-          left: el.offsetLeft,
-          width: el.offsetWidth,
-        });
-        if (el.offsetWidth > 0) {
-          setTimeout(() => setIsInitialRender(false), 50);
-        }
-        if (window.innerWidth < 768 && container.scrollWidth > container.clientWidth) {
-          const scrollTarget = el.offsetLeft - (container.clientWidth / 2) + (el.offsetWidth / 2);
-          container.scrollTo({ left: scrollTarget, behavior: 'smooth' });
-        }
-      }
-    });
-  }, [activeIndex, setIndicator, setIsInitialRender]);
-
-  useEffect(() => {
-    updateIndicator();
-    document.fonts?.ready?.then(() => updateIndicator());
-    const timer = setTimeout(updateIndicator, 150);
-    window.addEventListener('resize', updateIndicator);
+    root.classList.toggle('dark', isDark);
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
     return () => {
-      window.removeEventListener('resize', updateIndicator);
-      clearTimeout(timer);
+      if (themeTimerRef.current) window.clearTimeout(themeTimerRef.current);
+      root.classList.remove('sg-theme-switching');
+      themeTimerRef.current = null;
     };
-  }, [updateIndicator]);
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', isDark);
   }, [isDark]);
 
   useEffect(() => {
-    if (!isSearchOpen) return undefined;
-
-    searchInputRef.current?.focus();
-    const handleEscape = (event) => {
-      if (event.key === 'Escape') setIsSearchOpen(false);
-    };
-    window.addEventListener('keydown', handleEscape);
-    return () => window.removeEventListener('keydown', handleEscape);
-  }, [isSearchOpen]);
+    const trimmed = query.trim();
+    if (trimmed.length < 2) return undefined;
+    let active = true;
+    const timer = window.setTimeout(async () => {
+      setLoading(true);
+      const [items, people] = await Promise.allSettled([searchService.search(trimmed), chatService.searchUsers(trimmed)]);
+      if (!active) return;
+      const matches = items.status === 'fulfilled' ? items.value.filter((item) => item.kind !== 'venue') : [];
+      const users = people.status === 'fulfilled' ? people.value.slice(0, 3).map((person) => ({
+        kind: 'user', id: person.id, title: person.profile?.full_name || person.name || person.email,
+        person,
+      })) : [];
+      const sportMatches = sports.filter((sport) => sport.name.toLocaleLowerCase('vi-VN').includes(trimmed.toLocaleLowerCase('vi-VN')) || sport.id.includes(trimmed.toLowerCase())).map((sport) => ({ kind: 'sport', id: sport.id, title: sport.name, subtitle: 'Tìm phòng theo môn', href: `/matches?sport=${sport.id}` }));
+      setResults([...sportMatches, ...users, ...matches].slice(0, 7));
+      setLoading(false);
+    }, 250);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [query]);
 
   useEffect(() => {
-    if (isChatOpen) {
-      lastScrollYRef.current = window.scrollY;
-      return undefined;
+    if (query.trim().length < 2) {
+      const timer = window.setTimeout(() => { setResults([]); setLoading(false); }, 0);
+      return () => window.clearTimeout(timer);
     }
-
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      const previousScrollY = lastScrollYRef.current;
-
-      if (currentScrollY <= 12) {
-        setIsSubNavVisible(true);
-      } else if (currentScrollY > previousScrollY + 4) {
-        setIsSubNavVisible(false);
-      } else if (currentScrollY < previousScrollY - 4) {
-        setIsSubNavVisible(true);
-      }
-
-      lastScrollYRef.current = currentScrollY;
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [isChatOpen]);
+    return undefined;
+  }, [query]);
 
   useEffect(() => {
-    document.body.classList.toggle('navbar-tabs-hidden', !isSubNavVisible && !isChatOpen);
-    return () => document.body.classList.remove('navbar-tabs-hidden');
-  }, [isSubNavVisible, isChatOpen]);
+    const dismiss = (event) => { if (!searchRef.current?.contains(event.target)) setSearchOpen(false); };
+    const escape = (event) => { if (event.key === 'Escape') { setSearchOpen(false); setMobileSearchOpen(false); setMobileMenuOpen(false); } };
+    document.addEventListener('pointerdown', dismiss);
+    document.addEventListener('keydown', escape);
+    return () => { document.removeEventListener('pointerdown', dismiss); document.removeEventListener('keydown', escape); };
+  }, []);
 
-  const handleChatToggle = () => {
-    if (!isChatOpen) setIsSubNavVisible(true);
-    toggleChat();
+  const selectResult = (item) => {
+    setQuery(''); setSearchOpen(false); setMobileSearchOpen(false);
+    if (item.kind === 'user') openChat(item.person);
+    else navigate(item.href);
   };
-
-  const toggleTheme = () => {
-    setIsDark(prev => {
-      const newDark = !prev;
-      if (newDark) {
-        document.documentElement.classList.add('dark');
-        localStorage.setItem('theme', 'dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-        localStorage.setItem('theme', 'light');
-      }
-      return newDark;
-    });
+  const updateSearchFriendship = async (event, item) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const person = item.person;
+    if (!person || friendActionId === person.id || ['accepted', 'outgoing'].includes(person.friendship_status)) return;
+    setFriendActionId(person.id);
+    setFriendActionError('');
+    try {
+      if (person.friendship_status === 'incoming' && person.friendship_id) await chatService.acceptFriendRequest(person.friendship_id);
+      else await chatService.sendFriendRequest(person.id);
+      const nextStatus = person.friendship_status === 'incoming' ? 'accepted' : 'outgoing';
+      setResults((current) => current.map((result) => result.kind === 'user' && result.id === person.id
+        ? { ...result, person: { ...result.person, friendship_status: nextStatus } }
+        : result));
+    } catch (error) {
+      setFriendActionError(error.message || 'Không thể cập nhật lời mời kết bạn.');
+    } finally {
+      setFriendActionId(null);
+    }
   };
-
-  return (
-    <header ref={headerRef} className="w-full bg-gradient-to-r from-[#589470] to-[#74C365] dark:from-[#122A25] dark:to-[#1B3A31] fixed top-0 left-0 right-0 z-[999] shadow-md dark:shadow-[0_8px_30px_rgba(3,10,20,0.35)] transition-colors duration-500">
-      <div className="max-w-7xl mx-auto px-2.5 sm:px-6 h-14 sm:h-20 flex items-center justify-between gap-1 sm:gap-6 border-b border-white/20 dark:border-white/5">
-        <div className="flex min-w-0 flex-1 items-center justify-center sm:flex-none sm:justify-start">
-          <button
-            type="button"
-            onClick={() => { closeChat(); navigate('/home'); }}
-            aria-label="SportGo - về trang chủ"
-            className="cursor-pointer group select-none flex w-full items-center justify-center gap-1.5 sm:w-auto sm:justify-start"
-          >
-            <span className="hidden sm:inline text-3xl font-black tracking-tight text-white transition-transform group-hover:scale-105">
-              SportGo
-            </span>
-            <img
-              src={sportGoLogoIcon}
-              alt=""
-              className="sm:hidden h-9 w-9 object-contain transition-transform group-hover:scale-105 drop-shadow-[0_2px_3px_rgba(0,0,0,0.25)]"
-            />
-          </button>
-        </div>
-
-        <div className="hidden sm:flex flex-1 max-w-3xl mx-1.5 sm:mx-3 items-center">
-          <form onSubmit={handleSearchSubmit} className="relative flex items-center flex-1 bg-white/20 dark:bg-white/10 border-2 border-transparent focus-within:border-white/50 focus-within:bg-white/30 rounded-full transition-all duration-200 shadow-inner group">
-            <input
-              type="text"
-              placeholder="Tìm kiếm phòng chơi, sân bãi, giải đấu, đội nhóm..."
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              aria-label="Tìm kiếm sân, phòng chơi, CLB và bài tìm người"
-              className="w-full bg-transparent pl-3.5 sm:pl-5 pr-11 sm:pr-14 py-1.5 sm:py-2.5 text-xs sm:text-base text-white placeholder-white/80 focus:outline-none truncate"
-            />
-            <button
-              type="submit"
-              disabled={isSearchLoading}
-              className="absolute right-1 bg-white hover:bg-gray-50 text-black p-1.5 sm:p-2 rounded-full transition-transform active:scale-95 shadow-sm border border-gray-200 dark:bg-[#0a1128] dark:border-gray-700 dark:text-white dark:hover:bg-[#111c43] flex items-center justify-center m-0.5 shrink-0"
-              title="Tìm kiếm"
-              aria-label="Tìm kiếm"
-            >
-              <Search className="w-3.5 h-3.5 sm:w-5 sm:h-5 stroke-[2.5]" />
-            </button>
-            <SearchResults results={searchResults} loading={isSearchLoading} error={searchError} hasSearched={hasSearched} onSelect={handleSearchResult} />
-          </form>
-        </div>
-
-        <div className="flex items-center gap-2.5 sm:gap-1.5 shrink-0">
-          <button
-            onClick={() => setIsSearchOpen(true)}
-            className="sm:hidden w-8 h-8 p-0 bg-white hover:bg-gray-50 rounded-full text-black shadow-sm border border-gray-200 transition-colors flex items-center justify-center"
-            title="Tìm kiếm"
-            aria-label="Mở tìm kiếm"
-          >
-            <Search className="w-4 h-4 stroke-[2.5]" />
-          </button>
-
-          <button
-            onClick={handleChatToggle}
-            className={`inline-flex relative items-center justify-center gap-1.5 w-8 h-8 p-0 sm:w-auto sm:h-auto sm:px-3.5 sm:py-2 rounded-full sm:rounded-2xl text-xs sm:text-sm font-bold shadow-md transition-all shrink-0 ${
-              isChatOpen
-                ? 'bg-white text-[#589470] scale-105'
-                : 'bg-white/20 hover:bg-white/30 text-white border border-white/20'
-            }`}
-            title="Chat"
-            aria-label="Mở chat"
-          >
-            <MessageSquare className="w-4 h-4 shrink-0" />
-            <span className="hidden sm:inline">Chat</span>
-            {chatUnreadCount > 0 && (
-              <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-black text-white ring-2 ring-[#589470] sm:-right-1.5 sm:-top-1.5 sm:h-[18px] sm:min-w-[18px] sm:text-[10px]">
-                {chatUnreadCount > 99 ? '99+' : chatUnreadCount}
+  const submitSearch = (event) => {
+    event.preventDefault();
+    if (query.trim().length < 2) { setSearchOpen(true); return; }
+    if (results[0]) selectResult(results[0]);
+    else setSearchOpen(true);
+  };
+  const searchBox = (mobile = false) => <form onSubmit={submitSearch} className="sg-search" role="search">
+    <Search size={19} aria-hidden="true" />
+    <input value={query} onChange={(event) => { setQuery(event.target.value); setFriendActionError(''); setSearchOpen(true); }} onFocus={() => setSearchOpen(true)} placeholder="Tìm người chơi, email, CLB, phòng chơi..." aria-label="Tìm kiếm toàn cục" autoFocus={mobile} />
+    {query && <button type="button" className="sg-search-clear" onClick={() => { setQuery(''); setResults([]); setFriendActionError(''); }} aria-label="Xóa tìm kiếm"><X size={16} /></button>}
+    {searchOpen && query.trim().length >= 2 && <div className="sg-search-results" role="listbox" aria-label="Gợi ý tìm kiếm">
+      {friendActionError && <div className="sg-search-status" role="alert">{friendActionError}</div>}
+      {loading ? <div className="sg-search-status">Đang tìm kiếm...</div> : results.length ? results.map((item) => {
+        if (item.kind === 'user') {
+          const friendshipStatus = item.person?.friendship_status || 'none';
+          const isFriendActionBusy = friendActionId === item.id;
+          return <div key={`${item.kind}-${item.id}`} className="sg-search-result-row" role="option" aria-selected="false">
+            <button type="button" className="sg-search-result-main" onClick={() => selectResult(item)}>
+              <span className={`sg-search-result-avatar ${item.person?.is_premium ? 'sg-premium-avatar' : ''}`}>
+                {item.person?.avatar_url || item.person?.avatar ? <img src={resolveMediaUrl(item.person.avatar_url || item.person.avatar)} alt="" /> : (item.title || 'U').charAt(0).toUpperCase()}
               </span>
-            )}
-          </button>
-
-          <button
-            onClick={() => setIsPremiumOpen(true)}
-            className="inline-flex items-center justify-center gap-1 sm:gap-1.5 h-8 bg-gradient-to-r from-yellow-400 via-yellow-500 to-orange-500 text-white font-bold px-2 sm:px-4 sm:py-2 rounded-xl sm:rounded-2xl text-[11px] sm:text-sm shadow-[0_0_15px_rgba(234,179,8,0.35)] hover:scale-[1.02] active:scale-95 transition-transform overflow-hidden group relative shrink-0"
-            title="Premium"
-          >
-            <Crown className="w-3.5 h-3.5 sm:w-5 sm:h-5 shrink-0" />
-            <span>Premium</span>
-            <div className="absolute inset-0 w-[200%] -translate-x-full bg-gradient-to-r from-transparent via-white/40 to-transparent animate-pulse pointer-events-none" />
-          </button>
-
-          <NotificationBell className="w-8 h-8 p-0 sm:w-auto sm:h-auto sm:p-2.5 inline-flex items-center justify-center hover:bg-white/20 rounded-full transition-colors text-white relative group" />
-
-          <button
-            onClick={toggleTheme}
-            className="w-8 h-8 p-0 sm:w-auto sm:h-auto sm:p-2.5 inline-flex items-center justify-center hover:bg-white/20 rounded-full transition-colors relative group ml-0 sm:ml-1 text-white"
-            title="Chuyển chế độ Sáng / Tối"
-          >
-            {isDark ? (
-              <Sun className="w-4 h-4 sm:w-6 sm:h-6 text-[#DBE64C] group-hover:rotate-45 transition-transform duration-300" />
-            ) : (
-              <Moon className="w-4 h-4 sm:w-6 sm:h-6 group-hover:-rotate-12 transition-transform duration-300" />
-            )}
-          </button>
-        </div>
-      </div>
-
-      <div className={`w-full max-w-7xl mx-auto px-2 sm:px-6 flex items-center justify-between relative overflow-hidden transition-[max-height,opacity,transform,padding] duration-300 ease-out ${isSubNavVisible ? 'max-h-16 py-1 sm:py-0 opacity-100 translate-y-0' : 'max-h-0 py-0 opacity-0 -translate-y-2 pointer-events-none'}`}>
-        <nav ref={navContainerRef} className="grid grid-cols-4 md:flex items-center justify-center gap-0 md:gap-10 overflow-x-auto no-scrollbar relative flex-1">
-          <div
-            className={`absolute bottom-0 h-0.5 sm:h-1 bg-white rounded-t-full ${
-              isInitialRender ? 'transition-none' : 'transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]'
-            } z-10`}
-            style={{ left: indicator.left, width: indicator.width }}
-          />
-
-          {navItems.map((item, i) => {
-            const isActive = activeIndex === i || (activeIndex < 0 && i === 0);
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                ref={el => (navRefs.current[i] = el)}
-                className={`relative z-10 py-2 sm:py-3 px-0 sm:px-4 text-xs sm:text-sm font-bold whitespace-nowrap transition-colors duration-200 flex items-center justify-center gap-1 sm:gap-1.5 shrink-0 ${
-                  isActive
-                    ? 'text-white'
-                    : 'text-white/80 hover:text-white'
-                }`}
-                title={item.label}
-                onClick={closeChat}
-              >
-                {item.isAvatar ? (
-                  <div className={`h-7 w-7 rounded-full flex items-center justify-center font-black text-xs transition-colors shadow-sm ${isActive ? 'bg-white p-px' : 'bg-white/80 p-px group-hover:bg-white'}`}>
-                    <span className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-white text-[#589470]">
-                      {avatarUrl ? (
-                        <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
-                      ) : (
-                        getAvatarLetter()
-                      )}
-                    </span>
-                  </div>
-                ) : (
-                  <>
-                    {item.mobileIcon ? (
-                      <img src={item.mobileIcon} alt="" className="mobile-nav-icon h-6 w-6 object-contain sm:hidden" />
-                    ) : (
-                      item.icon && <item.icon className="h-5 w-5 stroke-[2.5] sm:hidden" />
-                    )}
-                    <span className={item.icon ? "hidden sm:inline" : ""}>{item.label}</span>
-                  </>
-                )}
-              </Link>
-            );
-          })}
-        </nav>
-
-      </div>
-
-      {isSearchOpen && (
-        <div
-          className="fixed inset-0 z-[1000] overflow-y-auto bg-black/35 backdrop-blur-sm sm:hidden"
-          onClick={() => setIsSearchOpen(false)}
-          role="presentation"
-        >
-          <form
-            onSubmit={handleSearchSubmit}
-            className="relative mx-3 mt-2 flex items-center rounded-full bg-white/95 p-1.5 shadow-2xl dark:bg-[#0a1128]/95"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <Search className="ml-3 h-4 w-4 shrink-0 text-slate-500 dark:text-slate-300" />
-            <input
-              ref={searchInputRef}
-              type="text"
-              placeholder="Tìm kiếm phòng chơi, sân bãi, giải đấu..."
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-white"
-              aria-label="Tìm kiếm"
-            />
-            <button type="submit" disabled={isSearchLoading} className="rounded-full p-2 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/10" aria-label="Tìm kiếm">
-              <Search className="h-4 w-4" />
+              <span><strong className={item.person?.is_premium ? 'sg-premium-name' : ''}>{item.title}</strong></span>
             </button>
-            <button
-              type="button"
-              onClick={() => setIsSearchOpen(false)}
-              className="rounded-full p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/10"
-              aria-label="Đóng tìm kiếm"
-            >
-              ×
-            </button>
-            <SearchResults results={searchResults} loading={isSearchLoading} error={searchError} hasSearched={hasSearched} onSelect={handleSearchResult} />
-          </form>
-        </div>
-      )}
+            {friendshipStatus === 'none' && <button type="button" className="sg-search-friend-button" onClick={(event) => updateSearchFriendship(event, item)} disabled={isFriendActionBusy}><UserPlus size={13} />{isFriendActionBusy ? <LoaderCircle className="animate-spin" size={13} /> : 'Kết bạn'}</button>}
+            {friendshipStatus === 'incoming' && <button type="button" className="sg-search-friend-button" onClick={(event) => updateSearchFriendship(event, item)} disabled={isFriendActionBusy}><Check size={13} />{isFriendActionBusy ? <LoaderCircle className="animate-spin" size={13} /> : 'Chấp nhận'}</button>}
+            {friendshipStatus === 'outgoing' && <span className="sg-search-friend-state"><UserCheck size={13} />Đã gửi</span>}
+            {friendshipStatus === 'accepted' && <span className="sg-search-friend-state">Bạn bè</span>}
+          </div>;
+        }
+        return <button key={`${item.kind}-${item.id}`} type="button" role="option" aria-selected="false" onClick={() => selectResult(item)}><span className="sg-search-kind">{kindLabels[item.kind] || 'Kết quả'}</span><span><strong>{item.title}</strong><small>{item.subtitle}</small></span></button>;
+      }) : <div className="sg-search-status">Chưa có kết quả phù hợp.</div>}
+    </div>}
+  </form>;
 
-      <PremiumInfoModal
-        isOpen={isPremiumOpen}
-        onClose={() => setIsPremiumOpen(false)}
-      />
-    </header>
-  );
+  return <>
+    <header className="sg-topbar"><div className="sg-topbar-inner">
+      <div className="sg-topbar-left">
+        <Link to="/tournaments" className="sg-brand" aria-label="SportGo, về bảng tin"><img className="sg-brand-mark" src={brandLogo} alt="" /><span className="sg-brand-wordmark">SPORT<span className={user?.isPremium ? 'sg-brand-go sg-premium-name' : 'sg-brand-go'}>GO</span></span></Link>
+        <div className="sg-desktop-search" ref={searchRef}>{searchBox()}</div>
+      </div>
+      <nav className="sg-primary-nav" aria-label="Điều hướng chính">{links.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} className={({ isActive }) => `sg-nav-link ${isActive ? 'active' : ''}`}><Icon size={18} /><span>{label}</span></NavLink>)}</nav>
+      <div className="sg-top-actions">
+        <button type="button" className="sg-icon-button sg-mobile-search-toggle" onClick={() => setMobileSearchOpen(true)} aria-label="Mở tìm kiếm"><Search size={20} /></button>
+        <button type="button" className="sg-icon-button sg-chat-button" onClick={toggleChat} aria-label="Mở tin nhắn"><MessageCircle size={20} />{unreadChats > 0 && <i>{unreadChats > 9 ? '9+' : unreadChats}</i>}</button>
+        <NotificationBell className="sg-icon-button sg-notification-button" />
+        <button type="button" className="sg-icon-button sg-theme-toggle" onClick={() => setIsDark((current) => !current)} aria-label={isDark ? 'Chuyển sang chế độ sáng' : 'Chuyển sang chế độ tối'} title={isDark ? 'Chế độ sáng' : 'Chế độ tối'}>
+          {isDark ? <Sun size={19} /> : <Moon size={19} />}
+        </button>
+        <Link to={isAdmin ? '/admin' : '/premium'} className="sg-premium-link">{isAdmin ? <ClipboardList size={16} /> : <Crown size={16} />}<span>{isAdmin ? 'Giao dịch' : 'Premium'}</span></Link>
+        <Link to="/home" className={`sg-user-avatar ${user?.isPremium ? 'sg-premium-avatar' : ''}`} aria-label="Hồ sơ của tôi">{avatar ? <img src={avatar} alt="" /> : name.charAt(0).toUpperCase()}</Link>
+        <button type="button" className="sg-icon-button sg-mobile-menu-toggle" onClick={() => setMobileMenuOpen((open) => !open)} aria-label="Mở menu"><Menu size={20} /></button>
+      </div>
+    </div></header>
+    {mobileSearchOpen && <div className="sg-mobile-search-overlay"><div className="sg-mobile-search-row" ref={searchRef}>{searchBox(true)}<button type="button" onClick={() => { setMobileSearchOpen(false); setSearchOpen(false); }} aria-label="Đóng tìm kiếm"><X size={22} /></button></div></div>}
+    {mobileMenuOpen && <div className="sg-mobile-menu"><Link to={isAdmin ? '/admin' : '/premium'} onClick={() => setMobileMenuOpen(false)}>{isAdmin ? <ClipboardList size={18} /> : <Crown size={18} />} {isAdmin ? 'Giao dịch' : 'Premium'}</Link><Link to="/home" onClick={() => setMobileMenuOpen(false)}><Users size={18} /> Hồ sơ</Link></div>}
+    <nav className="sg-bottom-nav" aria-label="Điều hướng di động">
+      {links.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} className={({ isActive }) => isActive ? 'active' : ''}><Icon size={21} /><span>{label}</span></NavLink>)}
+      <button type="button" className={`sg-bottom-chat ${isChatOpen ? 'active' : ''}`} onClick={toggleChat} aria-label="Mở tin nhắn">
+        <span className="sg-bottom-chat-icon"><MessageCircle size={21} /></span>
+        <span>Chat</span>
+        {unreadChats > 0 && <i>{unreadChats > 9 ? '9+' : unreadChats}</i>}
+      </button>
+      <NavLink to="/home" className={({ isActive }) => isActive ? 'active' : ''}><span className={`sg-bottom-avatar ${user?.isPremium ? 'sg-premium-avatar' : ''}`}>{avatar ? <img src={avatar} alt="" /> : name.charAt(0).toUpperCase()}</span><span>Hồ sơ</span></NavLink>
+    </nav>
+  </>;
 }

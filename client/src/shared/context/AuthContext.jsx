@@ -17,6 +17,8 @@ function normalizeUser(user) {
     } : user.profile,
     name: user.profile?.full_name || user.email?.split('@')[0] || 'Người dùng',
     avatar: user.profile?.avatar_url || '',
+    isAdmin: Boolean(user.is_admin),
+    isPremium: Boolean(user.is_premium || (user.premium_until && new Date(user.premium_until).getTime() > Date.now())),
     ownerStatus,
     isCourtOwner: ownerStatus === 'registered',
   };

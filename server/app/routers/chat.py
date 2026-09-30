@@ -22,6 +22,7 @@ def _user_payload(user: models.User):
         "id": user.id,
         "name": (profile.full_name if profile and profile.full_name else user.email),
         "avatar_url": profile.avatar_url if profile else None,
+        "is_premium": user.is_premium,
     }
 
 

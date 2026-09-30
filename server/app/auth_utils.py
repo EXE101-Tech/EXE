@@ -64,13 +64,20 @@ def _user_from_credentials(credentials: HTTPAuthorizationCredentials, db: Sessio
         raise credentials_exception
         
     user = crud.get_user_by_email(db, email=email)
-    if user is None:
+    if user is None or user.status != "active":
         raise credentials_exception
     return user
 
 
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(database.get_db)) -> models.User:
     return _user_from_credentials(credentials, db)
+
+
+def require_admin(current_user: models.User = Depends(get_current_user)) -> models.User:
+    """Require the server-side moderator role for administrative operations."""
+    if not current_user.is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Bạn không có quyền quản trị")
+    return current_user
 
 
 def get_optional_current_user(

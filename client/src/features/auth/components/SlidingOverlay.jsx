@@ -43,7 +43,7 @@ function SlidingOverlay({ isActive, onShowRegister, onShowLogin }) {
           <div className="flex flex-col gap-2.5 mb-8 w-full max-w-xs">
             {FEATURES.map((label) => (
               <div key={label} className="flex items-center gap-2.5">
-                <CheckCircle2 className="text-green-400 w-4 h-4 shrink-0" />
+                <CheckCircle2 className="text-cyan-300 w-4 h-4 shrink-0" />
                 <span className="text-white/90 text-sm border border-white/25 rounded-full px-4 py-1">
                   {label}
                 </span>

@@ -1,13 +1,47 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Camera, LoaderCircle, MessageSquareText, Plus, X } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { Camera, Crown, Gamepad2, Home, MapPin, UserRound, Users, X } from 'lucide-react';
 import { useAuth } from '../../shared/context/AuthContext';
 import { useChat } from '../../shared/context/ChatContext';
-import { socialPostService, storageService } from '../../shared/services/api';
+import { chatService, gameRoomService, resolveMediaUrl, socialPostService, storageService, teamService } from '../../shared/services/api';
+import JoinRoomModal from '../gameroom/components/JoinRoomModal';
+import ContentPreviewModal from './components/ContentPreviewModal';
 import SocialPostCard from './components/SocialPostCard';
 import SocialPostComposer from './components/SocialPostComposer';
+import brandLogo from '../../../icons/logo.png';
 
 const PAGE_SIZE = 20;
+const LEVEL_LABELS = { Beginner: 'Mới chơi', Intermediate: 'Trung bình', Advanced: 'Khá', Expert: 'Chuyên nghiệp', 'Chưa biết': 'Chưa biết' };
+const navLinks = [
+  { to: '/tournaments', label: 'Bảng tin', icon: Home },
+  { to: '/matches', label: 'Tìm trận đấu', icon: Gamepad2 },
+  { to: '/team', label: 'CLB & cộng đồng', icon: Users },
+  { to: '/home', label: 'Hồ sơ của tôi', icon: UserRound },
+];
+
+function Avatar({ src, name }) {
+  return <span className="sg-avatar">{src ? <img src={src} alt="" /> : name ? name.charAt(0).toUpperCase() : <img src={brandLogo} alt="" />}</span>;
+}
+
+function normalizeRoom(room) {
+  return {
+    ...room,
+    sportName: room.sport?.name || 'Thể thao',
+    host: {
+      ...room.host,
+      name: room.host?.profile?.full_name || room.host?.name || room.host?.email || 'Người chơi',
+      avatar: resolveMediaUrl(room.host?.profile?.avatar_url || room.host?.avatar_url),
+    },
+    participants: (room.participants || []).map((participant) => ({
+      ...participant,
+      user: {
+        ...participant.user,
+        name: participant.user?.profile?.full_name || participant.user?.name || participant.user?.email || 'Người chơi',
+        avatar: resolveMediaUrl(participant.user?.profile?.avatar_url || participant.user?.avatar_url),
+      },
+    })),
+  };
+}
 
 export default function SocialFeed() {
   const { user } = useAuth();
@@ -15,12 +49,18 @@ export default function SocialFeed() {
   const [searchParams, setSearchParams] = useSearchParams();
   const searchQuery = (searchParams.get('search') || '').trim();
   const [posts, setPosts] = useState([]);
+  const [rooms, setRooms] = useState([]);
+  const [teams, setTeams] = useState([]);
+  const [people, setPeople] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [isComposerOpen, setIsComposerOpen] = useState(false);
+  const [preview, setPreview] = useState(null);
+  const [joiningRoom, setJoiningRoom] = useState(null);
+  const [isJoining, setIsJoining] = useState(false);
   const offsetRef = useRef(0);
 
   const loadFeed = useCallback(async (append = false, silent = false) => {
@@ -41,12 +81,29 @@ export default function SocialFeed() {
     }
   }, [searchQuery]);
 
-  const refreshFeed = useCallback(() => loadFeed(false, true), [loadFeed]);
-
   useEffect(() => {
     const timer = window.setTimeout(() => loadFeed(), 0);
     return () => window.clearTimeout(timer);
   }, [loadFeed]);
+
+  useEffect(() => {
+    let active = true;
+    Promise.allSettled([gameRoomService.getAll(), teamService.getAll(), chatService.getFriends()]).then(([roomResult, teamResult, peopleResult]) => {
+      if (!active) return;
+      const currentUserId = Number(user?.id);
+      if (roomResult.status === 'fulfilled') {
+        const roomsToShow = roomResult.value.filter((room) => {
+          const isHost = Number(room.host_id) === currentUserId;
+          const isApprovedParticipant = (room.participants || []).some((participant) => Number(participant.user_id) === currentUserId && participant.status === 'APPROVED');
+          return room.status === 'OPEN' && !isHost && !isApprovedParticipant;
+        });
+        setRooms(roomsToShow.slice(0, 3));
+      }
+      if (teamResult.status === 'fulfilled') setTeams(teamResult.value.filter((team) => !team.is_member && !team.is_captain).slice(0, 3));
+      if (peopleResult.status === 'fulfilled') setPeople((Array.isArray(peopleResult.value) ? peopleResult.value : peopleResult.value?.items || []).slice(0, 3).map((friendship) => friendship.user).filter(Boolean));
+    });
+    return () => { active = false; };
+  }, [user?.id]);
 
   const savePost = async (data) => {
     const { media_file: mediaFile, ...payload } = data;
@@ -62,40 +119,80 @@ export default function SocialFeed() {
     window.setTimeout(() => setNotice(''), 3500);
   };
 
-  const connectToAuthor = async (recipient) => {
-    openChat(recipient);
+  const handleJoinConfirm = async (roomId, note) => {
+    setIsJoining(true);
+    try {
+      await gameRoomService.join(roomId, note);
+      setRooms((current) => current.filter((room) => room.id !== roomId));
+      setJoiningRoom(null);
+      setNotice('Đã gửi yêu cầu tham gia phòng.');
+      window.setTimeout(() => setNotice(''), 3500);
+    } catch (joinError) {
+      setNotice(joinError.message || 'Không gửi được yêu cầu tham gia phòng.');
+    } finally {
+      setIsJoining(false);
+    }
   };
 
-  return (
-    <div className="mx-auto min-h-full w-full max-w-2xl pb-20 pt-3 text-slate-900 dark:text-slate-100">
-      {notice && <div role="status" className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-200">{notice}</div>}
-      {searchQuery.length >= 2 && <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm dark:border-white/10 dark:bg-slate-900"><span className="truncate text-slate-600 dark:text-slate-300">Kết quả bài viết cho <strong className="text-slate-900 dark:text-white">“{searchQuery}”</strong></span><button type="button" onClick={() => setSearchParams({})} aria-label="Xóa tìm kiếm" className="rounded-full p-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10"><X className="h-4 w-4" /></button></div>}
+  const handlePreviewJoin = async (item) => {
+    if (preview?.type === 'room') {
+      setPreview(null);
+      setJoiningRoom(item);
+      return;
+    }
+    setIsJoining(true);
+    try {
+      await teamService.join(item.id);
+      setTeams((current) => current.filter((team) => team.id !== item.id));
+      setPreview(null);
+      setNotice('Đã gửi yêu cầu tham gia CLB.');
+      window.setTimeout(() => setNotice(''), 3500);
+    } catch (joinError) {
+      setNotice(joinError.message || 'Không gửi được yêu cầu tham gia CLB.');
+    } finally {
+      setIsJoining(false);
+    }
+  };
 
-      <section className="mb-5 rounded-3xl border border-slate-200/80 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900/80 sm:p-5">
-        <div className="flex items-center gap-3">
-          <div className="h-11 w-11 shrink-0 overflow-hidden rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 text-center text-lg font-black leading-[44px] text-white">
-            {user?.profile?.avatar_url || user?.avatar ? <img src={user.profile?.avatar_url || user.avatar} alt="" className="h-full w-full object-cover" /> : (user?.profile?.full_name || user?.email || 'U').charAt(0).toUpperCase()}
-          </div>
-          <button type="button" onClick={() => setIsComposerOpen(true)} className="flex min-h-11 flex-1 items-center rounded-full bg-slate-100 px-4 text-left text-sm text-slate-500 transition hover:bg-slate-200 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10">Bạn đang nghĩ gì?</button>
-          <button type="button" onClick={() => setIsComposerOpen(true)} title="Đăng ảnh hoặc video" aria-label="Đăng ảnh hoặc video" className="rounded-full p-3 text-emerald-600 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-400/10"><Camera className="h-5 w-5" /></button>
-        </div>
-      </section>
+  const visiblePosts = posts;
+  const name = user?.profile?.full_name || user?.name || 'Bạn';
+  const avatar = user?.profile?.avatar_url || user?.avatar;
+  const sports = [...new Map((user?.sports || []).map((item) => {
+    const rawName = item.sport?.name || '';
+    const normalizedName = rawName.trim().toLowerCase();
+    let displayName = rawName.trim();
+    if (normalizedName === 'badminton' || normalizedName === 'cầu lông') displayName = 'Cầu lông';
+    if (normalizedName === 'football' || normalizedName === 'bóng đá') displayName = 'Bóng đá';
+    if (normalizedName === 'pickleball') displayName = 'Pickleball';
+    return [displayName, { name: displayName, level: LEVEL_LABELS[item.skill_level] || item.skill_level || 'Chưa biết' }];
+  }).filter(([name]) => name)).values()];
 
-      {error && <div role="alert" className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-200">{error}</div>}
+  return <div className="sg-feed-layout">
+    <aside className="sg-feed-side sg-left-side" aria-label="Khám phá">
+      <p className="sg-side-label">KHÁM PHÁ</p>
+      {navLinks.map(({ to, label, icon: Icon }) => <Link key={to} to={to} className={`sg-side-link ${to === '/tournaments' ? 'active' : ''}`}><Icon size={18} />{label}</Link>)}
+      <div className="sg-side-divider" />
+      <p className="sg-side-label">MÔN CỦA BẠN</p>
+      {sports.length ? sports.map((sport) => <Link key={sport.name} to="/home" className="sg-side-link"><span aria-hidden="true">{sport.name === 'Cầu lông' ? '🏸' : sport.name === 'Bóng đá' ? '⚽' : sport.name === 'Pickleball' ? '🏓' : sport.name === 'Tennis' ? '🎾' : '🏅'}</span><span className="sg-side-sport-copy"><strong>{sport.name}</strong><small>· {sport.level}</small></span></Link>) : <Link to="/home" className="sg-side-link">+ Thêm môn yêu thích</Link>}
+      <div className="sg-side-promo"><Crown size={19} /><strong>Chơi theo cách của bạn</strong><p>Khám phá những lợi ích giúp bạn kết nối với cộng đồng dễ hơn.</p><Link to="/premium">Khám phá Premium →</Link></div>
+    </aside>
 
-      {isLoading ? <div className="flex items-center justify-center gap-2 py-16 text-sm font-semibold text-slate-500"><LoaderCircle className="h-5 w-5 animate-spin" /> Đang tải bảng tin…</div> : posts.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-slate-300 bg-white/70 px-6 py-14 text-center dark:border-white/15 dark:bg-slate-900/50">
-          <MessageSquareText className="mx-auto mb-3 h-10 w-10 text-emerald-600 dark:text-emerald-300" />
-          <h2 className="text-lg font-black">{searchQuery.length >= 2 ? 'Chưa tìm thấy bài viết phù hợp' : 'Bảng tin đang chờ câu chuyện đầu tiên'}</h2>
-          <p className="mx-auto mt-2 max-w-sm text-sm text-slate-500 dark:text-slate-400">{searchQuery.length >= 2 ? 'Thử từ khóa khác hoặc xóa tìm kiếm để xem toàn bộ bảng tin.' : 'Hãy chia sẻ điều bạn đang nghĩ hoặc một khoảnh khắc thể thao với mọi người.'}</p>
-          {searchQuery.length >= 2 ? <button type="button" onClick={() => setSearchParams({})} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 dark:bg-white/10 dark:text-white"><X className="h-4 w-4" /> Xóa tìm kiếm</button> : <button type="button" onClick={() => setIsComposerOpen(true)} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white"><Plus className="h-4 w-4" /> Tạo bài viết</button>}
-        </div>
-      ) : <div className="space-y-5">
-        {posts.map((post) => <SocialPostCard key={post.id} post={post} user={user} onRefresh={refreshFeed} onMessage={connectToAuthor} />)}
-        {hasMore && <button type="button" onClick={() => loadFeed(true)} disabled={isLoadingMore} className="mx-auto flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-emerald-700 hover:bg-emerald-50 disabled:opacity-60 dark:text-emerald-300 dark:hover:bg-emerald-400/10">{isLoadingMore && <LoaderCircle className="h-4 w-4 animate-spin" />} Xem thêm bài viết</button>}
-      </div>}
-
+    <main className="sg-feed-main">
+      {notice && <div role="status" className="sg-notice">{notice}</div>}
+      {searchQuery.length >= 2 && <div className="sg-search-filter">Kết quả bài viết cho <strong>“{searchQuery}”</strong><button type="button" onClick={() => setSearchParams({})} aria-label="Xóa tìm kiếm"><X size={16} /></button></div>}
+      <section className="sg-panel sg-composer" aria-label="Tạo bài viết"><div className="sg-composer-top"><Avatar src={avatar} name={name} /><button type="button" onClick={() => setIsComposerOpen(true)} className="sg-composer-prompt">Bạn muốn chia sẻ gì?</button></div></section>
+      {error && <div role="alert" className="sg-notice sg-error">{error}</div>}
+      {isLoading ? <><div className="sg-skeleton sg-loading-card" /><div className="sg-skeleton sg-loading-card" /></> : visiblePosts.length === 0 ? <div className="sg-panel sg-empty"><Camera size={36} /><h2>{searchQuery ? 'Chưa tìm thấy bài viết phù hợp' : 'Câu chuyện đầu tiên đang chờ bạn'}</h2><p>{searchQuery ? 'Thử một từ khóa khác hoặc xóa tìm kiếm.' : 'Chia sẻ một khoảnh khắc tập luyện, trận đấu hoặc câu chuyện thể thao của bạn.'}</p><button type="button" className="sg-primary-button" onClick={() => searchQuery ? setSearchParams({}) : setIsComposerOpen(true)}>{searchQuery ? 'Xóa tìm kiếm' : 'Tạo bài viết'}</button></div> : <div>{visiblePosts.map((post) => <SocialPostCard key={post.id} post={post} user={user} onRefresh={() => loadFeed(false, true)} onMessage={(recipient) => openChat(recipient)} />)}{hasMore && <button type="button" className="sg-primary-button sg-more-posts" onClick={() => loadFeed(true)} disabled={isLoadingMore}>{isLoadingMore ? 'Đang tải...' : 'Xem thêm bài viết'}</button>}</div>}
       <SocialPostComposer key={isComposerOpen ? 'open' : 'closed'} isOpen={isComposerOpen} onClose={() => setIsComposerOpen(false)} onSave={savePost} />
-    </div>
-  );
+    </main>
+
+    <aside className="sg-feed-side sg-right-side" aria-label="Gợi ý cộng đồng">
+      <div className="sg-panel sg-right-panel"><h2>Phòng sắp diễn ra <Link to="/matches">Xem tất cả</Link></h2>{rooms.length ? rooms.map((room) => <div key={room.id} className="sg-right-item"><Avatar name={room.sport?.name || room.title} /><div className="sg-right-item-text"><strong>{room.title}</strong><span><MapPin size={11} style={{display:'inline'}} /> {room.location || 'Địa điểm chưa cập nhật'}</span></div><button type="button" onClick={() => setPreview({ type: 'room', item: normalizeRoom(room) })}>Xem</button></div>) : <p className="sg-right-empty">Chưa có phòng đang mở. Tạo phòng để bắt đầu một trận mới.</p>}</div>
+      <div className="sg-panel sg-right-panel"><h2>CLB nổi bật <Link to="/team">Khám phá</Link></h2>{teams.length ? teams.map((team) => <div key={team.id} className="sg-right-item"><Avatar src={resolveMediaUrl(team.image_url)} name={team.name} /><div className="sg-right-item-text"><strong>{team.name}</strong><span>{team.sport_name || 'Cộng đồng thể thao'} · {team.location || 'Việt Nam'}</span></div><button type="button" onClick={() => setPreview({ type: 'team', item: team })}>Xem</button></div>) : <p className="sg-right-empty">Chưa có CLB nào. Hãy lập cộng đồng đầu tiên.</p>}</div>
+      {people.length > 0 && <div className="sg-panel sg-right-panel"><h2>Bạn bè đang kết nối</h2>{people.map((person) => <div key={person.id} className="sg-right-item"><Avatar src={person.profile?.avatar_url || person.avatar_url} name={person.profile?.full_name || person.full_name || person.email} /><div className="sg-right-item-text"><strong>{person.profile?.full_name || person.full_name || person.email}</strong><span>Người chơi SportGo</span></div><button type="button" onClick={() => openChat(person)}>Nhắn tin</button></div>)}</div>}
+      <p className="sg-right-footer">SportGo · Chơi cùng nhau, tiến xa hơn.</p>
+    </aside>
+    {preview && <ContentPreviewModal type={preview.type} item={preview.item} currentUserId={user?.id} onClose={() => setPreview(null)} onJoin={handlePreviewJoin} isBusy={isJoining} />}
+    <JoinRoomModal isOpen={!!joiningRoom} room={joiningRoom} onClose={() => setJoiningRoom(null)} onConfirm={handleJoinConfirm} isLoading={isJoining} />
+  </div>;
 }

@@ -2,6 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Home, Trophy, Gamepad2, Users, Settings, HelpCircle, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
+import brandLogo from '../../../icons/logo.png';
 
 const NAV_ITEMS = [
   { id: 'home', labelKey: 'bottomNav.home', Icon: Home, path: '/home' },
@@ -20,9 +21,7 @@ export default function Sidebar() {
       {/* Logo Area */}
       <div className="h-20 flex items-center px-6">
         <Link to="/home" className="flex items-center gap-3 group">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-primary to-sky-500 flex items-center justify-center shrink-0 shadow-lg group-hover:scale-110 transition-transform">
-            <span className="text-white font-black text-sm">S</span>
-          </div>
+          <img src={brandLogo} alt="" className="w-8 h-8 object-contain shrink-0 group-hover:scale-110 transition-transform" />
           <span className="font-bold text-xl tracking-tight text-slate-900 dark:text-white group-hover:text-brand-primary transition-colors">SportGo</span>
         </Link>
       </div>

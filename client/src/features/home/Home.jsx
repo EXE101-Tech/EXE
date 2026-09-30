@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Activity, Eye, ImagePlus, LogOut, Pencil, Trophy, Users, X } from 'lucide-react';
+import { Activity, Eye, ImagePlus, LogOut, MapPin, Pencil, Trophy, Users, X } from 'lucide-react';
 import heroBgImg from '../../assets/sports/badminton.avif';
 import EditProfileModal from '../profile/EditProfileModal';
 import { useAuth } from '../../shared/context/AuthContext';
@@ -25,6 +25,8 @@ const SKILL_STYLE = {
   volleyball: { emoji: '🏐', color: 'from-yellow-400 to-orange-400' },
 };
 const SPORT_KEY_BY_NAME = { badminton: 'badminton', 'cầu lông': 'badminton', football: 'football', 'bóng đá': 'football', pickleball: 'pickleball', tennis: 'tennis', basketball: 'basketball', 'bóng rổ': 'basketball', volleyball: 'volleyball', 'bóng chuyền': 'volleyball' };
+const SPORT_DISPLAY_NAME = { badminton: 'Cầu lông', football: 'Bóng đá', pickleball: 'Pickleball', tennis: 'Tennis', basketball: 'Bóng rổ', volleyball: 'Bóng chuyền' };
+const LEVEL_RANK = { Beginner: 1, Intermediate: 2, Advanced: 3, Expert: 4 };
 
 function Home() {
   const navigate = useNavigate();
@@ -88,18 +90,24 @@ function Home() {
     };
   }, [user?.id, refreshProfile]);
 
-  const skills = useMemo(() => (user?.sports || []).filter((item) => isActiveSport(item.sport?.name)).map((item) => {
-    const sportName = item.sport?.name || 'Môn thể thao';
-    const key = SPORT_KEY_BY_NAME[sportName.trim().toLowerCase()] || sportName.toLowerCase();
-    return {
-      key: item.id,
-      sport: sportName,
-      emoji: SKILL_STYLE[key]?.emoji || '🏅',
-      color: SKILL_STYLE[key]?.color || 'from-slate-400 to-slate-600',
-      level: LEVEL_META[item.skill_level] || item.skill_level,
-      games: stats.games_by_sport?.[item.sport_id] ?? item.games_played ?? 0,
-  };
-  }), [user?.sports, stats.games_by_sport]);
+  const skills = useMemo(() => {
+    const bySport = new Map();
+    for (const item of (user?.sports || []).filter((entry) => isActiveSport(entry.sport?.name))) {
+      const sportName = item.sport?.name || 'Môn thể thao';
+      const key = SPORT_KEY_BY_NAME[sportName.trim().toLowerCase()] || sportName.toLowerCase();
+      const previous = bySport.get(key);
+      const games = stats.games_by_sport?.[item.sport_id] ?? item.games_played ?? 0;
+      bySport.set(key, {
+        key, sport: SPORT_DISPLAY_NAME[key] || sportName,
+        emoji: SKILL_STYLE[key]?.emoji || '🏅',
+        color: SKILL_STYLE[key]?.color || 'from-slate-400 to-slate-600',
+        level: (LEVEL_RANK[item.skill_level] || 0) >= (LEVEL_RANK[previous?.rawLevel] || 0) ? (LEVEL_META[item.skill_level] || item.skill_level) : previous.level,
+        rawLevel: (LEVEL_RANK[item.skill_level] || 0) >= (LEVEL_RANK[previous?.rawLevel] || 0) ? item.skill_level : previous.rawLevel,
+        games: (previous?.games || 0) + games,
+      });
+    }
+    return [...bySport.values()];
+  }, [user?.sports, stats.games_by_sport]);
 
   const statsCards = [
     { label: 'Trận đã chơi', value: stats.games_played, icon: Trophy, color: 'text-amber-500 bg-amber-500/10' },
@@ -110,15 +118,15 @@ function Home() {
     <div className="min-h-screen bg-transparent text-slate-900 dark:text-[#EAF2FF] font-sans transition-colors duration-500 px-4 sm:px-6 lg:px-8 py-7 sm:py-10 pb-16">
       <div className="max-w-6xl mx-auto">
         <div className="mb-6 sm:mb-8">
-          <p className="text-base sm:text-lg font-semibold text-slate-500 dark:text-slate-400 mb-1">Xin chào</p>
-          <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white break-words">{displayName}</h1>
+          <p className="sg-eyebrow mb-1">HÀNH TRÌNH CỦA BẠN</p>
+          <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white break-words">Hồ sơ cá nhân</h1>
         </div>
 
         <section className="member-content-surface rounded-3xl overflow-hidden">
           {/* Cover and profile identity */}
           <div className="relative h-48 sm:h-64 overflow-hidden group/cover">
             <img src={coverImage} alt="Ảnh bìa hồ sơ" className="w-full h-full object-cover object-[50%_42%]" />
-            <div className="absolute inset-0 bg-gradient-to-r from-slate-950/75 via-slate-900/35 to-[#589470]/35" />
+            <div className="absolute inset-0 bg-gradient-to-r from-slate-950/75 via-slate-900/35 to-[#5e87f7]/35" />
             <div className="absolute right-4 top-4 flex items-center gap-2 opacity-100 sm:opacity-0 group-hover/cover:opacity-100 transition-opacity">
               <button
                 type="button"
@@ -141,15 +149,19 @@ function Home() {
 
           <div className="relative px-5 sm:px-8 pb-6">
             <div className="-mt-12 sm:-mt-14 flex flex-col lg:flex-row lg:items-end gap-4 lg:gap-6">
-              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full p-1.5 shadow-xl shrink-0 bg-gradient-to-tr from-[#589470] to-[#74C365]">
-                <div className="w-full h-full overflow-hidden rounded-full bg-white dark:bg-[#001F3F] flex items-center justify-center font-black text-4xl sm:text-5xl text-[#589470] dark:text-[#74C365]">{user?.profile?.avatar_url ? <img src={user.profile.avatar_url} alt="Ảnh đại diện" className="h-full w-full object-cover" /> : avatarLetter}</div>
+              <div className={`w-24 h-24 sm:w-28 sm:h-28 rounded-full p-1.5 shadow-xl shrink-0 bg-gradient-to-tr from-[#5e87f7] to-[#83a6ff] ${user?.isPremium ? 'sg-premium-avatar-shell' : ''}`}>
+                <div className="w-full h-full overflow-hidden rounded-full bg-white dark:bg-[#001F3F] flex items-center justify-center font-black text-4xl sm:text-5xl text-[#5e87f7] dark:text-[#83a6ff]">{user?.profile?.avatar_url ? <img src={user.profile.avatar_url} alt="Ảnh đại diện" className="h-full w-full object-cover" /> : avatarLetter}</div>
               </div>
               <div className="min-w-0 flex-1 lg:pb-1 lg:translate-y-1.5">
-                <h2 className="text-slate-900 dark:text-white text-xl sm:text-2xl font-black leading-tight break-words">{displayName}</h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400 break-all mt-1">{email}</p>
+                <h2 className={`text-slate-900 dark:text-white text-xl sm:text-2xl font-black leading-tight break-words ${user?.isPremium ? 'sg-premium-name' : ''}`}>{displayName}</h2>
+                <div className="mt-1 flex flex-col gap-1 lg:flex-row lg:items-center lg:gap-4">
+                  <p className="text-sm text-slate-500 dark:text-slate-400 break-all">{email}</p>
+                  {user?.profile?.district && <p className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400"><MapPin className="h-3.5 w-3.5" /> Khu vực: {user.profile.district}</p>}
+                </div>
+                {user?.profile?.bio && <p className="sg-profile-bio">{user.profile.bio}</p>}
               </div>
               <div className="flex flex-col sm:flex-row gap-3 lg:pb-1 shrink-0">
-                <button onClick={() => setIsEditProfileOpen(true)} className="px-5 py-3 bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-95 text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 active:scale-95">
+                <button onClick={() => setIsEditProfileOpen(true)} className="px-5 py-3 bg-gradient-to-r from-[#83a6ff] to-[#5e87f7] hover:opacity-95 text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 active:scale-95">
                   <Pencil className="w-4 h-4" />
                   Chỉnh sửa hồ sơ
                 </button>

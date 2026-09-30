@@ -57,20 +57,20 @@ export default function LfgParticipantsModal({ isOpen, post, onClose, onChanged 
   };
 
   return (
-    <div className="fixed inset-0 z-[1080] flex items-center justify-center bg-black/60 p-3 backdrop-blur-sm sm:p-5" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section role="dialog" aria-modal="true" aria-labelledby="lfg-participants-title" className="flex max-h-[min(88vh,720px)] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-[#001F3F]">
-        <header className="flex items-start justify-between gap-3 bg-gradient-to-r from-[#74C365] to-[#589470] px-5 py-4 text-white">
+    <div className="sg-modal-backdrop fixed inset-0 z-[1080] flex items-center justify-center p-3 sm:p-5" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section role="dialog" aria-modal="true" aria-labelledby="lfg-participants-title" className="sg-modal-card flex max-h-[min(88vh,720px)] w-full max-w-xl flex-col overflow-hidden rounded-2xl" >
+        <header className="sg-modal-header flex items-start justify-between gap-3 px-5 py-4">
           <div className="flex min-w-0 items-start gap-3">
-            <span className="mt-0.5 rounded-xl bg-white/20 p-2"><Users className="h-5 w-5" /></span>
+            <span className="sg-modal-header-icon mt-0.5 rounded-xl p-2"><Users className="h-5 w-5" /></span>
             <div className="min-w-0">
               <h2 id="lfg-participants-title" className="font-black">Kiểm duyệt người tham gia</h2>
               <p className="mt-0.5 truncate text-sm text-white/85">{post.description?.trim() || post.title?.trim() || 'Bài tìm người chơi'}</p>
             </div>
           </div>
-          <button type="button" onClick={onClose} aria-label="Đóng" className="rounded-full bg-black/10 p-2 hover:bg-black/20"><X className="h-5 w-5" /></button>
+          <button type="button" onClick={onClose} aria-label="Đóng" className="sg-modal-close rounded-full p-2"><X className="h-5 w-5" /></button>
         </header>
 
-        <div className="border-b border-slate-100 px-4 pt-3 dark:border-white/10">
+        <div className="sg-modal-tabs border-b px-4 pt-3">
           <div className="flex rounded-xl bg-slate-100 p-1 dark:bg-white/5" role="tablist" aria-label="Trạng thái người tham gia">
             {[
               { id: 'PENDING', label: 'Chờ duyệt', count: pendingCount },
@@ -84,7 +84,7 @@ export default function LfgParticipantsModal({ isOpen, post, onClose, onChanged 
           {activeStatus === 'PENDING' && <p className="px-1 py-2 text-xs text-slate-500 dark:text-slate-400">Xếp theo thời gian gửi yêu cầu, người chờ lâu nhất ở trên.</p>}
         </div>
 
-        <div className="min-h-40 flex-1 overflow-y-auto p-4">
+        <div className="sg-modal-body min-h-40 flex-1 overflow-y-auto p-4">
           {error && <p role="alert" className="mb-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-500/10 dark:text-rose-200">{error}</p>}
           {isLoading ? (
             <div className="flex items-center justify-center gap-2 py-12 text-sm font-semibold text-slate-500"><LoaderCircle className="h-4 w-4 animate-spin" /> Đang tải…</div>
@@ -121,8 +121,8 @@ export default function LfgParticipantsModal({ isOpen, post, onClose, onChanged 
           )}
         </div>
 
-        <footer className="flex justify-end border-t border-slate-100 bg-slate-50 px-4 py-3 dark:border-white/10 dark:bg-white/5">
-          <button type="button" onClick={onClose} className="rounded-xl bg-slate-200 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-300 dark:bg-white/10 dark:text-white dark:hover:bg-white/15">Đóng</button>
+        <footer className="sg-modal-footer flex justify-end border-t px-4 py-3">
+          <button type="button" onClick={onClose} className="sg-modal-secondary rounded-xl px-4 py-2 text-sm font-bold">Đóng</button>
         </footer>
       </section>
     </div>

@@ -1,9 +1,10 @@
-import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { Users, PlusCircle, Sparkles, SlidersHorizontal, Crown, Shield, UserCheck, Trophy, Filter, ChevronDown, Trash2 } from 'lucide-react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { Users, PlusCircle, Sparkles, Crown, UserCheck, Trophy, Filter, ChevronDown, Trash2 } from 'lucide-react';
 import { useSportFilter } from '../../shared/context/SportFilterContext';
 import TeamCard from './components/TeamCard';
 import CreateTeamModal from './components/CreateTeamModal';
 import ReviewTeamModal from './components/ReviewTeamModal';
+import TeamPremiumSettingsModal from './components/TeamPremiumSettingsModal';
 import FilterSelect from '../../shared/components/FilterSelect';
 import { useSearchParams } from 'react-router-dom';
 import { resolveMediaUrl, teamService } from '../../shared/services/api';
@@ -12,14 +13,10 @@ import { useAuth } from '../../shared/context/AuthContext';
 import { createSportExperienceMap, sortBySportExperience } from '../../shared/utils/sportExperienceSort';
 import { isActiveSport } from '../../shared/constants/sports';
 
-import badmintonImg from '../../assets/sports/badminton.avif';
-import footballImg from '../../assets/sports/foodball.avif';
-import pickleballImg from '../../assets/sports/pickleball.jpg';
-
 const TABS = [
+  { id: 'discover', label: 'Khám phá CLB', icon: Users, emoji: '🌐' },
   { id: 'captain', label: 'CLB tôi làm chủ', icon: Crown, emoji: '👑' },
   { id: 'member', label: 'CLB tôi tham gia', icon: UserCheck, emoji: '🤝' },
-  { id: 'discover', label: 'Khám phá CLB', icon: Users, emoji: '🌐' },
 ];
 
 export default function Team() {
@@ -33,13 +30,14 @@ export default function Team() {
   const [teams, setTeams] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('captain');
+  const [activeTab, setActiveTab] = useState('discover');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingTeam, setEditingTeam] = useState(null);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [reviewTeam, setReviewTeam] = useState(null);
   const [memberDialog, setMemberDialog] = useState(null);
   const [members, setMembers] = useState([]);
+  const [premiumSettingsTeam, setPremiumSettingsTeam] = useState(null);
   const [alertMessage, setAlertMessage] = useState('');
 
   const loadTeams = useCallback(async (silent = false) => {
@@ -49,13 +47,14 @@ export default function Team() {
     try {
       const items = await teamService.getAll({ scope: 'all', sport_id: selectedSport || undefined });
       const emojis = { badminton: '🏸', football: '⚽', pickleball: '🏓' };
-      const images = { badminton: badmintonImg, football: footballImg, pickleball: pickleballImg };
       setTeams(items.filter((team) => isActiveSport(team.sport_id)).map((team) => ({
         ...team,
         sportId: team.sport_id,
+        sportName: team.sport_name || team.sport_id,
         sportEmoji: emojis[team.sport_id] || '🏅',
-        image: resolveMediaUrl(team.image_url) || images[team.sport_id] || badmintonImg,
+        image: team.image_url ? resolveMediaUrl(team.image_url) : '',
         captain: team.owner_name,
+        ownerAvatar: team.owner_avatar_url ? resolveMediaUrl(team.owner_avatar_url) : '',
         members: team.member_count,
         totalSlots: team.total_slots,
         ratingCount: team.rating_count,
@@ -74,7 +73,7 @@ export default function Team() {
     }
   }, [selectedSport]);
 
-  useEffect(() => { loadTeams(); }, [loadTeams]);
+  useEffect(() => { const timer = window.setTimeout(loadTeams, 0); return () => window.clearTimeout(timer); }, [loadTeams]);
 
   useEffect(() => {
     const refreshWhileVisible = () => {
@@ -97,7 +96,7 @@ export default function Team() {
       let matchTab = false;
       if (routeSearch) matchTab = true;
       else if (activeTab === 'captain') matchTab = team.isCaptain;
-      else if (activeTab === 'member') matchTab = team.isMember;
+      else if (activeTab === 'member') matchTab = team.isMember && !team.isCaptain;
       else if (activeTab === 'discover') matchTab = !team.isCaptain && !team.isMember;
       return matchSport && matchTab && matchSearch;
     });
@@ -121,16 +120,12 @@ export default function Team() {
   };
 
   const handleSaveTeam = async (data) => {
-    try {
-      if (editingTeam) await teamService.update(editingTeam.id, data);
-      else await teamService.create(data);
-      await loadTeams();
-      setIsCreateModalOpen(false);
-      setEditingTeam(null);
-      showToast(editingTeam ? 'Đã cập nhật thông tin CLB.' : 'Đã tạo CLB.');
-    } catch (err) {
-      throw err;
-    }
+    if (editingTeam) await teamService.update(editingTeam.id, data);
+    else await teamService.create(data);
+    await loadTeams();
+    setIsCreateModalOpen(false);
+    setEditingTeam(null);
+    showToast(editingTeam ? 'Đã cập nhật thông tin CLB.' : 'Đã tạo CLB.');
   };
 
   const handleJoinTeam = async (team) => {
@@ -142,12 +137,10 @@ export default function Team() {
   };
 
   const handleReview = async (data) => {
-    try {
-      await teamService.review(reviewTeam.id, data);
-      await loadTeams();
-      setReviewTeam(null);
-      showToast('Đã lưu đánh giá của bạn.');
-    } catch (err) { throw err; }
+    await teamService.review(reviewTeam.id, data);
+    await loadTeams();
+    setReviewTeam(null);
+    showToast('Đã lưu đánh giá của bạn.');
   };
 
   const openMembers = async (team) => {
@@ -158,6 +151,10 @@ export default function Team() {
       setMembers([]);
       showToast(err.message || 'Không tải được danh sách thành viên');
     }
+  };
+
+  const openPremiumSettings = (team) => {
+    setPremiumSettingsTeam(team);
   };
 
   const updateMember = async (member, status) => {
@@ -180,7 +177,7 @@ export default function Team() {
   };
 
   return (
-    <div className="min-h-screen bg-transparent dark:bg-transparent text-slate-900 dark:text-[#F6F7ED] relative w-full overflow-x-clip font-sans transition-colors duration-500 selection:bg-[#589470]/30 pb-20">
+    <div className="sg-collection min-h-screen bg-transparent dark:bg-transparent text-slate-900 dark:text-[#F6F7ED] relative w-full overflow-x-clip font-sans pb-20">
       {/* Toast Notification Alert */}
       {alertMessage && (
         <div className="fixed top-36 right-6 z-[9999] max-w-md bg-white dark:bg-slate-900 border-2 border-[#589470] text-slate-800 dark:text-white px-5 py-4 rounded-2xl shadow-2xl flex items-start gap-3 animate-in slide-in-from-right duration-300">
@@ -208,7 +205,7 @@ export default function Team() {
             </button>
             <button
               onClick={() => setIsCreateModalOpen(true)}
-              className="px-3.5 py-1.5 rounded-lg font-bold text-sm bg-gradient-to-r from-[#74C365] to-[#589470] text-white shadow-md flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap"
+              className="sg-action-button flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap"
             >
               <PlusCircle className="w-4 h-4 shrink-0" />
               <span>Tạo CLB</span>
@@ -220,7 +217,7 @@ export default function Team() {
             {/* Sport Filter */}
             <FilterSelect
               icon={Trophy}
-              iconColor="text-amber-500"
+              iconColor="text-[#86a8ff]"
               value={selectedSport || 'all'}
               onChange={(e) => setSelectedSport(e.target.value === 'all' ? null : e.target.value)}
             >
@@ -238,11 +235,7 @@ export default function Team() {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center gap-1.5 sm:gap-2 px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-bold transition-all duration-200 border-2 shrink-0 whitespace-nowrap ${
-                      isActive
-                        ? 'bg-white dark:bg-[#001F3F] text-[#589470] dark:text-[#74C365] border-[#589470] dark:border-[#74C365] shadow-md'
-                        : 'bg-white dark:bg-[#001F3F]/80 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-white/15 hover:bg-slate-50 dark:hover:bg-white/5 hover:border-slate-300'
-                    }`}
+                    className={`sg-tab-button flex items-center gap-1.5 sm:gap-2 shrink-0 whitespace-nowrap ${isActive ? 'is-active' : ''}`}
                   >
                     <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
                     <span>{tab.label}</span>
@@ -255,7 +248,7 @@ export default function Team() {
           {/* Right action: Create Button */}
           <button
             onClick={() => setIsCreateModalOpen(true)}
-            className="hidden xl:flex px-3.5 py-2 xl:px-5 xl:py-2.5 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-95 text-white shadow-md hover:shadow-lg items-center justify-center gap-1.5 sm:gap-2 transition-all duration-200 active:scale-95 group shrink-0 whitespace-nowrap"
+            className="sg-action-button hidden xl:flex items-center justify-center gap-1.5 sm:gap-2 group shrink-0 whitespace-nowrap"
           >
             <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 group-hover:rotate-90 transition-transform duration-300 shrink-0" />
             <span className="sm:hidden">Tạo CLB</span>
@@ -273,8 +266,8 @@ export default function Team() {
           <div className="py-16 text-center text-sm font-semibold text-slate-500">Đang tải dữ liệu CLB…</div>
         ) : filteredTeams.length === 0 ? (
           <div className="bg-slate-50 dark:bg-white/5 border border-dashed border-slate-200 dark:border-white/10 rounded-3xl p-12 text-center my-6">
-            <div className="w-16 h-16 bg-slate-200 dark:bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
-              {activeTab === 'captain' ? '👑' : activeTab === 'member' ? '🤝' : '🔍'}
+            <div className="sg-empty-state-icon w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+              {activeTab === 'captain' ? <Crown className="w-7 h-7" /> : activeTab === 'member' ? <UserCheck className="w-7 h-7" /> : <Filter className="w-7 h-7" />}
             </div>
             <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-1">
               {activeTab === 'captain' && 'Bạn chưa sở hữu CLB nào'}
@@ -289,7 +282,7 @@ export default function Team() {
             {(activeTab === 'captain' || activeTab === 'discover') && (
               <button
                 onClick={() => setIsCreateModalOpen(true)}
-                className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-amber-400 to-yellow-500 text-white font-bold text-xs shadow-lg active:scale-95 transition-all"
+                className="sg-primary-button rounded-2xl px-5 py-2.5 text-xs shadow-lg active:scale-95 transition-all"
               >
                 + Thành lập CLB mới
               </button>
@@ -304,6 +297,8 @@ export default function Team() {
                 onReview={() => setReviewTeam(team)}
                 onJoin={handleJoinTeam}
                 onManageMembers={openMembers}
+                onManagePremium={openPremiumSettings}
+                onViewPremium={openPremiumSettings}
                 onEdit={(item) => { setEditingTeam(item); setIsCreateModalOpen(true); }}
                 onChat={handleChatWithOpener}
               />
@@ -317,6 +312,7 @@ export default function Team() {
       <CreateTeamModal
         isOpen={isCreateModalOpen}
         initialTeam={editingTeam}
+        isPremium={Boolean(user?.isPremium)}
         onClose={() => { setIsCreateModalOpen(false); setEditingTeam(null); }}
         onSubmit={handleSaveTeam}
       />
@@ -355,6 +351,16 @@ export default function Team() {
             )}
           </section>
         </div>
+      )}
+
+      {premiumSettingsTeam && (
+        <TeamPremiumSettingsModal
+          isOpen={!!premiumSettingsTeam}
+          team={premiumSettingsTeam}
+          canEdit={Boolean(premiumSettingsTeam.isCaptain && user?.isPremium)}
+          onClose={() => setPremiumSettingsTeam(null)}
+          onSaved={async () => { await loadTeams(true); showToast('Đã lưu thiết lập Premium của CLB.'); }}
+        />
       )}
 
     </div>
