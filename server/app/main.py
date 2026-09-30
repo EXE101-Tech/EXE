@@ -21,7 +21,15 @@ app = FastAPI(
 # Configure CORS so our React Frontend can fetch APIs from localhost
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # For dev. Change in production.
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://sportgo.io.vn",
+        "https://www.sportgo.io.vn",
+    ],
+    allow_origin_regex=r"https?://.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

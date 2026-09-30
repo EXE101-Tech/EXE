@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 # Load env variables
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/exe101")
+DATABASE_URL = os.getenv("TRANSACTION_DATABASE_URL") or os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/exe101")
 
 # Normalize old postgres:// URLs to postgresql://
 if DATABASE_URL.startswith("postgres://"):
@@ -36,10 +36,11 @@ if DATABASE_URL.startswith("postgresql+psycopg://") and not _has_psycopg3 and _h
     DATABASE_URL = DATABASE_URL.replace("postgresql+psycopg://", "postgresql+psycopg2://", 1)
 elif DATABASE_URL.startswith("postgresql+psycopg2://") and not _has_psycopg2 and _has_psycopg3:
     DATABASE_URL = DATABASE_URL.replace("postgresql+psycopg2://", "postgresql+psycopg://", 1)
+
 engine = create_engine(
     DATABASE_URL,
-    pool_size=10,
-    max_overflow=20,
+    pool_size=5,
+    max_overflow=10,
     pool_pre_ping=True,
     pool_recycle=300,
 )
