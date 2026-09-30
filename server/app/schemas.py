@@ -151,6 +151,18 @@ class AdminAccountResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class AdminUserResponse(BaseModel):
+    id: int
+    email: str
+    status: str
+    is_admin: bool
+    premium_until: Optional[datetime] = None
+    is_premium: bool = False
+    created_at: datetime
+    profile: Optional[UserProfileResponse] = None
+    model_config = ConfigDict(from_attributes=True)
+
+
 class PremiumPaymentIntentResponse(BaseModel):
     id: int
     payment_code: str
@@ -182,6 +194,18 @@ class PremiumPaymentResponse(BaseModel):
     submitted_at: datetime
     reviewed_at: Optional[datetime] = None
     review_note: Optional[str] = None
+
+
+class AdminPremiumAccountResponse(BaseModel):
+    user_id: int
+    user_email: str
+    user_name: str
+    premium_until: datetime
+    last_payment_code: Optional[str] = None
+    last_payment_amount: Optional[int] = None
+    last_payment_submitted_at: Optional[datetime] = None
+    last_payment_proof_url: Optional[str] = None
+    last_payment_reviewed_at: Optional[datetime] = None
 
 
 class ModerationWarningCreate(BaseModel):

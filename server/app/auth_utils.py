@@ -64,7 +64,7 @@ def _user_from_credentials(credentials: HTTPAuthorizationCredentials, db: Sessio
         raise credentials_exception
         
     user = crud.get_user_by_email(db, email=email)
-    if user is None:
+    if user is None or user.status != "active":
         raise credentials_exception
     return user
 

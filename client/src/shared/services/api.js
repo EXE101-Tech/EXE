@@ -83,8 +83,13 @@ export const adminService = {
   getPosts: () => apiClient.get('/admin/posts'),
   getRooms: () => apiClient.get('/admin/rooms'),
   getPayments: (status) => apiClient.get('/admin/payments', { params: status ? { status } : {} }),
+  getPremiumAccounts: () => apiClient.get('/admin/premium/accounts'),
+  revokePremium: (userId) => apiClient.delete(`/admin/premium/accounts/${userId}`),
   reviewPayment: (id, data) => apiClient.patch(`/admin/payments/${id}`, data),
   getAccounts: () => apiClient.get('/admin/accounts'),
+  deleteAccount: (id) => apiClient.delete(`/admin/accounts/${id}`),
+  getUsers: () => apiClient.get('/admin/users'),
+  deleteUser: (id) => apiClient.delete(`/admin/users/${id}`),
   createAccount: (data) => apiClient.post('/admin/accounts', data),
   sendWarning: (data) => apiClient.post('/admin/warnings', data),
 };

@@ -118,7 +118,7 @@ def admin_summary(
     db: Session = Depends(database.get_db),
 ):
     return {
-        "users": db.query(func.count(models.User.id)).scalar() or 0,
+        "users": db.query(func.count(models.User.id)).filter(models.User.status != "deleted").scalar() or 0,
         "posts": db.query(func.count(models.SocialPost.id)).scalar() or 0,
         "teams": db.query(func.count(models.Team.id)).scalar() or 0,
         "rooms": db.query(func.count(models.Match.id)).scalar() or 0,
@@ -126,6 +126,7 @@ def admin_summary(
             models.PremiumPayment.status == "PENDING",
             models.PremiumPayment.proof_url.is_not(None),
             models.PremiumPayment.proof_url != "",
+            models.PremiumPayment.user.has(models.User.status != "deleted"),
         ).scalar() or 0,
     }
 
@@ -159,9 +160,9 @@ def list_payments(
     current_user: models.User = Depends(auth_utils.require_admin),
     db: Session = Depends(database.get_db),
 ):
-    query = db.query(models.PremiumPayment).options(
+    query = db.query(models.PremiumPayment).join(models.PremiumPayment.user).options(
         joinedload(models.PremiumPayment.user).joinedload(models.User.profile),
-    )
+    ).filter(models.User.status != "deleted")
     if payment_status:
         query = query.filter(models.PremiumPayment.status == payment_status)
         if payment_status == "PENDING":
@@ -170,6 +171,72 @@ def list_payments(
                 models.PremiumPayment.proof_url != "",
             )
     return [_payment_payload(item) for item in query.order_by(models.PremiumPayment.submitted_at.desc()).limit(200).all()]
+
+
+def _admin_premium_account_payload(user: models.User, payment: Optional[models.PremiumPayment] = None):
+    return {
+        "user_id": user.id,
+        "user_email": user.email,
+        "user_name": display_name(user),
+        "premium_until": user.premium_until,
+        "last_payment_code": payment.payment_code if payment else None,
+        "last_payment_amount": payment.amount if payment else None,
+        "last_payment_submitted_at": payment.submitted_at if payment else None,
+        "last_payment_proof_url": payment.proof_url if payment else None,
+        "last_payment_reviewed_at": payment.reviewed_at if payment else None,
+    }
+
+
+@router.get("/admin/premium/accounts", response_model=list[schemas.AdminPremiumAccountResponse])
+def list_active_premium_accounts(
+    current_user: models.User = Depends(auth_utils.require_admin),
+    db: Session = Depends(database.get_db),
+):
+    users = db.query(models.User).options(
+        joinedload(models.User.profile),
+    ).filter(
+        models.User.is_admin.is_(False),
+        models.User.premium_until > models.utc_now_naive(),
+    ).order_by(models.User.premium_until.desc()).all()
+    if not users:
+        return []
+    user_ids = [user.id for user in users]
+    latest_payments = {}
+    for payment in db.query(models.PremiumPayment).filter(
+        models.PremiumPayment.user_id.in_(user_ids),
+        models.PremiumPayment.status == "APPROVED",
+    ).order_by(models.PremiumPayment.submitted_at.desc(), models.PremiumPayment.id.desc()).all():
+        latest_payments.setdefault(payment.user_id, payment)
+    return [_admin_premium_account_payload(user, latest_payments.get(user.id)) for user in users]
+
+
+@router.delete("/admin/premium/accounts/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def revoke_premium_account(
+    user_id: int,
+    current_user: models.User = Depends(auth_utils.require_admin),
+    db: Session = Depends(database.get_db),
+):
+    user = db.query(models.User).options(joinedload(models.User.profile)).filter(
+        models.User.id == user_id,
+        models.User.is_admin.is_(False),
+    ).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Không tìm thấy tài khoản Premium")
+    if not user.is_premium:
+        raise HTTPException(status_code=409, detail="Tài khoản này không còn Premium đang hoạt động")
+    user.premium_until = None
+    create_notification(
+        db,
+        recipient_id=user.id,
+        actor=current_user,
+        notification_type="premium_revoked",
+        title="Gói Premium đã được hủy kích hoạt",
+        body="Quyền Premium của bạn đã được hủy kích hoạt bởi quản trị viên.",
+        target_url="/premium",
+        entity_type="user",
+        entity_id=user.id,
+    )
+    db.commit()
 
 
 @router.patch("/admin/payments/{payment_id}", response_model=schemas.PremiumPaymentResponse)
@@ -218,8 +285,63 @@ def list_admin_accounts(
     db: Session = Depends(database.get_db),
 ):
     return db.query(models.User).options(joinedload(models.User.profile)).filter(
-        models.User.is_admin.is_(True)
+        models.User.is_admin.is_(True),
+        models.User.status != "deleted",
     ).order_by(models.User.created_at.asc()).all()
+
+
+@router.delete("/admin/accounts/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_admin_account(
+    user_id: int,
+    current_user: models.User = Depends(auth_utils.require_admin),
+    db: Session = Depends(database.get_db),
+):
+    if user_id == current_user.id:
+        raise HTTPException(status_code=409, detail="Không thể xóa tài khoản quản trị đang đăng nhập")
+    user = db.query(models.User).filter(
+        models.User.id == user_id,
+        models.User.is_admin.is_(True),
+        models.User.status != "deleted",
+    ).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Không tìm thấy tài khoản admin")
+    user.status = "deleted"
+    user.premium_until = None
+    user.email = f"deleted-admin-{user.id}@invalid.sportgo.local"
+    db.commit()
+
+
+@router.get("/admin/users", response_model=list[schemas.AdminUserResponse])
+def list_user_accounts(
+    current_user: models.User = Depends(auth_utils.require_admin),
+    db: Session = Depends(database.get_db),
+):
+    return db.query(models.User).options(
+        joinedload(models.User.profile),
+    ).filter(
+        models.User.is_admin.is_(False),
+        models.User.status != "deleted",
+    ).order_by(models.User.created_at.desc()).limit(500).all()
+
+
+@router.delete("/admin/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_user_account(
+    user_id: int,
+    current_user: models.User = Depends(auth_utils.require_admin),
+    db: Session = Depends(database.get_db),
+):
+    user = db.query(models.User).filter(
+        models.User.id == user_id,
+        models.User.is_admin.is_(False),
+        models.User.status != "deleted",
+    ).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Không tìm thấy tài khoản người dùng")
+    # Keep related posts and transactions auditable while making the account unusable.
+    user.status = "deleted"
+    user.premium_until = None
+    user.email = f"deleted-{user.id}@invalid.sportgo.local"
+    db.commit()
 
 
 @router.post("/admin/accounts", response_model=schemas.AdminAccountResponse, status_code=status.HTTP_201_CREATED)
