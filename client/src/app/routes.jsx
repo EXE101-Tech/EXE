@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '../shared/context/AuthContext';
 import Login from '../features/auth/Login.jsx';
+import OnboardingPage from '../features/auth/OnboardingPage.jsx';
 import Home from '../features/home/Home.jsx';
 import SocialFeed from '../features/tournament/SocialFeed.jsx';
 import GameRoom from '../features/gameroom/GameRoom.jsx';
@@ -45,6 +46,7 @@ function ProtectedRoute({ children }) {
 function MemberLayout() {
     const { user } = useAuth();
     if (user?.isAdmin) return <Navigate to="/admin" replace />;
+    if (user && localStorage.getItem('sportgo-onboarding-pending') === String(user.id)) return <Navigate to="/onboarding" replace />;
     return <NavbarLayout />;
 }
 
@@ -67,6 +69,7 @@ function AppRoutes() {
                                 <Route path="/" element={<LandingPage />} />
                             </Route>
                             <Route path="/admin" element={<ProtectedRoute><AdminRoute><AdminDashboard /></AdminRoute></ProtectedRoute>} />
+                            <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
                             <Route element={<ProtectedRoute><MemberLayout /></ProtectedRoute>}>
                                 <Route path="/home" element={<Home />} />
                                 <Route path="/tournaments" element={<SocialFeed />} />

@@ -9,7 +9,7 @@ import { chatService, resolveMediaUrl, searchService } from '../services/api';
 import brandLogo from '../../../icons/logo.png';
 
 const links = [
-  { to: '/tournaments', label: 'Bảng tin', icon: Home },
+  { to: '/tournaments', label: 'Cộng đồng', icon: Home },
   { to: '/matches', label: 'Tìm trận', icon: Gamepad2 },
   { to: '/team', label: 'Team', icon: Users },
 ];
@@ -156,7 +156,7 @@ export default function Navbar() {
   return <>
     <header className="sg-topbar"><div className="sg-topbar-inner">
       <div className="sg-topbar-left">
-        <Link to="/tournaments" className="sg-brand" aria-label="SportGo, về bảng tin"><img className="sg-brand-mark" src={brandLogo} alt="" /><span className="sg-brand-wordmark">SPORT<span className={user?.isPremium ? 'sg-brand-go sg-premium-name' : 'sg-brand-go'}>GO</span></span></Link>
+        <Link to="/tournaments" className="sg-brand" aria-label="SportGo, về cộng đồng"><img className="sg-brand-mark" src={brandLogo} alt="" /><span className="sg-brand-wordmark">SPORT<span className={user?.isPremium ? 'sg-brand-go sg-premium-name' : 'sg-brand-go'}>GO</span></span></Link>
         <div className="sg-desktop-search" ref={searchRef}>{searchBox()}</div>
       </div>
       <nav className="sg-primary-nav" aria-label="Điều hướng chính">{links.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} className={({ isActive }) => `sg-nav-link ${isActive ? 'active' : ''}`}><Icon size={18} /><span>{label}</span></NavLink>)}</nav>

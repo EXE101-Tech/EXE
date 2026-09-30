@@ -452,6 +452,13 @@ def accept_friend_request(
         raise HTTPException(status_code=409, detail="Bạn không thể chấp nhận lời mời này")
     relationship.status = "accepted"
     relationship.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    first_id, second_id = sorted((relationship.user_low_id, relationship.user_high_id))
+    conversation = db.query(models.Conversation).filter(
+        models.Conversation.user1_id == first_id,
+        models.Conversation.user2_id == second_id,
+    ).first()
+    if not conversation:
+        db.add(models.Conversation(user1_id=first_id, user2_id=second_id))
     create_notification(
         db,
         recipient_id=relationship.requester_id,

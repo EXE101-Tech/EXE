@@ -16,7 +16,7 @@ export default function PremiumPage() {
   const { user } = useAuth();
   const isPremium = Boolean(user?.isPremium);
   return <main className="sg-premium-page">
-    <Link to="/tournaments" className="sg-premium-back"><ArrowLeft size={16} /> Quay lại bảng tin</Link>
+    <Link to="/tournaments" className="sg-premium-back"><ArrowLeft size={16} /> Quay lại cộng đồng</Link>
     <section className="sg-premium-hero"><div className="sg-premium-glow" /><div className="sg-premium-hero-content"><span className="sg-premium-badge"><Crown size={16} /> SPORTGO PREMIUM</span><h1>Chủ động hơn<br /><em>trong mỗi trận<br />chơi.</em></h1><p>Gói Premium 30.000đ/tháng giúp bạn tự động tìm phòng, mời người cùng khu vực để lấp đầy phòng và quản lý hoạt động CLB theo lịch đã thiết lập.</p><button type="button" disabled={isPremium} className={`sg-premium-state sg-premium-upgrade-button ${isPremium ? 'is-upgraded' : ''}`} onClick={() => !isPremium && setPaymentOpen(true)} aria-label={isPremium ? 'Gói Premium đang hoạt động' : 'Nâng cấp Premium với giá 30.000đ mỗi tháng'}>{isPremium ? <><BadgeCheck size={16} /><strong>Đã nâng cấp</strong></> : <><strong>30.000đ/tháng</strong><span>· Nâng cấp ngay</span></>}</button></div><div className="sg-premium-graphic" aria-hidden="true"><span>MOVE<br />TOGETHER<span className="sg-premium-dot">.</span></span><i /></div></section>
     <div className="sg-premium-section-heading"><span className="sg-eyebrow">GÓI PREMIUM · 30.000Đ/THÁNG</span><h2>Tự động hóa những việc bạn thường phải làm thủ công</h2></div>
     <div className="sg-premium-grid">{benefits.map(({ icon: Icon, title, text }) => <article key={title} className="sg-panel sg-premium-benefit"><span><Icon size={21} /></span><h3>{title}</h3><p>{text}</p></article>)}</div>

@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Zap, CheckCircle, Eye, EyeOff } from 'lucide-react';
-import { validateEmail } from '../../../shared/utils/validators';
 
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useTranslation } from 'react-i18next';
@@ -19,23 +18,28 @@ function LoginForm({ onShowRegister }) {
   const [isSuccess, setIsSuccess] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  googleCallbackRef.current = async (code) => {
-    if (!code) {
-      setErrors({ general: 'Google không trả về thông tin đăng nhập. Vui lòng thử lại.' });
-      return;
-    }
-    setErrors({});
-    setIsLoading(true);
-    try {
-      const result = await loginWithGoogle(code);
-      setIsSuccess(true);
-      setTimeout(() => navigate(result?.user?.isAdmin ? '/admin' : '/home'), 1500);
-    } catch (err) {
-      setErrors({ general: err.message || t('auth.invalidCredentials') });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  useEffect(() => {
+    googleCallbackRef.current = async (code) => {
+      if (!code) {
+        setErrors({ general: 'Google không trả về thông tin đăng nhập. Vui lòng thử lại.' });
+        return;
+      }
+      setErrors({});
+      setIsLoading(true);
+      try {
+        const result = await loginWithGoogle(code);
+        const destination = result?.is_new_user ? '/onboarding' : (result?.user?.isAdmin ? '/admin' : '/home');
+        if (result?.is_new_user) localStorage.setItem('sportgo-onboarding-pending', String(result.user.id));
+        setIsSuccess(true);
+        setTimeout(() => navigate(destination), 1500);
+      } catch (err) {
+        setErrors({ general: err.message || t('auth.invalidCredentials') });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    return () => { googleCallbackRef.current = null; };
+  }, [loginWithGoogle, navigate, t]);
 
   useEffect(() => {
     if (!googleClientId) return undefined;
@@ -172,7 +176,7 @@ function LoginForm({ onShowRegister }) {
         <div>
           <div className="flex items-center justify-between mb-1 sm:mb-1.5">
             <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-gray-300">{t('auth.password')}</label>
-            <button type="button" className="text-[11px] sm:text-xs font-medium text-slate-500 hover:text-slate-900 dark:text-white/70 dark:hover:text-white transition-colors">{t('auth.forgotPassword')}</button>
+            <button type="button" tabIndex={-1} className="text-[11px] sm:text-xs font-medium text-slate-500 hover:text-slate-900 dark:text-white/70 dark:hover:text-white transition-colors">{t('auth.forgotPassword')}</button>
           </div>
           <div className="relative">
             <input
@@ -184,6 +188,7 @@ function LoginForm({ onShowRegister }) {
             />
             <button
               type="button"
+              tabIndex={-1}
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-3.5 sm:right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:text-white/50 dark:hover:text-white transition-colors"
             >

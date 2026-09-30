@@ -13,7 +13,7 @@ import brandLogo from '../../../icons/logo.png';
 const PAGE_SIZE = 20;
 const LEVEL_LABELS = { Beginner: 'Mới chơi', Intermediate: 'Trung bình', Advanced: 'Khá', Expert: 'Chuyên nghiệp', 'Chưa biết': 'Chưa biết' };
 const navLinks = [
-  { to: '/tournaments', label: 'Bảng tin', icon: Home },
+  { to: '/tournaments', label: 'Cộng đồng', icon: Home },
   { to: '/matches', label: 'Tìm trận đấu', icon: Gamepad2 },
   { to: '/team', label: 'CLB & cộng đồng', icon: Users },
   { to: '/home', label: 'Hồ sơ của tôi', icon: UserRound },
@@ -74,7 +74,7 @@ export default function SocialFeed() {
       setHasMore(items.length === PAGE_SIZE);
       setError('');
     } catch (loadError) {
-      setError(loadError.message || 'Không tải được bảng tin.');
+      setError(loadError.message || 'Không tải được cộng đồng.');
     } finally {
       if (!silent) setIsLoading(false);
       if (append) setIsLoadingMore(false);

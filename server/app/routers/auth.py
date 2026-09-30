@@ -120,6 +120,7 @@ def login_with_google(request: Request, login_data: schemas.GoogleLoginRequest, 
     if not subject or not email or claims.get("email_verified") is not True:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Google chưa xác minh địa chỉ email này")
 
+    is_new_user = False
     identity = db.query(models.OAuthIdentity).filter_by(provider="google", subject=subject).first()
     if identity:
         user = db.query(models.User).filter_by(id=identity.user_id).first()
@@ -135,6 +136,7 @@ def login_with_google(request: Request, login_data: schemas.GoogleLoginRequest, 
         else:
             from app.auth_utils import get_password_hash
             user = models.User(email=email, password_hash=get_password_hash(secrets.token_urlsafe(32)))
+            is_new_user = True
             db.add(user)
             db.flush()
             db.add(models.UserProfile(
@@ -149,6 +151,7 @@ def login_with_google(request: Request, login_data: schemas.GoogleLoginRequest, 
             db.commit()
         except IntegrityError:
             db.rollback()
+            is_new_user = False
             identity = db.query(models.OAuthIdentity).filter_by(provider="google", subject=subject).first()
             if not identity:
                 raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Tài khoản Google vừa được liên kết. Vui lòng thử lại")
@@ -158,7 +161,7 @@ def login_with_google(request: Request, login_data: schemas.GoogleLoginRequest, 
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Tài khoản SportGo này hiện không thể đăng nhập")
 
     access_token = auth_utils.create_access_token(data={"sub": user.email})
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {"access_token": access_token, "token_type": "bearer", "is_new_user": is_new_user}
 
 @router.post("/register", response_model=schemas.Token, status_code=status.HTTP_201_CREATED)
 def register(register_data: schemas.UserCreate, db: Session = Depends(database.get_db)):
@@ -171,7 +174,7 @@ def register(register_data: schemas.UserCreate, db: Session = Depends(database.g
         
     user = crud.create_user(db, user=register_data)
     access_token = auth_utils.create_access_token(data={"sub": user.email})
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {"access_token": access_token, "token_type": "bearer", "is_new_user": True}
 
 @router.post("/logout")
 def logout(credentials = Depends(auth_utils.security), db: Session = Depends(database.get_db)):

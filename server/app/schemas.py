@@ -24,6 +24,7 @@ def normalize_cost_thousands(value: str) -> str:
 class Token(BaseModel):
     access_token: str
     token_type: str
+    is_new_user: bool = False
 
 class TokenData(BaseModel):
     email: Optional[str] = None
@@ -106,15 +107,23 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str
     name: str
-    district: str = Field(..., min_length=1, max_length=120)
+    district: Optional[str] = Field(None, max_length=120)
+
+    @field_validator("email")
+    @classmethod
+    def validate_gmail_email(cls, value: str) -> str:
+        value = value.strip().lower()
+        if not re.fullmatch(r"[^@\s]+@gmail\.com", value):
+            raise ValueError("Chỉ chấp nhận email có đuôi @gmail.com")
+        return value
 
     @field_validator("district")
     @classmethod
-    def normalize_district(cls, value: str) -> str:
+    def normalize_district(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
         value = value.strip()
-        if not value:
-            raise ValueError("Khu vực hoạt động không được để trống")
-        return value
+        return value or None
 
 class UserLogin(UserBase):
     password: str

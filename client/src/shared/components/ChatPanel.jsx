@@ -17,6 +17,18 @@ const toContact = (conversation) => ({
   friendship_id: conversation.friendship_id || null,
 });
 
+const toFriendContact = (friendship) => ({
+  conversationId: null,
+  userId: friendship.user.id,
+  name: friendship.user.name,
+  avatar: resolveMediaUrl(friendship.user.avatar_url),
+  last_message: null,
+  updated_at: friendship.created_at,
+  unread_count: 0,
+  friendship_status: 'accepted',
+  friendship_id: friendship.id,
+});
+
 const formatMessageTime = (value) => {
   if (!value) return '';
   const date = new Date(value.endsWith('Z') ? value : `${value}Z`);
@@ -48,8 +60,20 @@ function ChatPanel() {
 
   const loadConversations = useCallback(async () => {
     try {
-      const data = await chatService.getConversations();
-      setConversations(data.map(toContact));
+      const [conversationData, friendData] = await Promise.all([
+        chatService.getConversations(),
+        chatService.getFriends(),
+      ]);
+      const conversationContacts = conversationData.map(toContact);
+      const conversationUserIds = new Set(conversationContacts.map((conversation) => conversation.userId));
+      const friendContacts = friendData
+        .map(toFriendContact)
+        .filter((friend) => !conversationUserIds.has(friend.userId));
+      setConversations([...conversationContacts, ...friendContacts].sort((first, second) => {
+        const firstTime = first.updated_at ? new Date(first.updated_at).getTime() : 0;
+        const secondTime = second.updated_at ? new Date(second.updated_at).getTime() : 0;
+        return secondTime - firstTime;
+      }));
     } catch (err) {
       setError(err.message || 'Không tải được danh sách cuộc trò chuyện');
     }
@@ -261,6 +285,30 @@ function ChatPanel() {
     }
   };
 
+  const openContact = async (contact) => {
+    setMessages([]);
+    setHasOlderMessages(false);
+    setError('');
+    if (contact.conversationId) {
+      setIsMessagesLoading(true);
+      setSelected(contact);
+      return;
+    }
+    setIsMessagesLoading(true);
+    try {
+      const conversation = await chatService.startConversation(contact.userId);
+      const nextContact = toContact(conversation);
+      setConversations((current) => [
+        nextContact,
+        ...current.filter((item) => item.userId !== contact.userId),
+      ]);
+      setSelected(nextContact);
+    } catch (err) {
+      setIsMessagesLoading(false);
+      setError(err.message || 'Không thể bắt đầu cuộc trò chuyện');
+    }
+  };
+
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
   const filteredConversations = conversations.filter((conversation) => {
     if (!normalizedSearchQuery) return true;
@@ -274,7 +322,7 @@ function ChatPanel() {
     setError('');
     try {
       await action();
-      await loadFriendData();
+      await Promise.all([loadFriendData(), loadConversations()]);
       if (searchQuery.trim().length >= 2) {
         const query = searchQuery.trim();
         setPeople(await chatService.searchUsers(query));
@@ -354,7 +402,7 @@ function ChatPanel() {
               <p className="sg-chat-empty p-6 text-center text-sm">Chưa có cuộc trò chuyện. Mở tab Duyệt kết bạn để tìm và kết bạn.</p>
             )}
             {activeTab === 'messages' && filteredConversations.map((conversation) => (
-              <button key={conversation.conversationId} onClick={() => { setMessages([]); setHasOlderMessages(false); setIsMessagesLoading(true); setSelected(conversation); }} className="sg-chat-row w-full flex items-center gap-3.5 px-4 py-3.5 text-left">
+              <button key={conversation.conversationId || `friend-${conversation.userId}`} onClick={() => openContact(conversation)} className="sg-chat-row w-full flex items-center gap-3.5 px-4 py-3.5 text-left">
                 <div className="sg-chat-avatar w-11 h-11 rounded-2xl flex items-center justify-center font-bold shrink-0 overflow-hidden">
                   {conversation.avatar ? <img src={conversation.avatar} alt="" className="h-full w-full object-cover" /> : conversation.name.charAt(0).toUpperCase()}
                 </div>

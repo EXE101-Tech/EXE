@@ -78,7 +78,7 @@ export const AuthProvider = ({ children }) => {
   const login = async (credentials) => completeLogin(await authService.login(credentials));
   const loginWithGoogle = async (code) => completeLogin(await authService.loginWithGoogle(code));
 
-  const register = (data) => authService.register(data);
+  const register = async (data) => completeLogin(await authService.register(data));
 
   const logout = () => {
     if (token) authService.logout(token).catch(() => {});
