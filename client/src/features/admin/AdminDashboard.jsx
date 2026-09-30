@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Ban, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Clock3, FileText, Gamepad2, LogOut, Shield, Trash2, UserRound, Users } from 'lucide-react';
+import { Ban, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Clock3, FileText, Gamepad2, LogOut, Play, Shield, Trash2, UserRound, Users } from 'lucide-react';
 import { useAuth } from '../../shared/context/AuthContext';
 import { adminService, gameRoomService, resolveMediaUrl, socialPostService, teamService } from '../../shared/services/api';
+import MediaPreviewModal from '../../shared/components/MediaPreviewModal';
 
 const tabs = [
   { id: 'payments', label: 'Giao dịch', icon: ClipboardList },
@@ -155,9 +156,9 @@ export default function AdminDashboard() {
             <button type="button" role="tab" aria-selected={contentView === 'rooms'} onClick={() => setContentView('rooms')} className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition ${contentView === 'rooms' ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:bg-white/10 hover:text-slate-200'}`}><Gamepad2 className="h-4 w-4" /> Phòng chơi ({rooms.length})</button>
             <button type="button" role="tab" aria-selected={contentView === 'teams'} onClick={() => setContentView('teams')} className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition ${contentView === 'teams' ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:bg-white/10 hover:text-slate-200'}`}><Users className="h-4 w-4" /> CLB ({teams.length})</button>
           </div>
-          {contentView === 'posts' && <div role="tabpanel" aria-label="Danh sách bài viết"><ContentList title="Bài viết" icon={FileText} items={posts} getLabel={(item) => `${item.author_name}: ${item.content || 'Bài có ảnh/video'}`} onDelete={(item) => remove('post', item.id)} /></div>}
+          {contentView === 'posts' && <div role="tabpanel" aria-label="Danh sách bài viết"><ContentList title="Bài viết" icon={FileText} items={posts} getLabel={(item) => `${item.author_name}: ${item.content || 'Bài có ảnh/video'}`} getMedia={(item) => item.media_url ? { src: item.media_url, type: item.media_type, alt: `Media trong bài viết của ${item.author_name}` } : null} onDelete={(item) => remove('post', item.id)} /></div>}
           {contentView === 'rooms' && <div role="tabpanel" aria-label="Danh sách phòng chơi"><ContentList title="Phòng chơi" icon={Gamepad2} items={rooms} getLabel={(item) => `${item.title} · ${item.host?.profile?.full_name || item.host?.email || 'Chủ phòng'}`} onDelete={(item) => remove('room', item.id)} /></div>}
-          {contentView === 'teams' && <div role="tabpanel" aria-label="Danh sách CLB"><ContentList title="CLB" icon={Users} items={teams} getLabel={(item) => `${item.name} · ${item.owner_name || 'Chủ CLB'}`} onDelete={(item) => remove('team', item.id)} /></div>}
+          {contentView === 'teams' && <div role="tabpanel" aria-label="Danh sách CLB"><ContentList title="CLB" icon={Users} items={teams} getLabel={(item) => `${item.name} · ${item.owner_name || 'Chủ CLB'}`} getMedia={(item) => item.image_url ? { src: item.image_url, type: 'image', alt: `Ảnh bìa CLB ${item.name}` } : null} onDelete={(item) => remove('team', item.id)} /></div>}
         </div>}        {tab === 'accounts' && <>{accounts.map((account) => <div key={account.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4"><div><p className="font-bold">{account.profile?.full_name || account.email}</p><p className="text-xs text-slate-400">{account.email}</p></div><div className="flex items-center gap-2"><span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-bold text-emerald-300">Admin</span>{account.id === user?.id ? <span className="text-xs text-slate-500">Tài khoản hiện tại</span> : <button type="button" onClick={() => removeAdmin(account)} className="inline-flex items-center gap-1.5 rounded-lg border border-rose-400/40 px-3 py-2 text-xs font-bold text-rose-300 hover:bg-rose-500/10"><Trash2 className="h-3.5 w-3.5" /> Xóa tài khoản</button>}</div></div>)}</>}        {tab === 'users' && <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"><div className="mb-4 flex items-center justify-between gap-3"><h2 className="flex items-center gap-2 text-base font-black"><UserRound className="h-4 w-4 text-indigo-300" /> Danh sách tài khoản ({users.length})</h2><span className="text-xs text-slate-400">Tài khoản admin được bảo vệ</span></div>{users.length === 0 ? <Empty text="Chưa có tài khoản người dùng." /> : <div className="space-y-2">{visibleUsers.map((account) => <div key={account.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/60 px-3 py-3"><div className="min-w-0"><p className="font-bold">{account.profile?.full_name || 'Chưa cập nhật'} <span className="font-normal text-slate-400">({account.email})</span></p><p className="mt-1 text-xs text-slate-400">Tham gia {new Date(account.created_at).toLocaleDateString('vi-VN')}{account.is_premium ? ` · Premium đến ${new Date(account.premium_until).toLocaleDateString('vi-VN')}` : ''}</p></div><button type="button" onClick={() => removeUser(account)} className="inline-flex items-center gap-1.5 rounded-lg border border-rose-400/40 px-3 py-2 text-xs font-bold text-rose-300 hover:bg-rose-500/10"><Trash2 className="h-3.5 w-3.5" /> Xóa tài khoản</button></div>)}</div>}{users.length > 0 && <Pagination page={currentUsersPage} totalPages={usersTotalPages} onChange={setUsersPage} />}</section>}
       </div>
       <aside className="space-y-4">
@@ -175,6 +176,27 @@ function Pagination({ page, totalPages, onChange }) {
   return <div className="mt-4 flex items-center justify-center gap-3"><button type="button" onClick={() => onChange(Math.max(1, page - 1))} disabled={page <= 1} className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-3 py-2 text-xs font-bold text-slate-300 disabled:cursor-not-allowed disabled:opacity-40"><ChevronLeft className="h-3.5 w-3.5" /> Trước</button><span className="text-xs font-bold text-slate-400">Trang {page}/{totalPages}</span><button type="button" onClick={() => onChange(Math.min(totalPages, page + 1))} disabled={page >= totalPages} className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-3 py-2 text-xs font-bold text-slate-300 disabled:cursor-not-allowed disabled:opacity-40">Sau <ChevronRight className="h-3.5 w-3.5" /></button></div>;
 }
 
-function ContentList({ title, icon: Icon, items, getLabel, onDelete }) {
-  return <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"><h2 className="mb-3 flex items-center gap-2 font-black"><Icon className="h-4 w-4 text-indigo-300" /> {title} ({items.length})</h2>{items.length ? <div className="space-y-2">{items.map((item) => <div key={item.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2.5"><p className="min-w-0 truncate text-sm text-slate-200">#{item.id} · {getLabel(item)}</p><button type="button" onClick={() => onDelete(item)} aria-label={`Xóa ${title}`} className="shrink-0 rounded-lg p-2 text-rose-300 hover:bg-rose-500/10"><Trash2 className="h-4 w-4" /></button></div>)}</div> : <Empty text={`Chưa có ${title.toLowerCase()}.`} />}</section>;
+function ContentList({ title, icon: Icon, items, getLabel, getMedia, onDelete }) {
+  const [preview, setPreview] = useState(null);
+
+  return <>
+    <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+      <h2 className="mb-3 flex items-center gap-2 font-black"><Icon className="h-4 w-4 text-indigo-300" /> {title} ({items.length})</h2>
+      {items.length ? <div className="space-y-2">{items.map((item) => {
+        const media = getMedia?.(item);
+        const isVideo = media?.type === 'video' || media?.type?.startsWith('video/');
+        return <div key={item.id} className="flex items-start justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2.5">
+          <div className="flex min-w-0 items-start gap-3">
+            {media && <button type="button" onClick={() => setPreview(media)} className="group relative h-16 w-24 shrink-0 overflow-hidden rounded-lg border border-white/15 bg-slate-950" aria-label={`Xem ${isVideo ? 'video' : 'ảnh'} của ${title}`}>
+              {isVideo ? <video src={resolveMediaUrl(media.src)} muted playsInline preload="metadata" className="h-full w-full object-cover" /> : <img src={resolveMediaUrl(media.src)} alt="" loading="lazy" className="h-full w-full object-cover" />}
+              <span className="absolute inset-0 flex items-center justify-center bg-slate-950/35 text-white opacity-0 transition group-hover:opacity-100">{isVideo ? <Play className="h-5 w-5 fill-current" /> : 'Xem'}</span>
+            </button>}
+            <p className="min-w-0 whitespace-pre-wrap break-words text-sm leading-5 text-slate-200">#{item.id} · {getLabel(item)}</p>
+          </div>
+          <button type="button" onClick={() => onDelete(item)} aria-label={`Xóa ${title}`} className="shrink-0 rounded-lg p-2 text-rose-300 hover:bg-rose-500/10"><Trash2 className="h-4 w-4" /></button>
+        </div>;
+      })}</div> : <Empty text={`Chưa có ${title.toLowerCase()}.`} />}
+    </section>
+    {preview && <MediaPreviewModal src={preview.src} type={preview.type} alt={preview.alt} onClose={() => setPreview(null)} />}
+  </>;
 }

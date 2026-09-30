@@ -20,7 +20,7 @@ import {
   useLeaveLfgPostMutation,
   useLfgPostsQuery,
 } from '@/hooks/queries/use-lfg';
-import { isActiveSportName, SPORTS } from '@/lib/constants';
+import { isActiveSportName, LOCATION_FILTER_OPTIONS, SPORTS } from '@/lib/constants';
 import { parseStoredCostToVnd } from '@/lib/price';
 import type { LfgPostResponse } from '@/schemas/lfg';
 import { useAuthStore } from '@/stores/auth-store';
@@ -33,15 +33,6 @@ const SPORT_OPTIONS: SelectOption[] = [
 const SCOPE_OPTIONS: SelectOption[] = [
   { value: 'all', label: 'Tất cả bài' },
   { value: 'mine', label: 'Bài của tôi' },
-];
-
-const LOCATION_OPTIONS: SelectOption[] = [
-  { value: 'all', label: 'Tất cả khu vực' },
-  { value: 'Quận 10', label: 'Quận 10' },
-  { value: 'Quận 7', label: 'Quận 7' },
-  { value: 'Thủ Đức', label: 'TP. Thủ Đức' },
-  { value: 'Quận 11', label: 'Quận 11' },
-  { value: 'Quận 3', label: 'Quận 3' },
 ];
 
 const TIME_OPTIONS: SelectOption[] = [
@@ -170,7 +161,7 @@ export default function ForumScreen() {
         items={[
           { icon: Trophy, iconColor: '#F59E0B', value: sportFilter, options: SPORT_OPTIONS, onChange: setSportFilter },
           { icon: UserRound, iconColor: '#8B5CF6', value: scopeFilter, options: SCOPE_OPTIONS, onChange: setScopeFilter },
-          { icon: MapPin, iconColor: '#F43F5E', value: locationFilter, options: LOCATION_OPTIONS, onChange: setLocationFilter },
+          { icon: MapPin, iconColor: '#F43F5E', value: locationFilter, options: LOCATION_FILTER_OPTIONS, onChange: setLocationFilter },
           { icon: Calendar, iconColor: '#3B82F6', value: timeFilter, options: TIME_OPTIONS, onChange: setTimeFilter },
           { icon: DollarSign, iconColor: '#F59E0B', value: priceFilter, options: PRICE_OPTIONS, onChange: setPriceFilter },
           { icon: Award, iconColor: '#059669', value: skillFilter, options: SKILL_OPTIONS, onChange: setSkillFilter },

@@ -14,23 +14,13 @@ import { TopNavbar } from '@/components/navigation/top-navbar';
 import { useOwnerRegistrationMutation, useOwnerStatusQuery } from '@/hooks/queries/use-auth';
 import { useVenuesQuery } from '@/hooks/queries/use-courts';
 import { useRemoveVenueMutation } from '@/hooks/queries/use-owner-venues';
-import { SPORTS } from '@/lib/constants';
+import { LOCATION_FILTER_OPTIONS, SPORTS } from '@/lib/constants';
 import type { VenueResponse } from '@/schemas/courts';
 import { useAuthStore } from '@/stores/auth-store';
 
 const SPORT_OPTIONS: SelectOption[] = [
   { value: 'all', label: 'Tất cả môn' },
   ...SPORTS.map((sport) => ({ value: sport.key, label: sport.name, emoji: sport.emoji })),
-];
-
-const LOCATION_OPTIONS: SelectOption[] = [
-  { value: 'all', label: 'Tất cả khu vực' },
-  { value: 'Quận 10', label: 'Quận 10' },
-  { value: 'Quận 7', label: 'Quận 7' },
-  { value: 'Thủ Đức', label: 'TP. Thủ Đức' },
-  { value: 'Quận 11', label: 'Quận 11' },
-  { value: 'Quận 3', label: 'Quận 3' },
-  { value: 'Tân Bình', label: 'Quận Tân Bình' },
 ];
 
 export default function BookingsScreen() {
@@ -122,7 +112,7 @@ export default function BookingsScreen() {
           icon={MapPin}
           iconColor="#F43F5E"
           value={locationFilter}
-          options={LOCATION_OPTIONS}
+          options={LOCATION_FILTER_OPTIONS}
           onChange={setLocationFilter}
           className="flex-1"
         />

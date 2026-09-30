@@ -26,3 +26,15 @@ export const ACTIVITY_DISTRICTS = [
   'Huyện Nhà Bè',
   'Huyện Cần Giờ',
 ];
+
+// Full location filter shared by rooms, posts and court listings.
+// Keep the value "Thủ Đức" so it continues matching older room/address data.
+export const LOCATION_FILTER_OPTIONS = [
+  { value: 'all', label: 'Tất cả khu vực' },
+  ...ACTIVITY_DISTRICTS
+    .filter((district) => district !== 'Quận Thủ Đức')
+    .map((district) => ({
+      value: district === 'TP. Thủ Đức' ? 'Thủ Đức' : district,
+      label: district,
+    })),
+];

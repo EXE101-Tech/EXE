@@ -127,10 +127,14 @@ html.sg-theme-switching .sg-app *::after {
 .sg-right-panel { padding: 19px; margin-bottom: 18px; }
 .sg-right-panel h2 { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 15px; color: #eef3ff; font-size: 13px; font-weight: 800; }
 .sg-right-panel h2 a { color: #8faefa; font-size: 11px; font-weight: 650; }
+.sg-right-panel-list { max-height: 180px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #365384 transparent; }
+.sg-right-panel-list::-webkit-scrollbar { display: block; width: 4px; }
+.sg-right-panel-list::-webkit-scrollbar-thumb { border-radius: 999px; background: #365384; }
 .sg-right-item { display: flex; gap: 10px; align-items: center; padding: 9px 0; border-top: 1px solid rgba(174, 196, 236, .07); }
 .sg-right-item:first-of-type { border-top: 0; padding-top: 0; }
 .sg-right-item .sg-avatar { width: 39px; height: 39px; font-size: 12px; }
 .sg-right-item-text { min-width: 0; flex: 1; }
+.sg-right-person-name { display: flex; align-items: center; min-height: 39px; }
 .sg-right-item-text strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #e3eaf9; font-size: 11px; }
 .sg-right-item-text span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 4px; color: #8c99af; font-size: 10px; }
 .sg-right-item > button, .sg-right-item > a { flex: none; padding: 6px 9px; border: 1px solid #365384; border-radius: 7px; color: #9bbaff; font-size: 10px; font-weight: 750; }

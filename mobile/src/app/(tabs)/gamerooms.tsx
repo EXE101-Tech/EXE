@@ -16,7 +16,7 @@ import type { SelectOption } from '@/components/ui/select-dropdown';
 import { useStartConversationMutation } from '@/hooks/queries/use-chat';
 import { useSportsQuery } from '@/hooks/queries/use-courts';
 import { useGameroomsQuery, useJoinGameroomMutation, useLeaveGameroomMutation } from '@/hooks/queries/use-gamerooms';
-import { isActiveSportName, SKILL_REQUIREMENT_OPTIONS } from '@/lib/constants';
+import { isActiveSportName, LOCATION_FILTER_OPTIONS, SKILL_REQUIREMENT_OPTIONS } from '@/lib/constants';
 import { parseStoredCostToVnd } from '@/lib/price';
 import { getVietnamDate } from '@/lib/slots';
 import { useAuthStore } from '@/stores/auth-store';
@@ -24,15 +24,6 @@ import { useAuthStore } from '@/stores/auth-store';
 const SCOPE_OPTIONS: SelectOption[] = [
   { value: 'all', label: 'Tất cả phòng' },
   { value: 'mine', label: 'Phòng của tôi' },
-];
-
-const LOCATION_OPTIONS: SelectOption[] = [
-  { value: 'all', label: 'Tất cả khu vực' },
-  { value: 'Quận 10', label: 'Quận 10' },
-  { value: 'Quận 7', label: 'Quận 7' },
-  { value: 'Thủ Đức', label: 'TP. Thủ Đức' },
-  { value: 'Quận 11', label: 'Quận 11' },
-  { value: 'Quận 3', label: 'Quận 3' },
 ];
 
 const TIME_OPTIONS: SelectOption[] = [
@@ -176,7 +167,7 @@ export default function GameroomsScreen() {
         items={[
           { icon: Trophy, iconColor: '#F59E0B', value: sportFilter, options: sportOptions, onChange: setSportFilter },
           { icon: UserRound, iconColor: '#8B5CF6', value: scopeFilter, options: SCOPE_OPTIONS, onChange: setScopeFilter },
-          { icon: MapPin, iconColor: '#F43F5E', value: locationFilter, options: LOCATION_OPTIONS, onChange: setLocationFilter },
+          { icon: MapPin, iconColor: '#F43F5E', value: locationFilter, options: LOCATION_FILTER_OPTIONS, onChange: setLocationFilter },
           { icon: Calendar, iconColor: '#3B82F6', value: timeFilter, options: TIME_OPTIONS, onChange: setTimeFilter },
           { icon: DollarSign, iconColor: '#F59E0B', value: priceFilter, options: PRICE_OPTIONS, onChange: setPriceFilter },
           { icon: Award, iconColor: '#059669', value: skillFilter, options: SKILL_OPTIONS, onChange: setSkillFilter },

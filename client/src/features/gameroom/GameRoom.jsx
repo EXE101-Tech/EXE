@@ -14,6 +14,7 @@ import { useSearchParams } from 'react-router-dom';
 import { createSportExperienceMap, sortBySportExperience } from '../../shared/utils/sportExperienceSort';
 import { parseStoredCostToVnd } from '../../shared/utils/price';
 import { isActiveSport } from '../../shared/constants/sports';
+import { LOCATION_FILTER_OPTIONS } from '../../shared/constants/districts';
 
 function GameRoom() {
   const [searchParams] = useSearchParams();
@@ -349,12 +350,7 @@ function GameRoom() {
               value={selectedLocation}
               onChange={(e) => setSelectedLocation(e.target.value)}
             >
-              <option value="all">Tất cả khu vực</option>
-              <option value="Quận 10">Quận 10</option>
-              <option value="Quận 7">Quận 7</option>
-              <option value="Thủ Đức">TP. Thủ Đức</option>
-              <option value="Quận 11">Quận 11</option>
-              <option value="Quận 3">Quận 3</option>
+              {LOCATION_FILTER_OPTIONS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
             </FilterSelect>
 
             {/* 2. Phí giao lưu (Price) */}

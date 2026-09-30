@@ -15,6 +15,8 @@ function RegisterForm({ onShowLogin }) {
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [successMode, setSuccessMode] = useState('register');
+  const [successRedirect, setSuccessRedirect] = useState('/home');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -33,8 +35,11 @@ function RegisterForm({ onShowLogin }) {
           navigate('/onboarding');
           return;
         }
+        setSuccessMode('login');
+        const destination = result?.user?.isAdmin ? '/admin' : '/home';
+        setSuccessRedirect(destination);
         setIsSuccess(true);
-        setTimeout(() => navigate(result?.user?.isAdmin ? '/admin' : '/home'), 1200);
+        setTimeout(() => navigate(destination), 1200);
       } catch (err) {
         setErrors({ general: err.message || 'Không thể đăng ký bằng Google. Vui lòng thử lại.' });
       } finally {
@@ -152,15 +157,15 @@ function RegisterForm({ onShowLogin }) {
         <div className="w-24 h-24 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-full flex items-center justify-center mb-6 shadow-[0_0_40px_var(--theme-glow)] animate-[bounce_1s_ease-in-out] theme-transition">
           <CheckCircle className="w-12 h-12 text-brand-primary theme-transition" />
         </div>
-        <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-2 animate-in slide-in-from-bottom-4 duration-500 delay-150">Đăng ký<br/>Thành công!</h2>
+        <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-2 animate-in slide-in-from-bottom-4 duration-500 delay-150">{successMode === 'login' ? <>Đăng nhập<br />Thành công!</> : <>Đăng ký<br />Thành công!</>}</h2>
         <p className="text-slate-500 dark:text-gray-400 text-sm mb-8 px-4 animate-in fade-in duration-500 delay-300">
-          Tài khoản của bạn đã sẵn sàng. Hãy đăng nhập để bắt đầu!
+          {successMode === 'login' ? 'Bạn đã đăng nhập thành công bằng Google.' : 'Tài khoản của bạn đã sẵn sàng. Hãy đăng nhập để bắt đầu!'}
         </p>
         <button
-          onClick={onShowLogin}
+          onClick={successMode === 'login' ? () => navigate(successRedirect) : onShowLogin}
           className="w-full bg-brand-primary hover:opacity-80 active:scale-[0.98] text-white font-bold py-3.5 rounded-2xl transition-all shadow-[0_0_20px_var(--theme-glow)] text-base animate-in slide-in-from-bottom-4 duration-500 delay-500 theme-transition"
         >
-          Quay lại Đăng nhập
+          {successMode === 'login' ? 'Tiếp tục' : 'Quay lại Đăng nhập'}
         </button>
       </div>
     );

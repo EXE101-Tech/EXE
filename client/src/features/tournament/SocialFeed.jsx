@@ -43,6 +43,10 @@ function normalizeRoom(room) {
   };
 }
 
+function getPersonName(person) {
+  return person?.name || person?.profile?.full_name || person?.full_name || person?.email || 'Người chơi';
+}
+
 export default function SocialFeed() {
   const { user } = useAuth();
   const { openChat } = useChat();
@@ -97,10 +101,10 @@ export default function SocialFeed() {
           const isApprovedParticipant = (room.participants || []).some((participant) => Number(participant.user_id) === currentUserId && participant.status === 'APPROVED');
           return room.status === 'OPEN' && !isHost && !isApprovedParticipant;
         });
-        setRooms(roomsToShow.slice(0, 3));
+        setRooms(roomsToShow);
       }
-      if (teamResult.status === 'fulfilled') setTeams(teamResult.value.filter((team) => !team.is_member && !team.is_captain).slice(0, 3));
-      if (peopleResult.status === 'fulfilled') setPeople((Array.isArray(peopleResult.value) ? peopleResult.value : peopleResult.value?.items || []).slice(0, 3).map((friendship) => friendship.user).filter(Boolean));
+      if (teamResult.status === 'fulfilled') setTeams(teamResult.value.filter((team) => !team.is_member && !team.is_captain));
+      if (peopleResult.status === 'fulfilled') setPeople((Array.isArray(peopleResult.value) ? peopleResult.value : peopleResult.value?.items || []).map((friendship) => friendship.user).filter(Boolean));
     });
     return () => { active = false; };
   }, [user?.id]);
@@ -187,9 +191,9 @@ export default function SocialFeed() {
     </main>
 
     <aside className="sg-feed-side sg-right-side" aria-label="Gợi ý cộng đồng">
-      <div className="sg-panel sg-right-panel"><h2>Phòng sắp diễn ra <Link to="/matches">Xem tất cả</Link></h2>{rooms.length ? rooms.map((room) => <div key={room.id} className="sg-right-item"><Avatar name={room.sport?.name || room.title} /><div className="sg-right-item-text"><strong>{room.title}</strong><span><MapPin size={11} style={{display:'inline'}} /> {room.location || 'Địa điểm chưa cập nhật'}</span></div><button type="button" onClick={() => setPreview({ type: 'room', item: normalizeRoom(room) })}>Xem</button></div>) : <p className="sg-right-empty">Chưa có phòng đang mở. Tạo phòng để bắt đầu một trận mới.</p>}</div>
-      <div className="sg-panel sg-right-panel"><h2>CLB nổi bật <Link to="/team">Khám phá</Link></h2>{teams.length ? teams.map((team) => <div key={team.id} className="sg-right-item"><Avatar src={resolveMediaUrl(team.image_url)} name={team.name} /><div className="sg-right-item-text"><strong>{team.name}</strong><span>{team.sport_name || 'Cộng đồng thể thao'} · {team.location || 'Việt Nam'}</span></div><button type="button" onClick={() => setPreview({ type: 'team', item: team })}>Xem</button></div>) : <p className="sg-right-empty">Chưa có CLB nào. Hãy lập cộng đồng đầu tiên.</p>}</div>
-      {people.length > 0 && <div className="sg-panel sg-right-panel"><h2>Bạn bè đang kết nối</h2>{people.map((person) => <div key={person.id} className="sg-right-item"><Avatar src={person.profile?.avatar_url || person.avatar_url} name={person.profile?.full_name || person.full_name || person.email} /><div className="sg-right-item-text"><strong>{person.profile?.full_name || person.full_name || person.email}</strong><span>Người chơi SportGo</span></div><button type="button" onClick={() => openChat(person)}>Nhắn tin</button></div>)}</div>}
+      <div className="sg-panel sg-right-panel"><h2>Phòng sắp diễn ra <Link to="/matches">Xem tất cả</Link></h2>{rooms.length ? <div className="sg-right-panel-list">{rooms.map((room) => <div key={room.id} className="sg-right-item"><Avatar name={room.sport?.name || room.title} /><div className="sg-right-item-text"><strong>{room.title}</strong><span><MapPin size={11} style={{display:'inline'}} /> {room.location || 'Địa điểm chưa cập nhật'}</span></div><button type="button" onClick={() => setPreview({ type: 'room', item: normalizeRoom(room) })}>Xem</button></div>)}</div> : <p className="sg-right-empty">Chưa có phòng đang mở. Tạo phòng để bắt đầu một trận mới.</p>}</div>
+      <div className="sg-panel sg-right-panel"><h2>CLB nổi bật <Link to="/team">Khám phá</Link></h2>{teams.length ? <div className="sg-right-panel-list">{teams.map((team) => <div key={team.id} className="sg-right-item"><Avatar src={resolveMediaUrl(team.image_url)} name={team.name} /><div className="sg-right-item-text"><strong>{team.name}</strong><span>{team.sport_name || 'Cộng đồng thể thao'} · {team.location || 'Việt Nam'}</span></div><button type="button" onClick={() => setPreview({ type: 'team', item: team })}>Xem</button></div>)}</div> : <p className="sg-right-empty">Chưa có CLB nào. Hãy lập cộng đồng đầu tiên.</p>}</div>
+      {people.length > 0 && <div className="sg-panel sg-right-panel"><h2>Bạn bè đang kết nối</h2><div className="sg-right-panel-list">{people.map((person) => { const personName = getPersonName(person); return <div key={person.id} className="sg-right-item"><Avatar src={person.profile?.avatar_url || person.avatar_url} name={personName} /><div className="sg-right-item-text sg-right-person-name"><strong>{personName}</strong></div><button type="button" onClick={() => openChat(person)}>Nhắn tin</button></div>; })}</div></div>}
       <p className="sg-right-footer">SportGo · Chơi cùng nhau, tiến xa hơn.</p>
     </aside>
     {preview && <ContentPreviewModal type={preview.type} item={preview.item} currentUserId={user?.id} onClose={() => setPreview(null)} onJoin={handlePreviewJoin} isBusy={isJoining} />}

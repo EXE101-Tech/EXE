@@ -18,6 +18,19 @@ export const SPORTS: { key: SportKey; name: string; emoji: string }[] = [
   { key: 'football', name: 'Bóng đá', emoji: '⚽' },
 ];
 
+export const LOCATION_FILTER_OPTIONS: { value: string; label: string }[] = [
+  { value: 'all', label: 'Tất cả khu vực' },
+  ...[
+    'Quận 1', 'Quận 2', 'Quận 3', 'Quận 4', 'Quận 5', 'Quận 6', 'Quận 7', 'Quận 8',
+    'Quận 9', 'Quận 10', 'Quận 11', 'Quận 12', 'Quận Bình Thạnh', 'Quận Tân Bình',
+    'Quận Tân Phú', 'Quận Phú Nhuận', 'Quận Gò Vấp', 'Quận Bình Tân', 'TP. Thủ Đức',
+    'Huyện Bình Chánh', 'Huyện Hóc Môn', 'Huyện Củ Chi', 'Huyện Nhà Bè', 'Huyện Cần Giờ',
+  ].map((district) => ({
+    value: district === 'TP. Thủ Đức' ? 'Thủ Đức' : district,
+    label: district,
+  })),
+];
+
 export const SPORT_KEY_BY_NAME: Record<string, SportKey> = {
   badminton: 'badminton',
   'cầu lông': 'badminton',
