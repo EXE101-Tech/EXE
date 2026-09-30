@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Camera, Crown, ImagePlus, MapPin, Trash2, Users, X } from 'lucide-react';
 import { resolveMediaUrl, sportService, storageService } from '../../../shared/services/api';
 import { isActiveSport } from '../../../shared/constants/sports';
+import LocationPicker from '../../../shared/components/LocationPicker';
 
 const SPORT_EMOJI = { badminton: '🏸', football: '⚽', pickleball: '🏓' };
 
@@ -146,9 +147,24 @@ export default function CreateTeamModal({ isOpen, onClose, onSubmit, initialTeam
               <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">JPG, PNG, WebP hoặc AVIF · tối đa 8 MB</p>
             </div>
             <label className="block text-xs font-bold text-slate-600 dark:text-slate-300">Tên CLB *<input required minLength={2} maxLength={160} value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-[#589470] dark:border-white/10 dark:bg-white/5 dark:text-white" placeholder="VD: CLB Cầu lông Proton" /></label>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block text-xs font-bold text-slate-600 dark:text-slate-300"><span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> Khu vực hoạt động *</span><input required minLength={2} maxLength={255} value={form.location} onChange={(event) => setForm((current) => ({ ...current, location: event.target.value }))} className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-[#589470] dark:border-white/10 dark:bg-white/5 dark:text-white" placeholder="Quận / thành phố" /></label>
-              <label className="block text-xs font-bold text-slate-600 dark:text-slate-300"><span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" /> Số thành viên tối đa</span><input required type="number" min="2" max="500" value={form.total_slots} onChange={(event) => setForm((current) => ({ ...current, total_slots: event.target.value }))} className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-[#589470] dark:border-white/10 dark:bg-white/5 dark:text-white" /></label>
+            <div className="grid gap-4 sm:grid-cols-2 items-start">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5 flex items-center gap-1">
+                  <MapPin className="h-3.5 w-3.5 text-rose-500" /> Khu vực hoạt động *
+                </label>
+                <LocationPicker
+                  value={form.location}
+                  onChange={(e) => setForm((current) => ({ ...current, location: e.target.value }))}
+                  placeholder="Quận / thành phố hoặc chọn trên map..."
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5 flex items-center gap-1">
+                  <Users className="h-3.5 w-3.5" /> Số thành viên tối đa
+                </label>
+                <input required type="number" min="2" max="500" value={form.total_slots} onChange={(event) => setForm((current) => ({ ...current, total_slots: event.target.value }))} className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-[#589470] dark:border-white/10 dark:bg-white/5 dark:text-white" />
+              </div>
             </div>
             <label className="block text-xs font-bold text-slate-600 dark:text-slate-300">Mô tả và nội quy<textarea rows={4} maxLength={5000} value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} className="mt-1.5 w-full resize-y rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-[#589470] dark:border-white/10 dark:bg-white/5 dark:text-white" placeholder="Lịch tập, trình độ, nội quy…" /></label>
             <label className="block text-xs font-bold text-slate-600 dark:text-slate-300">Thẻ phân loại (ngăn cách bằng dấu phẩy)<input value={form.tags} onChange={(event) => setForm((current) => ({ ...current, tags: event.target.value }))} className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-[#589470] dark:border-white/10 dark:bg-white/5 dark:text-white" placeholder="Mọi trình độ, giao lưu" /></label>

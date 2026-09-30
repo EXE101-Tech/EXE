@@ -3,6 +3,7 @@ import { X, Gamepad2, Trophy, MapPin, Calendar, Clock, Users, DollarSign, AlignL
 import { sportService } from '../../../shared/services/api';
 import { parseCostInputToVnd, storedCostToInput } from '../../../shared/utils/price';
 import { isActiveSport } from '../../../shared/constants/sports';
+import LocationPicker from '../../../shared/components/LocationPicker';
 
 const SPORT_EMOJI = { badminton: '🏸', football: '⚽', pickleball: '🏓' };
 
@@ -239,13 +240,10 @@ function CreateRoomModal({ isOpen, onClose, onSubmit, initialRoom = null, isLoad
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
               <MapPin className="w-3.5 h-3.5 text-rose-500" /> Địa điểm / Sân thi đấu <span className="text-rose-500">*</span>
             </label>
-            <input
-              type="text"
-              name="location"
+            <LocationPicker
               value={formData.location}
               onChange={handleChange}
-              placeholder="VD: Sân cầu lông Viettel, Số 1 Đào Duy Anh, Phú Nhuận..."
-              className="w-full px-4 py-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:border-[#589470] dark:focus:border-[#DBE64C] focus:outline-none text-sm font-medium text-slate-900 dark:text-white transition-all"
+              placeholder="Nhập tên sân, địa chỉ hoặc bấm 'Map' để chọn trên bản đồ..."
               required
             />
           </div>

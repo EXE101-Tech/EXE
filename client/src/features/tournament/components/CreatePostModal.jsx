@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Calendar, ImagePlus, MapPin, PlusCircle, X } from 'lucide-react';
 import { resolveMediaUrl } from '../../../shared/services/api';
 import { parseCostInputToVnd, storedCostToInput } from '../../../shared/utils/price';
+import LocationPicker from '../../../shared/components/LocationPicker';
 
 const SPORTS = [
   { id: 'badminton', name: 'Cầu lông', emoji: '🏸' },
@@ -96,7 +97,17 @@ export default function CreatePostModal({ isOpen, onClose, onCreate, initialPost
           <div className="sg-modal-body space-y-5 overflow-y-auto p-5 sm:p-7">
             {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-700 dark:bg-red-950/30 dark:text-red-300">{error}</p>}
             <fieldset><legend className="mb-2 text-xs font-bold uppercase text-slate-500">Môn thể thao *</legend><div className="grid grid-cols-3 gap-2 sm:grid-cols-6">{SPORTS.map((sport) => <button key={sport.id} type="button" onClick={() => setForm((current) => ({ ...current, sport_id: sport.id }))} className={`rounded-xl border p-2 text-center text-xs font-bold ${form.sport_id === sport.id ? 'border-[#589470] bg-[#589470]/10 text-[#589470]' : 'border-slate-200 dark:border-white/10'}`}><span className="mb-1 block text-xl">{sport.emoji}</span>{sport.name}</button>)}</div></fieldset>
-            <label className="block text-xs font-bold text-slate-600 dark:text-slate-300"><span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> Địa điểm *</span><input required minLength={2} maxLength={255} value={form.location} onChange={update('location')} className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-[#589470] dark:border-white/10 dark:bg-white/5 dark:text-white" /></label>
+            <div>
+              <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5 flex items-center gap-1">
+                <MapPin className="h-3.5 w-3.5 text-rose-500" /> Địa điểm sân thi đấu *
+              </label>
+              <LocationPicker
+                value={form.location}
+                onChange={update('location')}
+                placeholder="Nhập tên sân, địa chỉ hoặc bấm Map để chọn trên bản đồ..."
+                required
+              />
+            </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block text-xs font-bold text-slate-600 dark:text-slate-300"><span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> Ngày chơi *</span><input required type="date" min={todayLocal()} value={form.date} onChange={update('date')} className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-[#589470] dark:border-white/10 dark:bg-white/5 dark:text-white" /></label>
               <label className="block text-xs font-bold text-slate-600 dark:text-slate-300">Khung giờ *<input required maxLength={100} value={form.time_slot} onChange={update('time_slot')} placeholder="19:00 - 21:00" className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-[#589470] dark:border-white/10 dark:bg-white/5 dark:text-white" /></label>
