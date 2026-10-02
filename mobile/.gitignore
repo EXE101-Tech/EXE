@@ -42,3 +42,12 @@ example
 # generated native folders
 /ios
 /android
+
+# signing keys and cloud credentials (never commit these; EAS keeps the release keystore for you)
+*.keystore
+*.pfx
+google-services.json
+GoogleService-Info.plist
+credentials.json
+*service-account*.json
+*-firebase-adminsdk-*.json

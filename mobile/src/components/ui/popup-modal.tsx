@@ -4,7 +4,9 @@ import type { ReactNode } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View } from 'react-native';
 
 import { cn } from '@/lib/utils';
+import { useState } from 'react';
 import { AppDialog } from './app-dialog';
+import { ScrollLockContext } from './scroll-lock';
 import { ToastBanner } from './toast-banner';
 
 interface PopupModalProps {
@@ -53,6 +55,9 @@ export function PopupModal({
   dismissOnBackdrop = true,
   bodyClassName,
 }: PopupModalProps) {
+  // Set by children that need to drag inside the form (an embedded map) so the form does not scroll under them.
+  const [scrollLocked, setScrollLocked] = useState(false);
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
@@ -96,8 +101,9 @@ export function PopupModal({
                 contentContainerClassName={cn('gap-4 p-5', bodyClassName)}
                 keyboardShouldPersistTaps="handled"
                 bounces={false}
+                scrollEnabled={!scrollLocked}
               >
-                {children}
+                <ScrollLockContext.Provider value={setScrollLocked}>{children}</ScrollLockContext.Provider>
               </ScrollView>
             ) : (
               <View className={tall ? 'flex-1' : 'shrink'}>{children}</View>
