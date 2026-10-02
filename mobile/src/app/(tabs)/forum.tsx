@@ -1,228 +1,126 @@
 import { Text } from '@/components/ui/text';
-import { router } from 'expo-router';
-import { Award, Calendar, DollarSign, MapPin, MessageSquare, Plus, Trophy, UserRound } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
-import { Alert, FlatList, TouchableOpacity, View } from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
+import { Camera, MessageSquareText, X } from 'lucide-react-native';
+import { useState } from 'react';
+import { ActivityIndicator, FlatList, Pressable, View } from 'react-native';
+
 import { EmptyState } from '@/components/brand/empty-state';
 import { LoadingState } from '@/components/brand/loading-state';
 import { ScreenContainer } from '@/components/brand/screen-container';
 import { TopNavbar } from '@/components/navigation/top-navbar';
-import { CreateLfgPostModal } from '@/components/lfg/create-lfg-post-modal';
-import { LfgParticipantsModal } from '@/components/lfg/lfg-participants-modal';
-import { LfgPostCard } from '@/components/lfg/lfg-post-card';
-import { FilterGrid } from '@/components/ui/filter-grid';
+import { FeedProfilePanel } from '@/components/social/feed-profile-panel';
+import { FeedSuggestions } from '@/components/social/feed-suggestions';
+import { PostComposerModal } from '@/components/social/post-composer-modal';
+import { SocialPostCard } from '@/components/social/social-post-card';
+import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import type { SelectOption } from '@/components/ui/select-dropdown';
-import { useStartConversationMutation } from '@/hooks/queries/use-chat';
-import {
-  useCancelLfgPostMutation,
-  useJoinLfgPostMutation,
-  useLeaveLfgPostMutation,
-  useLfgPostsQuery,
-} from '@/hooks/queries/use-lfg';
-import { isActiveSportName, LOCATION_FILTER_OPTIONS, SPORTS } from '@/lib/constants';
-import { parseStoredCostToVnd } from '@/lib/price';
-import type { LfgPostResponse } from '@/schemas/lfg';
+import { useSocialFeedQuery } from '@/hooks/queries/use-social';
 import { useAuthStore } from '@/stores/auth-store';
 
-const SPORT_OPTIONS: SelectOption[] = [
-  { value: 'all', label: 'Tất cả môn' },
-  ...SPORTS.map((sport) => ({ value: sport.key, label: sport.name, emoji: sport.emoji })),
-];
+/** Community feed (web: "Cộng đồng"): share posts, like, comment, and discover rooms, clubs and friends. */
+export default function CommunityScreen() {
+  const user = useAuthStore((s) => s.user);
+  const { search } = useLocalSearchParams<{ search?: string }>();
+  const searchTerm = (search ?? '').trim();
+  const { data, isLoading, isError, error, refetch, isRefetching, fetchNextPage, hasNextPage, isFetchingNextPage } =
+    useSocialFeedQuery(searchTerm);
+  const [composerOpen, setComposerOpen] = useState(false);
 
-const SCOPE_OPTIONS: SelectOption[] = [
-  { value: 'all', label: 'Tất cả bài' },
-  { value: 'mine', label: 'Bài của tôi' },
-];
+  const posts = data?.pages.flat() ?? [];
 
-const TIME_OPTIONS: SelectOption[] = [
-  { value: 'all', label: 'Tất cả giờ' },
-  { value: 'Tối nay', label: 'Tối nay' },
-  { value: 'Tối mai', label: 'Tối mai' },
-  { value: 'Chiều', label: 'Chiều nay' },
-  { value: 'Sáng', label: 'Sáng Chủ Nhật' },
-  { value: 'Thứ 6', label: 'Tối Thứ 6' },
-];
-
-const PRICE_OPTIONS: SelectOption[] = [
-  { value: 'all', label: 'Tất cả giá' },
-  { value: 'Dưới 60k', label: 'Dưới 60.000đ' },
-  { value: '60k - 80k', label: '60.000đ - 80.000đ' },
-  { value: 'Trên 80k', label: 'Trên 80.000đ' },
-];
-
-const SKILL_OPTIONS: SelectOption[] = [
-  { value: 'all', label: 'Tất cả trình độ' },
-  { value: 'Mới chơi', label: 'Mới chơi / Vui vẻ' },
-  { value: 'Trung bình yếu', label: 'Trung bình yếu' },
-  { value: 'Trung bình', label: 'Trung bình' },
-  { value: 'Khá', label: 'Khá / Nâng cao' },
-];
-
-export default function ForumScreen() {
-  const currentUserId = useAuthStore((s) => s.user?.id);
-  const { data: posts, isLoading, isError, refetch, isRefetching } = useLfgPostsQuery();
-  const joinPost = useJoinLfgPostMutation();
-  const leavePost = useLeaveLfgPostMutation();
-  const cancelPost = useCancelLfgPostMutation();
-  const startConversation = useStartConversationMutation();
-
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [editingPost, setEditingPost] = useState<LfgPostResponse | null>(null);
-  const [managingPostId, setManagingPostId] = useState<number | null>(null);
-
-  const [sportFilter, setSportFilter] = useState('all');
-  const [scopeFilter, setScopeFilter] = useState('all');
-  const [locationFilter, setLocationFilter] = useState('all');
-  const [timeFilter, setTimeFilter] = useState('all');
-  const [priceFilter, setPriceFilter] = useState('all');
-  const [skillFilter, setSkillFilter] = useState('all');
-
-  const isFiltered =
-    sportFilter !== 'all' ||
-    scopeFilter !== 'all' ||
-    locationFilter !== 'all' ||
-    timeFilter !== 'all' ||
-    priceFilter !== 'all' ||
-    skillFilter !== 'all';
-
-  const resetFilters = () => {
-    setSportFilter('all');
-    setScopeFilter('all');
-    setLocationFilter('all');
-    setTimeFilter('all');
-    setPriceFilter('all');
-    setSkillFilter('all');
-  };
-
-  const filteredPosts = useMemo(() => {
-    return (posts ?? []).filter((post) => {
-      if (!isActiveSportName(post.sport_name)) return false;
-      if (sportFilter !== 'all' && post.sport_id !== sportFilter) return false;
-      if (scopeFilter === 'mine' && post.author_id !== currentUserId) return false;
-      if (locationFilter !== 'all' && !post.location.toLowerCase().includes(locationFilter.toLowerCase())) {
-        return false;
-      }
-      if (
-        timeFilter !== 'all' &&
-        !post.date_label.toLowerCase().includes(timeFilter.toLowerCase()) &&
-        !post.time_slot.toLowerCase().includes(timeFilter.toLowerCase())
-      ) {
-        return false;
-      }
-      if (priceFilter !== 'all') {
-        const priceVnd = parseStoredCostToVnd(post.price ?? post.price_info);
-        if (priceVnd === null) return false;
-        if (priceFilter === 'Dưới 60k' && priceVnd >= 60000) return false;
-        if (priceFilter === '60k - 80k' && (priceVnd < 60000 || priceVnd > 80000)) return false;
-        if (priceFilter === 'Trên 80k' && priceVnd <= 80000) return false;
-      }
-      if (skillFilter !== 'all' && !post.skill_level.toLowerCase().includes(skillFilter.toLowerCase())) return false;
-      return true;
-    });
-  }, [posts, sportFilter, scopeFilter, locationFilter, timeFilter, priceFilter, skillFilter, currentUserId]);
-
-  const handleChat = async (authorId: number) => {
-    try {
-      const conversation = await startConversation.mutateAsync(authorId);
-      router.push({ pathname: '/chat/[id]', params: { id: String(conversation.id) } });
-    } catch (error) {
-      Alert.alert('Lỗi', error instanceof Error ? error.message : 'Không mở được cuộc trò chuyện');
-    }
-  };
-
-  const handleCancel = (id: number) => {
-    Alert.alert('Xóa bài đăng', 'Bạn có chắc muốn xóa bài tìm người chơi này?', [
-      { text: 'Không', style: 'cancel' },
-      {
-        text: 'Xóa',
-        style: 'destructive',
-        onPress: () => cancelPost.mutate(id, { onError: (e) => Alert.alert('Lỗi', e.message) }),
-      },
-    ]);
-  };
+  const header = (
+    <View className="mb-3 gap-4">
+      {searchTerm.length >= 2 ? (
+        <View className="flex-row items-center justify-between gap-3 rounded-2xl border border-border bg-white px-4 py-3 dark:border-border-dark dark:bg-[#111827]">
+          <Text className="flex-1 text-sm text-slate-600 dark:text-slate-300" numberOfLines={1}>
+            Kết quả bài viết cho <Text className="font-black">“{searchTerm}”</Text>
+          </Text>
+          <Pressable hitSlop={8} accessibilityLabel="Xóa tìm kiếm" onPress={() => router.setParams({ search: undefined })}>
+            <X size={16} color="#94A3B8" />
+          </Pressable>
+        </View>
+      ) : null}
+      <View className="flex-row items-center gap-3 rounded-3xl border border-border bg-white p-3 dark:border-border-dark dark:bg-[#111827]">
+        <Avatar uri={user?.profile?.avatar_url} fallback={user?.name ?? 'U'} size={40} premium={user?.isPremium} />
+        <Pressable
+          onPress={() => setComposerOpen(true)}
+          className="h-11 flex-1 justify-center rounded-full bg-slate-100 px-4 dark:bg-white/5"
+        >
+          <Text className="text-sm text-slate-500 dark:text-slate-400" numberOfLines={1}>
+            Bạn muốn chia sẻ gì?
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => setComposerOpen(true)}
+          accessibilityLabel="Đăng ảnh hoặc video"
+          className="h-11 w-11 items-center justify-center rounded-full"
+        >
+          <Camera size={22} color="#059669" />
+        </Pressable>
+      </View>
+      <FeedProfilePanel />
+      <FeedSuggestions />
+    </View>
+  );
 
   return (
     <ScreenContainer scroll={false} className="px-4">
       <TopNavbar />
 
-      <View className="mb-3 flex-row items-center justify-between">
-        <Text className="text-xl font-black text-slate-900 dark:text-white">Diễn đàn tìm đối</Text>
-        <TouchableOpacity
-          onPress={() => setIsCreateOpen(true)}
-          className="flex-row items-center gap-1 rounded-full bg-brand px-3 py-2 dark:bg-brand-dark"
-        >
-          <Plus size={16} color="#fff" />
-          <Text className="text-xs font-bold text-white">Đăng bài</Text>
-        </TouchableOpacity>
+      <View className="mb-3">
+        <Text className="text-[11px] font-extrabold tracking-widest text-brand dark:text-brand-dark">CỘNG ĐỒNG</Text>
+        <Text className="text-xl font-black text-slate-900 dark:text-white">Bảng tin SportGo</Text>
       </View>
 
-      <FilterGrid
-        items={[
-          { icon: Trophy, iconColor: '#F59E0B', value: sportFilter, options: SPORT_OPTIONS, onChange: setSportFilter },
-          { icon: UserRound, iconColor: '#8B5CF6', value: scopeFilter, options: SCOPE_OPTIONS, onChange: setScopeFilter },
-          { icon: MapPin, iconColor: '#F43F5E', value: locationFilter, options: LOCATION_FILTER_OPTIONS, onChange: setLocationFilter },
-          { icon: Calendar, iconColor: '#3B82F6', value: timeFilter, options: TIME_OPTIONS, onChange: setTimeFilter },
-          { icon: DollarSign, iconColor: '#F59E0B', value: priceFilter, options: PRICE_OPTIONS, onChange: setPriceFilter },
-          { icon: Award, iconColor: '#059669', value: skillFilter, options: SKILL_OPTIONS, onChange: setSkillFilter },
-        ]}
-      />
-
       {isLoading ? (
-        <LoadingState label="Đang tải bài đăng…" />
+        <LoadingState label="Đang tải cộng đồng…" />
       ) : isError ? (
-        <EmptyState icon={MessageSquare} title="Không tải được diễn đàn" description="Kéo để tải lại." />
+        <>
+          {header}
+          <EmptyState
+            icon={MessageSquareText}
+            title={error instanceof Error ? error.message : 'Không tải được cộng đồng'}
+            description="Kéo để tải lại."
+          />
+        </>
       ) : (
         <FlatList
           className="flex-1"
-          data={filteredPosts}
+          data={posts}
           keyExtractor={(item) => String(item.id)}
           contentContainerClassName="gap-3 pb-8"
           onRefresh={refetch}
-          refreshing={isRefetching}
-          renderItem={({ item }) => (
-            <LfgPostCard
-              post={item}
-              isOwner={item.author_id === currentUserId}
-              isJoining={joinPost.isPending && joinPost.variables === item.id}
-              isLeaving={leavePost.isPending && leavePost.variables === item.id}
-              isCancelling={cancelPost.isPending && cancelPost.variables === item.id}
-              onJoin={() => joinPost.mutate(item.id, { onError: (e) => Alert.alert('Lỗi', e.message) })}
-              onLeave={() => leavePost.mutate(item.id, { onError: (e) => Alert.alert('Lỗi', e.message) })}
-              onManage={() => setManagingPostId(item.id)}
-              onEdit={() => setEditingPost(item)}
-              onCancel={() => handleCancel(item.id)}
-              onChat={() => handleChat(item.author_id)}
-            />
-          )}
+          refreshing={isRefetching && !isFetchingNextPage}
+          keyboardShouldPersistTaps="handled"
+          onEndReachedThreshold={0.4}
+          onEndReached={() => {
+            if (hasNextPage && !isFetchingNextPage) fetchNextPage();
+          }}
+          ListHeaderComponent={header}
+          renderItem={({ item }) => <SocialPostCard post={item} currentUserId={user?.id} />}
           ListEmptyComponent={
-            <EmptyState
-              icon={MessageSquare}
-              title={isFiltered ? 'Không tìm thấy bài đăng phù hợp' : 'Chưa có bài đăng nào'}
-              description={
-                isFiltered ? 'Thử đổi bộ lọc để xem thêm kèo.' : 'Hãy là người đầu tiên đăng tìm người chơi.'
-              }
-            />
+            <View className="gap-3">
+              <EmptyState
+                icon={Camera}
+                title={searchTerm.length >= 2 ? 'Chưa tìm thấy bài viết phù hợp' : 'Câu chuyện đầu tiên đang chờ bạn'}
+                description={
+                  searchTerm.length >= 2
+                    ? 'Thử một từ khóa khác hoặc xóa tìm kiếm.'
+                    : 'Chia sẻ một khoảnh khắc tập luyện, trận đấu hoặc câu chuyện thể thao của bạn.'
+                }
+              />
+              <Button
+                label={searchTerm.length >= 2 ? 'Xóa tìm kiếm' : 'Tạo bài viết'}
+                onPress={() => (searchTerm.length >= 2 ? router.setParams({ search: undefined }) : setComposerOpen(true))}
+                className="self-center"
+              />
+            </View>
           }
-          ListFooterComponent={
-            isFiltered && filteredPosts.length === 0 ? (
-              <Button variant="outline" size="sm" label="Xóa bộ lọc" onPress={resetFilters} className="mt-3 self-center" />
-            ) : null
-          }
+          ListFooterComponent={isFetchingNextPage ? <ActivityIndicator className="py-4" color="#537fff" /> : null}
         />
       )}
 
-      <CreateLfgPostModal visible={isCreateOpen} onClose={() => setIsCreateOpen(false)} />
-      {editingPost ? (
-        <CreateLfgPostModal visible post={editingPost} onClose={() => setEditingPost(null)} />
-      ) : null}
-      {managingPostId != null ? (
-        <LfgParticipantsModal
-          visible
-          postId={managingPostId}
-          onClose={() => setManagingPostId(null)}
-        />
-      ) : null}
+      <PostComposerModal visible={composerOpen} onClose={() => setComposerOpen(false)} />
     </ScreenContainer>
   );
 }

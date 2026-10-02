@@ -33,6 +33,9 @@ class TokenData(BaseModel):
 class GoogleLoginRequest(BaseModel):
     code: str = Field(min_length=1, max_length=4096)
 
+class GoogleMobileLoginRequest(BaseModel):
+    id_token: str = Field(min_length=1, max_length=8192)
+
 # Sport Schemas
 class SportBase(BaseModel):
     name: str

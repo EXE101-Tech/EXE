@@ -4,34 +4,29 @@ export const queryKeys = {
     me: () => ['auth', 'me'] as const,
     stats: () => ['auth', 'stats'] as const,
   },
-  owner: {
-    status: () => ['owner', 'status'] as const,
-    venues: () => ['owner', 'venues'] as const,
-    schedule: (venueId: number, date: string) => ['owner', 'schedule', venueId, date] as const,
-  },
   courts: {
     venues: () => ['courts', 'venues'] as const,
-    venue: (id: number) => ['courts', 'venue', id] as const,
     sports: () => ['courts', 'sports'] as const,
     list: <T extends object>(filters?: T) => ['courts', 'list', filters ?? {}] as const,
-    detail: (id: number) => ['courts', 'detail', id] as const,
-    nearby: (lat: number, lng: number, radius: number) => ['courts', 'nearby', lat, lng, radius] as const,
   },
-  bookings: {
-    list: () => ['bookings', 'list'] as const,
-    detail: (id: number) => ['bookings', 'detail', id] as const,
-    availability: (venueId: number, date: string) => ['bookings', 'availability', venueId, date] as const,
+  admin: {
+    summary: () => ['admin', 'summary'] as const,
+    payments: (status: string) => ['admin', 'payments', status] as const,
+    premiumAccounts: () => ['admin', 'premium-accounts'] as const,
+    accounts: () => ['admin', 'accounts'] as const,
+    users: () => ['admin', 'users'] as const,
+    posts: () => ['admin', 'posts'] as const,
+    rooms: () => ['admin', 'rooms'] as const,
+    teams: () => ['admin', 'teams'] as const,
+  },
+  premium: {
+    mine: () => ['premium', 'mine'] as const,
   },
   search: {
     results: (q: string) => ['search', 'results', q] as const,
   },
   notifications: {
     list: () => ['notifications', 'list'] as const,
-  },
-  lfg: {
-    list: <T extends object>(filters?: T) => ['lfg', 'list', filters ?? {}] as const,
-    detail: (id: number) => ['lfg', 'detail', id] as const,
-    participants: (id: number, status: string) => ['lfg', 'participants', id, status] as const,
   },
   teams: {
     list: <T extends object>(filters?: T) => ['teams', 'list', filters ?? {}] as const,
@@ -41,10 +36,18 @@ export const queryKeys = {
   },
   gamerooms: {
     list: <T extends object>(filters?: T) => ['gamerooms', 'list', filters ?? {}] as const,
+    mine: () => ['gamerooms', 'list', 'mine'] as const,
     detail: (id: number) => ['gamerooms', 'detail', id] as const,
+    autoSearch: () => ['gamerooms', 'auto-search'] as const,
+  },
+  social: {
+    feed: () => ['social', 'feed'] as const,
+    mine: () => ['social', 'mine'] as const,
+    comments: (postId: number) => ['social', 'comments', postId] as const,
   },
   chat: {
     conversations: () => ['chat', 'conversations'] as const,
+    unreadCount: () => ['chat', 'unread-count'] as const,
     messages: (conversationId: number) => ['chat', 'messages', conversationId] as const,
     users: (q: string) => ['chat', 'users', q] as const,
     friends: () => ['chat', 'friends'] as const,

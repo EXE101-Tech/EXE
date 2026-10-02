@@ -2,7 +2,7 @@ import { Text } from '@/components/ui/text';
 import { router } from 'expo-router';
 import { Check, MessageCircle, MessageSquare, Search, UserCheck, UserPlus } from 'lucide-react-native';
 import { useState } from 'react';
-import { Alert, FlatList, TextInput, TouchableOpacity, View } from 'react-native';
+import { FlatList, TextInput, TouchableOpacity, View } from 'react-native';
 import { resolveMediaUrl } from '@/api/resolve-media-url';
 import { EmptyState } from '@/components/brand/empty-state';
 import { LoadingState } from '@/components/brand/loading-state';
@@ -18,8 +18,28 @@ import {
   useSendFriendRequestMutation,
   useStartConversationMutation,
 } from '@/hooks/queries/use-chat';
-import type { ChatConversationResponse, ChatUserSearchResponse, FriendshipResponse } from '@/schemas/chat';
+import type { ChatUserSearchResponse, FriendshipResponse } from '@/schemas/chat';
 import { useChatUiStore } from '@/stores/chat-ui-store';
+import { showAlert } from '@/stores/dialog-store';
+
+/** One entry of the Tin nhắn tab: an existing conversation, or a friend you have not messaged yet. */
+interface ChatRow {
+  key: string;
+  userId: number;
+  conversationId: number | null;
+  name: string;
+  avatarUrl?: string | null;
+  isPremium: boolean;
+  lastMessage?: string | null;
+  updatedAt?: string | null;
+  unread: number;
+}
+
+const toTime = (value?: string | null) => {
+  if (!value) return 0;
+  const time = new Date(value.endsWith('Z') ? value : `${value}Z`).getTime();
+  return Number.isNaN(time) ? 0 : time;
+};
 
 const formatUpdatedAt = (value?: string | null) => {
   if (!value) return '';
@@ -45,12 +65,12 @@ export default function ChatListScreen() {
   const removeFriendship = useRemoveFriendshipMutation();
 
   const handleRemoveFriend = (friend: FriendshipResponse) => {
-    Alert.alert('Xóa bạn bè', `Bạn có chắc muốn xóa kết bạn với ${friend.user.name}?`, [
+    showAlert('Xóa bạn bè', `Bạn có chắc muốn xóa kết bạn với ${friend.user.name}?`, [
       { text: 'Không', style: 'cancel' },
       {
         text: 'Xóa',
         style: 'destructive',
-        onPress: () => removeFriendship.mutate(friend.id, { onError: (e) => Alert.alert('Lỗi', e.message) }),
+        onPress: () => removeFriendship.mutate(friend.id, { onError: (e) => showAlert('Lỗi', e.message) }),
       },
     ]);
   };
@@ -60,38 +80,81 @@ export default function ChatListScreen() {
       const conversation = await startConversation.mutateAsync(recipientId);
       router.push({ pathname: '/chat/[id]', params: { id: String(conversation.id) } });
     } catch (error) {
-      Alert.alert('Lỗi', error instanceof Error ? error.message : 'Không mở được cuộc trò chuyện');
+      showAlert('Lỗi', error instanceof Error ? error.message : 'Không mở được cuộc trò chuyện');
     }
   };
 
   const trimmedQuery = query.trim();
-  const filteredConversations = (conversations ?? []).filter((c) =>
-    c.other_user.name.toLowerCase().includes(trimmedQuery.toLowerCase()),
-  );
+  // Conversations first-class, plus accepted friends without one, newest activity first (like the web panel).
+  const conversationUserIds = new Set((conversations ?? []).map((c) => c.other_user.id));
+  const chatRows: ChatRow[] = [
+    ...(conversations ?? []).map((c) => ({
+      key: `conversation-${c.id}`,
+      userId: c.other_user.id,
+      conversationId: c.id,
+      name: c.other_user.name,
+      avatarUrl: c.other_user.avatar_url,
+      isPremium: c.other_user.is_premium,
+      lastMessage: c.last_message,
+      updatedAt: c.updated_at,
+      unread: c.unread_count,
+    })),
+    ...(friends ?? [])
+      .filter((f) => !conversationUserIds.has(f.user.id))
+      .map((f) => ({
+        key: `friend-${f.id}`,
+        userId: f.user.id,
+        conversationId: null,
+        name: f.user.name,
+        avatarUrl: f.user.avatar_url,
+        isPremium: f.user.is_premium,
+        lastMessage: null,
+        updatedAt: f.created_at,
+        unread: 0,
+      })),
+  ]
+    .filter((row) =>
+      [row.name, row.lastMessage].some((value) => value?.toLowerCase().includes(trimmedQuery.toLowerCase())),
+    )
+    .sort((a, b) => toTime(b.updatedAt) - toTime(a.updatedAt));
   const searchedIds = new Set((searchResults ?? []).map((p) => p.id));
   const filteredFriends = (friends ?? []).filter(
     (f) => f.user.name.toLowerCase().includes(trimmedQuery.toLowerCase()) && !searchedIds.has(f.user.id),
   );
 
-  const renderConversation = ({ item }: { item: ChatConversationResponse }) => (
+  const renderConversation = ({ item }: { item: ChatRow }) => (
     <TouchableOpacity
-      onPress={() => router.push({ pathname: '/chat/[id]', params: { id: String(item.id) } })}
+      onPress={() =>
+        item.conversationId != null
+          ? router.push({ pathname: '/chat/[id]', params: { id: String(item.conversationId) } })
+          : openConversation(item.userId)
+      }
       className="flex-row items-center gap-3 px-1 py-3"
     >
-      <Avatar uri={resolveMediaUrl(item.other_user.avatar_url)} fallback={item.other_user.name} size={48} />
+      <Avatar
+        uri={resolveMediaUrl(item.avatarUrl)}
+        fallback={item.name}
+        size={item.isPremium ? 42 : 48}
+        premium={item.isPremium}
+      />
       <View className="flex-1">
-        <Text className="text-sm font-bold text-slate-900 dark:text-white" numberOfLines={1}>
-          {item.other_user.name}
+        <Text
+          className={`text-sm font-bold ${item.isPremium ? 'text-[#8b8cff]' : 'text-slate-900 dark:text-white'}`}
+          numberOfLines={1}
+        >
+          {item.name}
         </Text>
         <Text className="text-xs text-slate-500 dark:text-slate-400" numberOfLines={1}>
-          {item.last_message || 'Chưa có tin nhắn'}
+          {item.lastMessage || (item.conversationId == null ? 'Bạn bè · Chạm để bắt đầu trò chuyện' : 'Chưa có tin nhắn')}
         </Text>
       </View>
       <View className="items-end gap-1">
-        <Text className="text-[11px] text-slate-400">{formatUpdatedAt(item.updated_at)}</Text>
-        {item.unread_count > 0 ? (
+        {item.conversationId != null ? (
+          <Text className="text-[11px] text-slate-400">{formatUpdatedAt(item.updatedAt)}</Text>
+        ) : null}
+        {item.unread > 0 ? (
           <View className="h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1.5 dark:bg-brand-dark">
-            <Text className="text-[10px] font-black text-white">{item.unread_count}</Text>
+            <Text className="text-[10px] font-black text-white">{item.unread}</Text>
           </View>
         ) : null}
       </View>
@@ -100,7 +163,7 @@ export default function ChatListScreen() {
 
   const renderFriendRequest = (request: FriendshipResponse) => (
     <View key={`request-${request.id}`} className="flex-row items-center gap-3 px-1 py-3">
-      <Avatar uri={resolveMediaUrl(request.user.avatar_url)} fallback={request.user.name} size={44} />
+      <Avatar uri={resolveMediaUrl(request.user.avatar_url)} fallback={request.user.name} size={request.user.is_premium ? 38 : 44} premium={request.user.is_premium} />
       <View className="flex-1">
         <Text className="text-sm font-bold text-slate-900 dark:text-white" numberOfLines={1}>
           {request.user.name}
@@ -120,7 +183,7 @@ export default function ChatListScreen() {
 
   const renderSearchedPerson = (person: ChatUserSearchResponse) => (
     <View key={`person-${person.id}`} className="flex-row items-center gap-3 px-1 py-3">
-      <Avatar uri={resolveMediaUrl(person.avatar_url)} fallback={person.name} size={44} />
+      <Avatar uri={resolveMediaUrl(person.avatar_url)} fallback={person.name} size={person.is_premium ? 38 : 44} premium={person.is_premium} />
       <View className="flex-1">
         <Text className="text-sm font-bold text-slate-900 dark:text-white" numberOfLines={1}>
           {person.name}
@@ -163,7 +226,7 @@ export default function ChatListScreen() {
           onPress={() => openConversation(person.id)}
           className="flex-row items-center gap-1 rounded-lg bg-slate-100 px-2.5 py-2 dark:bg-white/10"
         >
-          <MessageCircle size={13} color="#0EA5E9" />
+          <MessageCircle size={13} color="#537fff" />
           <Text className="text-xs font-bold text-slate-700 dark:text-white">Chat</Text>
         </TouchableOpacity>
       )}
@@ -177,7 +240,7 @@ export default function ChatListScreen() {
       onLongPress={() => handleRemoveFriend(friend)}
       className="flex-row items-center gap-3 px-1 py-3"
     >
-      <Avatar uri={resolveMediaUrl(friend.user.avatar_url)} fallback={friend.user.name} size={44} />
+      <Avatar uri={resolveMediaUrl(friend.user.avatar_url)} fallback={friend.user.name} size={friend.user.is_premium ? 38 : 44} premium={friend.user.is_premium} />
       <View className="flex-1">
         <Text className="text-sm font-bold text-slate-900 dark:text-white" numberOfLines={1}>
           {friend.user.name}
@@ -218,7 +281,7 @@ export default function ChatListScreen() {
               setTab(value);
               setQuery('');
             }}
-            className={`flex-1 rounded-lg py-2 ${tab === value ? 'bg-white dark:bg-[#0F1E36]' : ''}`}
+            className={`flex-1 rounded-lg py-2 ${tab === value ? 'bg-white dark:bg-[#111827]' : ''}`}
           >
             <Text
               className={`text-center text-xs font-bold ${tab === value ? 'text-brand dark:text-brand-dark' : 'text-slate-500 dark:text-slate-400'}`}
@@ -235,15 +298,15 @@ export default function ChatListScreen() {
         ) : (
           <FlatList
             className="flex-1"
-            data={filteredConversations}
-            keyExtractor={(item) => String(item.id)}
+            data={chatRows}
+            keyExtractor={(item) => item.key}
             renderItem={renderConversation}
             ItemSeparatorComponent={() => <View className="h-px bg-border dark:bg-border-dark" />}
             ListEmptyComponent={
               <EmptyState
                 icon={MessageSquare}
                 title="Chưa có cuộc trò chuyện"
-                description="Mở tab Bạn bè để tìm và kết bạn."
+                description="Mở tab Bạn bè để tìm và kết bạn, rồi nhắn tin cho họ."
               />
             }
           />

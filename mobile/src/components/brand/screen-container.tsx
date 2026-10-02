@@ -1,15 +1,17 @@
-import { type PropsWithChildren } from 'react';
-import { ScrollView, View, type ViewProps } from 'react-native';
+import { type PropsWithChildren, type ReactElement } from 'react';
+import { ScrollView, View, type RefreshControlProps, type ViewProps } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { cn } from '@/lib/utils';
 
 interface ScreenContainerProps extends PropsWithChildren<ViewProps> {
   scroll?: boolean;
+  /** Pull-to-refresh, only applied when the container scrolls. */
+  refreshControl?: ReactElement<RefreshControlProps>;
 }
 
 /** Consistent safe-area + padding wrapper, background follows the brand bg token in both themes. */
-export function ScreenContainer({ children, className, scroll = true, ...props }: ScreenContainerProps) {
+export function ScreenContainer({ children, className, scroll = true, refreshControl, ...props }: ScreenContainerProps) {
   return (
     <SafeAreaView className="flex-1 bg-bg dark:bg-bg-dark" edges={['top', 'left', 'right']}>
       {scroll ? (
@@ -19,6 +21,7 @@ export function ScreenContainer({ children, className, scroll = true, ...props }
           // they must go on the content container instead, hence this separate prop.
           contentContainerClassName={cn('flex-grow px-4 pb-8', className)}
           keyboardShouldPersistTaps="handled"
+          refreshControl={refreshControl}
           {...props}
         >
           {children}

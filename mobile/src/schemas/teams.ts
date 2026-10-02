@@ -4,6 +4,8 @@ export const teamResponseSchema = z.object({
   id: z.number(),
   owner_id: z.number().nullable().optional(),
   owner_name: z.string(),
+  owner_avatar_url: z.string().nullable().optional(),
+  owner_is_premium: z.boolean().default(false),
   name: z.string(),
   sport_id: z.string(),
   sport_name: z.string(),
@@ -15,6 +17,9 @@ export const teamResponseSchema = z.object({
   rating_count: z.number(),
   image_url: z.string().nullable().optional(),
   tags: z.array(z.string()).default([]),
+  fee_reminder_day: z.number().nullable().optional(),
+  fee_reminder_frequency: z.enum(['WEEKLY', 'MONTHLY']).nullable().optional(),
+  activity_schedule: z.array(z.object({ weekday: z.number(), time: z.string() })).default([]),
   membership_status: z.string().nullable().optional(),
   is_captain: z.boolean().default(false),
   is_member: z.boolean().default(false),
@@ -28,6 +33,7 @@ export const teamMemberResponseSchema = z.object({
   user_id: z.number(),
   full_name: z.string().nullable().optional(),
   avatar_url: z.string().nullable().optional(),
+  is_premium: z.boolean().default(false),
   email: z.string().nullable().optional(),
   status: z.string(),
   joined_at: z.string(),
@@ -57,6 +63,13 @@ export interface TeamCreateInput {
 }
 
 export type TeamUpdateInput = Partial<TeamCreateInput>;
+
+/** Premium club settings: fee-reminder cadence plus the weekday (Mon-Fri) activity schedule. */
+export interface TeamPremiumSettingsInput {
+  fee_reminder_day: number | null;
+  fee_reminder_frequency: 'WEEKLY' | 'MONTHLY' | null;
+  activity_schedule: { weekday: number; time: string }[];
+}
 
 export interface TeamReviewCreateInput {
   rating: number;

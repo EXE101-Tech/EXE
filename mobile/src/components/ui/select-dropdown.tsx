@@ -56,7 +56,7 @@ export function SelectDropdown({ icon: Icon, iconColor = '#94A3B8', value, optio
         <Pressable className="flex-1" onPress={() => setOpen(false)}>
           <View
             style={{ position: 'absolute', top: anchor.y + anchor.height + 4, left: anchor.x, width: Math.max(anchor.width, 180) }}
-            className="max-h-72 overflow-hidden rounded-2xl border border-border bg-white shadow-lg dark:border-border-dark dark:bg-[#0F1E36]"
+            className="max-h-72 overflow-hidden rounded-2xl border border-border bg-white shadow-lg dark:border-border-dark dark:bg-[#111827]"
           >
             <ScrollView bounces={false}>
               {options.map((option) => {

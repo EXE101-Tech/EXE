@@ -1,38 +1,40 @@
 import { Text } from '@/components/ui/text';
-import { router } from 'expo-router';
-import { Award, Calendar, DollarSign, Gamepad2, MapPin, Plus, Trophy, UserRound } from 'lucide-react-native';
+import { router, useLocalSearchParams } from 'expo-router';
+import { Award, DollarSign, Gamepad2, MapPin, Plus, Sparkles, Trophy, UserRound, X } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { Alert, FlatList, TouchableOpacity, View } from 'react-native';
+import { FlatList, TouchableOpacity, View } from 'react-native';
 import { EmptyState } from '@/components/brand/empty-state';
 import { LoadingState } from '@/components/brand/loading-state';
 import { ScreenContainer } from '@/components/brand/screen-container';
 import { TopNavbar } from '@/components/navigation/top-navbar';
 import { CreateGameroomModal } from '@/components/gamerooms/create-gameroom-modal';
 import { GameroomCard } from '@/components/gamerooms/gameroom-card';
-import { GameroomParticipantsModal } from '@/components/gamerooms/gameroom-participants-modal';
+import { AutoSearchModal } from '@/components/gamerooms/auto-search-modal';
+import { GameroomManageModal } from '@/components/gamerooms/gameroom-manage-modal';
+import { JoinRoomModal } from '@/components/gamerooms/join-room-modal';
 import { Button } from '@/components/ui/button';
 import { FilterGrid } from '@/components/ui/filter-grid';
 import type { SelectOption } from '@/components/ui/select-dropdown';
 import { useStartConversationMutation } from '@/hooks/queries/use-chat';
 import { useSportsQuery } from '@/hooks/queries/use-courts';
-import { useGameroomsQuery, useJoinGameroomMutation, useLeaveGameroomMutation } from '@/hooks/queries/use-gamerooms';
-import { isActiveSportName, LOCATION_FILTER_OPTIONS, SKILL_REQUIREMENT_OPTIONS } from '@/lib/constants';
+import {
+  useGameroomsQuery,
+  useJoinGameroomMutation,
+  useLeaveGameroomMutation,
+  useMyGameroomsQuery,
+  useRespondInviteMutation,
+} from '@/hooks/queries/use-gamerooms';
+import { isActiveSportName, LOCATION_FILTER_OPTIONS, SKILL_REQUIREMENT_OPTIONS, SPORT_KEY_BY_NAME } from '@/lib/constants';
 import { parseStoredCostToVnd } from '@/lib/price';
-import { getVietnamDate } from '@/lib/slots';
+import { createSportExperienceMap, sortBySportExperience } from '@/lib/sport-experience';
+import type { MatchResponse } from '@/schemas/gamerooms';
 import { useAuthStore } from '@/stores/auth-store';
+import { showToast } from '@/stores/toast-store';
+import { showAlert } from '@/stores/dialog-store';
 
 const SCOPE_OPTIONS: SelectOption[] = [
   { value: 'all', label: 'Tất cả phòng' },
   { value: 'mine', label: 'Phòng của tôi' },
-];
-
-const TIME_OPTIONS: SelectOption[] = [
-  { value: 'all', label: 'Tất cả giờ' },
-  { value: 'Tối nay', label: 'Tối nay' },
-  { value: 'Tối mai', label: 'Tối mai' },
-  { value: 'Chiều', label: 'Chiều nay' },
-  { value: 'Sáng', label: 'Sáng Chủ Nhật' },
-  { value: 'Thứ 6', label: 'Tối Thứ 6' },
 ];
 
 const PRICE_OPTIONS: SelectOption[] = [
@@ -48,50 +50,47 @@ const SKILL_OPTIONS: SelectOption[] = [
   ...SKILL_REQUIREMENT_OPTIONS,
 ];
 
-/** Buckets a room's start time into the same "Tối nay / Chiều / Sáng Chủ Nhật…" labels as the filter options. */
-function matchesTimeFilter(startTimeIso: string, filter: string): boolean {
-  if (filter === 'all') return true;
-  const withZ = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(startTimeIso) ? startTimeIso : `${startTimeIso}Z`;
-  const date = new Date(withZ);
-  const hour = Number(
-    new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', hourCycle: 'h23' }).format(date),
-  );
-  const weekday = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Ho_Chi_Minh', weekday: 'short' }).format(date);
-  const dateKey = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(date);
-
-  switch (filter) {
-    case 'Tối nay':
-      return dateKey === getVietnamDate() && hour >= 18;
-    case 'Tối mai':
-      return dateKey === getVietnamDate(1) && hour >= 18;
-    case 'Chiều':
-      return hour >= 12 && hour < 18;
-    case 'Sáng':
-      return weekday === 'Sun' && hour < 12;
-    case 'Thứ 6':
-      return weekday === 'Fri' && hour >= 18;
-    default:
-      return true;
-  }
-}
+const CLOSED_STATUSES = ['CLOSED', 'CANCELLED', 'FINISHED'];
 
 export default function GameroomsScreen() {
   const currentUserId = useAuthStore((s) => s.user?.id);
-  const { data: rooms, isLoading, isError, refetch, isRefetching } = useGameroomsQuery();
-  const { data: sports } = useSportsQuery();
-  const joinRoom = useJoinGameroomMutation();
-  const leaveRoom = useLeaveGameroomMutation();
-  const startConversation = useStartConversationMutation();
-
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [managingRoomId, setManagingRoomId] = useState<number | null>(null);
+  const isPremium = useAuthStore((s) => s.user?.isPremium ?? false);
+  const userSports = useAuthStore((s) => s.user?.sports);
+  const params = useLocalSearchParams<{ search?: string; sport?: string }>();
+  const searchTerm = (params.search ?? '').trim().toLowerCase();
 
   const [sportFilter, setSportFilter] = useState('all');
   const [scopeFilter, setScopeFilter] = useState('all');
   const [locationFilter, setLocationFilter] = useState('all');
-  const [timeFilter, setTimeFilter] = useState('all');
   const [priceFilter, setPriceFilter] = useState('all');
   const [skillFilter, setSkillFilter] = useState('all');
+
+  // Phong cua toi reads /gamerooms/mine so finished rooms stay reachable for attendance and cleanup.
+  const showMine = scopeFilter === 'mine';
+  const allRoomsQuery = useGameroomsQuery();
+  const myRoomsQuery = useMyGameroomsQuery(showMine);
+  const { data: rooms, isLoading, isError, refetch, isRefetching } = showMine ? myRoomsQuery : allRoomsQuery;
+  const { data: sports } = useSportsQuery();
+  const joinRoom = useJoinGameroomMutation();
+  const leaveRoom = useLeaveGameroomMutation();
+  const respondInvite = useRespondInviteMutation();
+  const startConversation = useStartConversationMutation();
+
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingRoom, setEditingRoom] = useState<MatchResponse | null>(null);
+  const [isAutoSearchOpen, setIsAutoSearchOpen] = useState(false);
+  const [managingRoomId, setManagingRoomId] = useState<number | null>(null);
+  const [joiningRoom, setJoiningRoom] = useState<MatchResponse | null>(null);
+
+  // ?sport=<key> comes from the search screen; picking a sport in the dropdown overrides it.
+  const routeSportId = params.sport
+    ? (sports ?? []).find((s) => SPORT_KEY_BY_NAME[s.name.trim().toLowerCase()] === params.sport)?.id
+    : undefined;
+  const activeSportFilter = routeSportId != null ? String(routeSportId) : sportFilter;
+  const handleSportChange = (value: string) => {
+    setSportFilter(value);
+    if (params.sport) router.setParams({ sport: undefined });
+  };
 
   const sportOptions: SelectOption[] = useMemo(
     () => [
@@ -102,30 +101,35 @@ export default function GameroomsScreen() {
   );
 
   const isFiltered =
-    sportFilter !== 'all' ||
+    activeSportFilter !== 'all' ||
     scopeFilter !== 'all' ||
     locationFilter !== 'all' ||
-    timeFilter !== 'all' ||
     priceFilter !== 'all' ||
     skillFilter !== 'all';
 
   const resetFilters = () => {
     setSportFilter('all');
+    if (params.sport) router.setParams({ sport: undefined });
     setScopeFilter('all');
     setLocationFilter('all');
-    setTimeFilter('all');
     setPriceFilter('all');
     setSkillFilter('all');
   };
 
   const filteredRooms = useMemo(() => {
-    return (rooms ?? []).filter((room) => {
+    const visibleRooms = (rooms ?? []).filter((room) => {
       if (!isActiveSportName(room.sport.name)) return false;
-      if (sportFilter !== 'all' && room.sport_id !== Number(sportFilter)) return false;
+      if (!showMine && CLOSED_STATUSES.includes(room.status)) return false;
+      if (searchTerm) {
+        const hostName = room.host.profile?.full_name || room.host.email;
+        return [room.title, room.location, hostName, room.description].some((value) =>
+          value?.toLowerCase().includes(searchTerm),
+        );
+      }
+      if (activeSportFilter !== 'all' && room.sport_id !== Number(activeSportFilter)) return false;
       if (scopeFilter === 'mine' && room.host_id !== currentUserId) return false;
       const location = room.location || room.court?.venue?.name || room.court?.venue?.address || '';
       if (locationFilter !== 'all' && !location.toLowerCase().includes(locationFilter.toLowerCase())) return false;
-      if (!matchesTimeFilter(room.start_time, timeFilter)) return false;
       if (priceFilter !== 'all') {
         const roomPrice = parseStoredCostToVnd(room.price_info);
         if (roomPrice === null) return false;
@@ -137,16 +141,63 @@ export default function GameroomsScreen() {
       if (skillFilter !== 'all' && room.required_level !== skillFilter) return false;
       return true;
     });
-  }, [rooms, sportFilter, scopeFilter, locationFilter, timeFilter, priceFilter, skillFilter, currentUserId]);
+    // Sports the viewer plays at a higher level come first; Premium priority rooms lead within a tier.
+    return sortBySportExperience(visibleRooms, createSportExperienceMap(userSports), (room) => room.sport.name);
+  }, [rooms, activeSportFilter, searchTerm, scopeFilter, showMine, locationFilter, priceFilter, skillFilter, currentUserId, userSports]);
 
   const handleChat = async (hostId: number) => {
     try {
       const conversation = await startConversation.mutateAsync(hostId);
       router.push({ pathname: '/chat/[id]', params: { id: String(conversation.id) } });
     } catch (error) {
-      Alert.alert('Lỗi', error instanceof Error ? error.message : 'Không mở được cuộc trò chuyện');
+      showAlert('Lỗi', error instanceof Error ? error.message : 'Không mở được cuộc trò chuyện');
     }
   };
+
+  const openAutoSearch = () => {
+    if (!isPremium) {
+      showAlert('Tính năng Premium', 'Tự động tìm phòng là tính năng dành cho tài khoản Premium.', [
+        { text: 'Để sau', style: 'cancel' },
+        { text: 'Xem Premium', onPress: () => router.push('/(tabs)/premium') },
+      ]);
+      return;
+    }
+    setIsAutoSearchOpen(true);
+  };
+
+  const handleEditRoom = (room: MatchResponse) => {
+    setManagingRoomId(null);
+    setEditingRoom(room);
+    setIsCreateOpen(true);
+  };
+
+  const closeCreateModal = () => {
+    setIsCreateOpen(false);
+    setEditingRoom(null);
+  };
+
+  const confirmJoin = (note: string) => {
+    if (!joiningRoom) return;
+    joinRoom.mutate(
+      { id: joiningRoom.id, note },
+      {
+        onSuccess: () => {
+          setJoiningRoom(null);
+          showToast('Đã gửi yêu cầu tham gia phòng.');
+        },
+        onError: (e) => showAlert('Lỗi', e.message),
+      },
+    );
+  };
+
+  const respond = (id: number, action: 'ACCEPT' | 'REJECT') =>
+    respondInvite.mutate(
+      { id, action },
+      {
+        onSuccess: () => showToast(action === 'ACCEPT' ? 'Đã nhận lời mời vào phòng.' : 'Đã từ chối lời mời tự động.'),
+        onError: (e) => showAlert('Lỗi', e.message),
+      },
+    );
 
   return (
     <ScreenContainer scroll={false} className="px-4">
@@ -154,21 +205,43 @@ export default function GameroomsScreen() {
 
       <View className="mb-3 flex-row items-center justify-between">
         <Text className="text-xl font-black text-slate-900 dark:text-white">Phòng chờ thi đấu</Text>
-        <TouchableOpacity
-          onPress={() => setIsCreateOpen(true)}
-          className="flex-row items-center gap-1 rounded-full bg-brand px-3 py-2 dark:bg-brand-dark"
-        >
-          <Plus size={16} color="#fff" />
-          <Text className="text-xs font-bold text-white">Mở phòng</Text>
-        </TouchableOpacity>
+        <View className="flex-row items-center gap-2">
+          <TouchableOpacity
+            onPress={openAutoSearch}
+            className="flex-row items-center gap-1 rounded-full border border-violet-300/50 bg-violet-400/10 px-3 py-2"
+          >
+            <Sparkles size={14} color="#8B5CF6" />
+            <Text className="text-xs font-bold text-violet-600 dark:text-violet-300">Thiết lập</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => {
+              setEditingRoom(null);
+              setIsCreateOpen(true);
+            }}
+            className="flex-row items-center gap-1 rounded-full bg-brand px-3 py-2 dark:bg-brand-dark"
+          >
+            <Plus size={16} color="#fff" />
+            <Text className="text-xs font-bold text-white">Mở phòng</Text>
+          </TouchableOpacity>
+        </View>
       </View>
+
+      {searchTerm ? (
+        <View className="mb-3 flex-row items-center justify-between gap-3 rounded-2xl border border-border bg-white px-4 py-3 dark:border-border-dark dark:bg-[#111827]">
+          <Text className="flex-1 text-sm text-slate-600 dark:text-slate-300" numberOfLines={1}>
+            Kết quả phòng cho <Text className="font-black">“{params.search}”</Text>
+          </Text>
+          <TouchableOpacity hitSlop={8} accessibilityLabel="Xóa tìm kiếm" onPress={() => router.setParams({ search: undefined })}>
+            <X size={16} color="#94A3B8" />
+          </TouchableOpacity>
+        </View>
+      ) : null}
 
       <FilterGrid
         items={[
-          { icon: Trophy, iconColor: '#F59E0B', value: sportFilter, options: sportOptions, onChange: setSportFilter },
+          { icon: Trophy, iconColor: '#F59E0B', value: activeSportFilter, options: sportOptions, onChange: handleSportChange },
           { icon: UserRound, iconColor: '#8B5CF6', value: scopeFilter, options: SCOPE_OPTIONS, onChange: setScopeFilter },
           { icon: MapPin, iconColor: '#F43F5E', value: locationFilter, options: LOCATION_FILTER_OPTIONS, onChange: setLocationFilter },
-          { icon: Calendar, iconColor: '#3B82F6', value: timeFilter, options: TIME_OPTIONS, onChange: setTimeFilter },
           { icon: DollarSign, iconColor: '#F59E0B', value: priceFilter, options: PRICE_OPTIONS, onChange: setPriceFilter },
           { icon: Award, iconColor: '#059669', value: skillFilter, options: SKILL_OPTIONS, onChange: setSkillFilter },
         ]}
@@ -192,8 +265,11 @@ export default function GameroomsScreen() {
               currentUserId={currentUserId}
               isJoining={joinRoom.isPending && joinRoom.variables?.id === item.id}
               isLeaving={leaveRoom.isPending && leaveRoom.variables === item.id}
-              onJoin={() => joinRoom.mutate({ id: item.id }, { onError: (e) => Alert.alert('Lỗi', e.message) })}
-              onLeave={() => leaveRoom.mutate(item.id, { onError: (e) => Alert.alert('Lỗi', e.message) })}
+              isResponding={respondInvite.isPending && respondInvite.variables?.id === item.id}
+              onAcceptInvite={() => respond(item.id, 'ACCEPT')}
+              onDeclineInvite={() => respond(item.id, 'REJECT')}
+              onJoin={() => setJoiningRoom(item)}
+              onLeave={() => leaveRoom.mutate(item.id, { onError: (e) => showAlert('Lỗi', e.message) })}
               onManage={() => setManagingRoomId(item.id)}
               onChat={() => handleChat(item.host_id)}
             />
@@ -213,9 +289,27 @@ export default function GameroomsScreen() {
         />
       )}
 
-      <CreateGameroomModal visible={isCreateOpen} onClose={() => setIsCreateOpen(false)} />
+      {joiningRoom ? (
+        <JoinRoomModal
+          room={joiningRoom}
+          isLoading={joinRoom.isPending}
+          onClose={() => setJoiningRoom(null)}
+          onConfirm={confirmJoin}
+        />
+      ) : null}
+      <CreateGameroomModal visible={isCreateOpen} room={editingRoom} onClose={closeCreateModal} />
+      <AutoSearchModal
+        visible={isAutoSearchOpen}
+        onClose={() => setIsAutoSearchOpen(false)}
+        onSaved={() => showToast('Đã lưu thiết lập tự động tìm phòng. Bạn sẽ nhận thông báo khi có phòng phù hợp.')}
+      />
       {managingRoomId != null ? (
-        <GameroomParticipantsModal visible roomId={managingRoomId} onClose={() => setManagingRoomId(null)} />
+        <GameroomManageModal
+          visible
+          roomId={managingRoomId}
+          onClose={() => setManagingRoomId(null)}
+          onEdit={handleEditRoom}
+        />
       ) : null}
     </ScreenContainer>
   );

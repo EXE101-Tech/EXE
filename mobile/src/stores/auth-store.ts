@@ -2,16 +2,19 @@ import { create } from 'zustand';
 
 import { TOKEN_STORAGE_KEY, setUnauthorizedHandler } from '@/api/client';
 import { authApi } from '@/api/auth';
-import { ownerApi } from '@/api/owner';
 import { resolveMediaUrl } from '@/api/resolve-media-url';
 import { secureStorage } from '@/lib/secure-storage';
 import type { UserCreate, UserLogin, UserProfileWithSportsUpdate, UserResponse } from '@/schemas/auth';
+
+const ONBOARDING_KEY = 'sportgo-onboarding-pending';
 
 export interface NormalizedUser extends UserResponse {
   name: string;
   avatar: string;
   ownerStatus: string;
   isCourtOwner: boolean;
+  isAdmin: boolean;
+  isPremium: boolean;
 }
 
 function normalizeUser(user: UserResponse): NormalizedUser {
@@ -29,103 +32,114 @@ function normalizeUser(user: UserResponse): NormalizedUser {
     avatar: user.profile?.avatar_url ? resolveMediaUrl(user.profile.avatar_url) : '',
     ownerStatus,
     isCourtOwner: ownerStatus === 'registered',
+    isAdmin: Boolean(user.is_admin),
+    isPremium: Boolean(user.is_premium || (user.premium_until && new Date(user.premium_until).getTime() > Date.now())),
   };
+}
+
+/** Onboarding is flagged per user id so a half-finished setup resumes only for the account that registered. */
+async function readOnboardingPending(userId: number): Promise<boolean> {
+  return (await secureStorage.getItemAsync(ONBOARDING_KEY)) === String(userId);
 }
 
 interface AuthState {
   user: NormalizedUser | null;
   hydrated: boolean;
   isAuthenticated: boolean;
+  onboardingPending: boolean;
   hydrate: () => Promise<void>;
   login: (credentials: UserLogin) => Promise<NormalizedUser>;
-  register: (data: UserCreate) => Promise<void>;
+  loginWithGoogle: (idToken: string) => Promise<NormalizedUser>;
+  register: (data: UserCreate) => Promise<NormalizedUser>;
+  completeOnboarding: () => Promise<void>;
   logout: () => void;
   refreshProfile: () => Promise<NormalizedUser>;
   updateProfile: (data: UserProfileWithSportsUpdate) => Promise<NormalizedUser>;
-  applyOwnerRegistration: () => Promise<void>;
-  cancelOwnerRegistration: () => Promise<void>;
 }
 
-export const useAuthStore = create<AuthState>((set, get) => ({
-  user: null,
-  hydrated: false,
-  isAuthenticated: false,
-
-  hydrate: async () => {
-    const token = await secureStorage.getItemAsync(TOKEN_STORAGE_KEY);
-    if (!token) {
-      set({ hydrated: true });
-      return;
-    }
+export const useAuthStore = create<AuthState>((set) => {
+  /** Stores the token and loads the profile, rolling the token back if either step fails. */
+  const establishSession = async (accessToken: string | undefined, isNewUser: boolean): Promise<NormalizedUser> => {
+    if (!accessToken) throw new Error('Máy chủ không trả về token đăng nhập');
+    await secureStorage.setItemAsync(TOKEN_STORAGE_KEY, accessToken);
     try {
-      const me = await authApi.getMe();
-      set({ user: normalizeUser(me), isAuthenticated: true, hydrated: true });
-    } catch {
-      await secureStorage.deleteItemAsync(TOKEN_STORAGE_KEY);
-      set({ user: null, isAuthenticated: false, hydrated: true });
-    }
-  },
-
-  login: async (credentials) => {
-    const response = await authApi.login(credentials);
-    if (!response?.access_token) throw new Error('Máy chủ không trả về token đăng nhập');
-    await secureStorage.setItemAsync(TOKEN_STORAGE_KEY, response.access_token);
-    try {
-      const me = await authApi.getMe();
-      const normalized = normalizeUser(me);
-      set({ user: normalized, isAuthenticated: true });
+      const normalized = normalizeUser(await authApi.getMe());
+      if (isNewUser) await secureStorage.setItemAsync(ONBOARDING_KEY, String(normalized.id));
+      const onboardingPending = isNewUser || (await readOnboardingPending(normalized.id));
+      set({ user: normalized, isAuthenticated: true, onboardingPending });
       return normalized;
     } catch (error) {
       await secureStorage.deleteItemAsync(TOKEN_STORAGE_KEY);
-      set({ user: null, isAuthenticated: false });
+      set({ user: null, isAuthenticated: false, onboardingPending: false });
       throw error;
     }
-  },
+  };
 
-  register: async (data) => {
-    await authApi.register(data);
-  },
+  return {
+    user: null,
+    hydrated: false,
+    isAuthenticated: false,
+    onboardingPending: false,
 
-  logout: () => {
-    authApi.logout().catch(() => {});
-    secureStorage.deleteItemAsync(TOKEN_STORAGE_KEY).catch(() => {});
-    set({ user: null, isAuthenticated: false });
-  },
+    hydrate: async () => {
+      const token = await secureStorage.getItemAsync(TOKEN_STORAGE_KEY);
+      if (!token) {
+        set({ hydrated: true });
+        return;
+      }
+      try {
+        const normalized = normalizeUser(await authApi.getMe());
+          const onboardingPending = await readOnboardingPending(normalized.id);
+        set({ user: normalized, isAuthenticated: true, onboardingPending, hydrated: true });
+      } catch {
+        await secureStorage.deleteItemAsync(TOKEN_STORAGE_KEY);
+        set({ user: null, isAuthenticated: false, onboardingPending: false, hydrated: true });
+      }
+    },
 
-  refreshProfile: async () => {
-    const normalized = normalizeUser(await authApi.getMe());
-    set({ user: normalized });
-    return normalized;
-  },
+    login: async (credentials) => {
+      const response = await authApi.login(credentials);
+      return establishSession(response.access_token, false);
+    },
 
-  updateProfile: async (data) => {
-    const normalized = normalizeUser(await authApi.updateMe(data));
-    set({ user: normalized });
-    return normalized;
-  },
+    loginWithGoogle: async (idToken) => {
+      const response = await authApi.googleLogin(idToken);
+      return establishSession(response.access_token, response.is_new_user);
+    },
 
-  applyOwnerRegistration: async () => {
-    const status = await ownerApi.register();
-    const current = get().user;
-    if (current) {
-      set({
-        user: { ...current, ownerStatus: status.owner_status, owner_status: status.owner_status, isCourtOwner: status.owner_status === 'registered' },
-      });
-    }
-  },
+    register: async (data) => {
+      const response = await authApi.register(data);
+      return establishSession(response.access_token, response.is_new_user);
+    },
 
-  cancelOwnerRegistration: async () => {
-    const status = await ownerApi.cancelRegistration();
-    const current = get().user;
-    if (current) {
-      set({
-        user: { ...current, ownerStatus: status.owner_status, owner_status: status.owner_status, isCourtOwner: status.owner_status === 'registered' },
-      });
-    }
-  },
-}));
+    completeOnboarding: async () => {
+      await secureStorage.deleteItemAsync(ONBOARDING_KEY);
+      set({ onboardingPending: false });
+    },
+
+    logout: () => {
+      authApi.logout().catch(() => {});
+      secureStorage.deleteItemAsync(TOKEN_STORAGE_KEY).catch(() => {});
+      set({ user: null, isAuthenticated: false, onboardingPending: false });
+    },
+
+    refreshProfile: async () => {
+      const normalized = normalizeUser(await authApi.getMe());
+      set({ user: normalized });
+      return normalized;
+    },
+
+    updateProfile: async (data) => {
+      const normalized = normalizeUser(await authApi.updateMe(data));
+      set({ user: normalized });
+      return normalized;
+    },
+
+
+  };
+});
 
 setUnauthorizedHandler(() => {
   secureStorage.deleteItemAsync(TOKEN_STORAGE_KEY).catch(() => {});
-  useAuthStore.setState({ user: null, isAuthenticated: false });
+  useAuthStore.setState({ user: null, isAuthenticated: false, onboardingPending: false });
 });

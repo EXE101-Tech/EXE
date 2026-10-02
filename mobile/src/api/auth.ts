@@ -4,6 +4,8 @@ import { tokenSchema, userLoginSchema, userCreateSchema, userResponseSchema, use
 export const authApi = {
   login: async (data: UserLogin) => tokenSchema.parse(await apiClient.post('/auth/login', userLoginSchema.parse(data))),
   register: async (data: UserCreate) => tokenSchema.parse(await apiClient.post('/auth/register', userCreateSchema.parse(data))),
+  googleLogin: async (idToken: string) =>
+    tokenSchema.parse(await apiClient.post('/auth/google/mobile', { id_token: idToken })),
   logout: async () => apiClient.post('/auth/logout'),
   getMe: async () => userResponseSchema.parse(await apiClient.get('/auth/me')),
   updateMe: async (data: UserProfileWithSportsUpdate) =>

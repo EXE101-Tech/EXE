@@ -6,27 +6,41 @@ export interface PickedImage {
   mimeType?: string | null;
 }
 
+export type UploadedMedia = { url: string; type: 'image' | 'video' };
+
 const EXT_TO_MIME: Record<string, string> = {
   jpg: 'image/jpeg',
   jpeg: 'image/jpeg',
   png: 'image/png',
   webp: 'image/webp',
   avif: 'image/avif',
+  mp4: 'video/mp4',
+  webm: 'video/webm',
 };
 
+async function upload(endpoint: '/storage/images' | '/storage/videos', file: PickedImage, fallbackMime: string) {
+  const ext = file.uri.split('.').pop()?.toLowerCase() ?? '';
+  const mimeType = file.mimeType || EXT_TO_MIME[ext] || fallbackMime;
+  const name = file.fileName || `upload.${ext || 'bin'}`;
+
+  const formData = new FormData();
+  // React Native FormData accepts this {uri,name,type} shape for file fields.
+  formData.append('file', { uri: file.uri, name, type: mimeType } as unknown as Blob);
+
+  const result = await apiClient.post<{ url: string }, { url: string }>(endpoint, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return result.url;
+}
+
 export const storageApi = {
-  uploadImage: async (image: PickedImage): Promise<string> => {
-    const ext = image.uri.split('.').pop()?.toLowerCase() ?? 'jpg';
-    const mimeType = image.mimeType || EXT_TO_MIME[ext] || 'image/jpeg';
-    const name = image.fileName || `upload.${ext}`;
+  uploadImage: (image: PickedImage): Promise<string> => upload('/storage/images', image, 'image/jpeg'),
 
-    const formData = new FormData();
-    // React Native's FormData accepts this {uri,name,type} shape for file fields.
-    formData.append('file', { uri: image.uri, name, type: mimeType } as unknown as Blob);
-
-    const result = await apiClient.post<{ url: string }, { url: string }>('/storage/images', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    return result.url;
+  /** Uploads a picked photo or video, choosing the matching endpoint, and reports which kind it was. */
+  uploadMedia: async (media: PickedImage): Promise<UploadedMedia> => {
+    const ext = media.uri.split('.').pop()?.toLowerCase() ?? '';
+    const isVideo = (media.mimeType ?? EXT_TO_MIME[ext] ?? '').startsWith('video/');
+    if (isVideo) return { url: await upload('/storage/videos', media, 'video/mp4'), type: 'video' };
+    return { url: await upload('/storage/images', media, 'image/jpeg'), type: 'image' };
   },
 };

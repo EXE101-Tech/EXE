@@ -1,12 +1,25 @@
 import { Text } from '@/components/ui/text';
-import { LogOut, MapPin, MessageCircle, Settings2, Star, UserPlus, Users } from 'lucide-react-native';
-import { Image, View } from 'react-native';
+import {
+  CalendarClock,
+  CalendarDays,
+  Crown,
+  LogOut,
+  MapPin,
+  MessageCircle,
+  Settings2,
+  Star,
+  UserPlus,
+  Users,
+} from 'lucide-react-native';
+import { Image, Pressable, View } from 'react-native';
 import { resolveMediaUrl } from '@/api/resolve-media-url';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { SPORTS } from '@/lib/constants';
+import { toUtcEpoch } from '@/lib/slots';
+import { cn } from '@/lib/utils';
 import type { TeamResponse } from '@/schemas/teams';
 
 interface TeamCardProps {
@@ -17,25 +30,42 @@ interface TeamCardProps {
   onEdit: () => void;
   onReview: () => void;
   onChat: () => void;
+  /** Opens the club detail page. */
+  onOpen: () => void;
+  /** Opens the Premium schedule / reminder settings (owner edits, members only view). */
+  onPremium: () => void;
   isJoining?: boolean;
   isLeaving?: boolean;
 }
 
 const sportFor = (sportId: string) => SPORTS.find((s) => s.key === sportId);
 
-export function TeamCard({ team, onJoin, onLeave, onManage, onEdit, onReview, onChat, isJoining, isLeaving }: TeamCardProps) {
+export function TeamCard({
+  team,
+  onJoin,
+  onLeave,
+  onManage,
+  onEdit,
+  onReview,
+  onChat,
+  onOpen,
+  onPremium,
+  isJoining,
+  isLeaving,
+}: TeamCardProps) {
   const full = team.member_count >= team.total_slots;
   const available = team.total_slots - team.member_count;
   const pending = team.membership_status === 'PENDING';
   const sport = sportFor(team.sport_id);
   const imageUri = resolveMediaUrl(team.image_url);
   const createdAt = new Date(team.created_at).toLocaleDateString('vi-VN');
+  const ownerPremium = team.owner_is_premium;
 
   return (
     <Card>
       <View className="gap-3 p-3.5">
-        {/* Thumbnail (left) + owner header (right) */}
-        <View className="flex-row gap-3">
+        {/* Thumbnail (left) + owner header (right); the whole block opens the detail page */}
+        <Pressable onPress={onOpen} className="flex-row gap-3 active:opacity-80">
           <View className="h-24 w-24 shrink-0 overflow-hidden rounded-2xl bg-brand/10 dark:bg-brand-dark/15">
             {imageUri ? (
               <Image source={{ uri: imageUri }} className="h-full w-full" resizeMode="cover" />
@@ -53,10 +83,22 @@ export function TeamCard({ team, onJoin, onLeave, onManage, onEdit, onReview, on
           <View className="flex-1 gap-1">
             <View className="flex-row items-start justify-between gap-1.5">
               <View className="flex-1 flex-row items-center gap-1.5">
-                <Avatar fallback={team.owner_name} size={22} />
-                <Text className="flex-1 text-xs font-bold text-slate-900 dark:text-white" numberOfLines={1}>
+                <Avatar
+                  uri={resolveMediaUrl(team.owner_avatar_url)}
+                  fallback={team.owner_name}
+                  size={ownerPremium ? 18 : 22}
+                  premium={ownerPremium}
+                />
+                <Text
+                  className={cn(
+                    'flex-1 text-xs font-bold',
+                    ownerPremium ? 'text-[#8b8cff]' : 'text-slate-900 dark:text-white',
+                  )}
+                  numberOfLines={1}
+                >
                   {team.owner_name}
                 </Text>
+                {ownerPremium ? <Crown size={11} color="#8b8cff" fill="#8b8cff" /> : null}
               </View>
               <Badge variant={full ? 'neutral' : 'success'} label={full ? 'Đã đầy' : `Còn ${available} slot`} />
             </View>
@@ -66,8 +108,11 @@ export function TeamCard({ team, onJoin, onLeave, onManage, onEdit, onReview, on
             <Text className="text-sm font-black leading-tight text-slate-900 dark:text-white" numberOfLines={2}>
               {team.name}
             </Text>
+            <Text className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+              {team.rating_count > 0 ? `${team.rating.toFixed(1)} · ${team.rating_count} đánh giá` : 'Chưa có đánh giá'}
+            </Text>
           </View>
-        </View>
+        </Pressable>
 
         {team.description ? (
           <Text className="text-xs text-slate-500 dark:text-slate-400" numberOfLines={2}>
@@ -93,6 +138,13 @@ export function TeamCard({ team, onJoin, onLeave, onManage, onEdit, onReview, on
           </View>
         </View>
 
+        <View className="flex-row items-center gap-1.5 px-0.5">
+          <CalendarDays size={13} color="#64748B" />
+          <Text className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+            Hoạt động từ {new Date(toUtcEpoch(team.created_at)).toLocaleDateString('vi-VN')}
+          </Text>
+        </View>
+
         {team.tags.length > 0 ? (
           <View className="flex-row flex-wrap gap-1.5">
             {team.tags.map((tag) => (
@@ -109,17 +161,27 @@ export function TeamCard({ team, onJoin, onLeave, onManage, onEdit, onReview, on
                 <Users size={14} color="#fff" />
                 <Text className="text-xs font-bold text-white">Quản lý thành viên</Text>
               </Button>
-              <Button variant="outline" size="icon" onPress={onEdit}>
-                <Settings2 size={15} color="#0EA5E9" />
+              {ownerPremium ? (
+                <Button variant="outline" size="icon" accessibilityLabel="Quản lý CLB Premium" onPress={onPremium}>
+                  <CalendarClock size={15} color="#8B5CF6" />
+                </Button>
+              ) : null}
+              <Button variant="outline" size="icon" accessibilityLabel="Chỉnh sửa CLB" onPress={onEdit}>
+                <Settings2 size={15} color="#537fff" />
               </Button>
             </>
           ) : team.is_member ? (
             <>
               <Button variant="outline" size="icon" disabled={!team.owner_id} onPress={onChat}>
-                <MessageCircle size={15} color="#0EA5E9" />
+                <MessageCircle size={15} color="#537fff" />
               </Button>
+              {ownerPremium ? (
+                <Button variant="outline" size="icon" accessibilityLabel="Xem lịch Premium của CLB" onPress={onPremium}>
+                  <CalendarClock size={15} color="#8B5CF6" />
+                </Button>
+              ) : null}
               <Button variant="outline" size="sm" className="flex-1" onPress={onManage}>
-                <Users size={14} color="#0EA5E9" />
+                <Users size={14} color="#537fff" />
                 <Text className="text-xs font-bold text-brand dark:text-brand-dark">Xem thành viên</Text>
               </Button>
               <Button variant="outline" size="icon" loading={isLeaving} onPress={onLeave}>
@@ -143,7 +205,7 @@ export function TeamCard({ team, onJoin, onLeave, onManage, onEdit, onReview, on
                 <Text className="text-xs font-bold text-white">{pending ? 'Đang chờ duyệt' : 'Xin gia nhập CLB'}</Text>
               </Button>
               <Button variant="outline" size="icon" disabled={!team.owner_id} onPress={onChat}>
-                <MessageCircle size={15} color="#0EA5E9" />
+                <MessageCircle size={15} color="#537fff" />
               </Button>
             </>
           )}

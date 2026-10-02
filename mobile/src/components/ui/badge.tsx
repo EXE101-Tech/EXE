@@ -4,7 +4,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 
 import { cn } from '@/lib/utils';
 
-const badgeVariants = cva('flex-row items-center self-start rounded-lg px-2 py-1', {
+const badgeVariants = cva('shrink-0 flex-row items-center self-start rounded-lg px-2 py-1', {
   variants: {
     variant: {
       default: 'bg-brand/10 dark:bg-brand-dark/10',

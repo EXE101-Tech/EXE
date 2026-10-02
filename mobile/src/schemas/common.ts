@@ -15,7 +15,7 @@ export const sportCatalogItemSchema = z.object({
 export type SportCatalogItem = z.infer<typeof sportCatalogItemSchema>;
 
 export const searchResultSchema = z.object({
-  kind: z.enum(['venue', 'gameroom', 'team', 'lfg']),
+  kind: z.string(),
   id: z.number(),
   title: z.string(),
   subtitle: z.string(),

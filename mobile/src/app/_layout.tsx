@@ -19,8 +19,11 @@ import {
   useFonts,
 } from '@expo-google-fonts/inter';
 
+import { AppDialog } from '@/components/ui/app-dialog';
+import { ToastBanner } from '@/components/ui/toast-banner';
 import { queryClient, wireAppStateToQueryFocus } from '@/lib/query-client';
 import { useAuthStore } from '@/stores/auth-store';
+import { hydrateTheme } from '@/stores/theme-store';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -41,6 +44,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     hydrate();
+    hydrateTheme();
   }, [hydrate]);
 
   useEffect(() => wireAppStateToQueryFocus(), []);
@@ -58,8 +62,12 @@ export default function RootLayout() {
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" />
             <Stack.Screen name="(auth)" />
+            <Stack.Screen name="onboarding" />
             <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="admin" />
           </Stack>
+          <ToastBanner />
+          <AppDialog />
         </QueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

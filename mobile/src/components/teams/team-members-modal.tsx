@@ -1,16 +1,19 @@
 import { Text } from '@/components/ui/text';
-import { Check, Trash2, X } from 'lucide-react-native';
-import { Alert, FlatList, Modal, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Check, Trash2, Users, X } from 'lucide-react-native';
+import { TouchableOpacity, View } from 'react-native';
 
 import { Badge } from '@/components/ui/badge';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { PopupModal } from '@/components/ui/popup-modal';
 import { EmptyState } from '@/components/brand/empty-state';
 import { LoadingState } from '@/components/brand/loading-state';
 import { useRemoveTeamMemberMutation, useRemoveTeamMutation, useSetTeamMemberStatusMutation, useTeamMembersQuery } from '@/hooks/queries/use-teams';
 import { resolveMediaUrl } from '@/api/resolve-media-url';
 import { useAuthStore } from '@/stores/auth-store';
+import { cn } from '@/lib/utils';
+import { showToast } from '@/stores/toast-store';
+import { showAlert } from '@/stores/dialog-store';
 
 interface TeamMembersModalProps {
   visible: boolean;
@@ -27,7 +30,7 @@ export function TeamMembersModal({ visible, teamId, canManage, onClose }: TeamMe
   const currentUserId = useAuthStore((state) => state.user?.id);
 
   const handleDisband = () => {
-    Alert.alert('Giải thể CLB', 'Bạn có chắc muốn giải thể CLB này? Hành động này không thể hoàn tác.', [
+    showAlert('Giải thể CLB', 'Bạn có chắc muốn giải thể CLB này? Hành động này không thể hoàn tác.', [
       { text: 'Không', style: 'cancel' },
       {
         text: 'Giải thể',
@@ -35,102 +38,105 @@ export function TeamMembersModal({ visible, teamId, canManage, onClose }: TeamMe
         onPress: () =>
           removeTeam.mutate(teamId, {
             onSuccess: onClose,
-            onError: (e) => Alert.alert('Lỗi', e.message),
+            onError: (e) => showAlert('Lỗi', e.message),
           }),
       },
     ]);
   };
 
   const handleRemoveMember = (userId: number, name: string) => {
-    Alert.alert('Xóa thành viên', `Bạn có chắc muốn xóa ${name} khỏi CLB?`, [
+    showAlert('Xóa thành viên', `Bạn có chắc muốn xóa ${name} khỏi CLB?`, [
       { text: 'Hủy', style: 'cancel' },
       {
         text: 'Xóa',
         style: 'destructive',
         onPress: () => removeMember.mutate(userId, {
-          onError: (error) => Alert.alert('Lỗi', error.message),
+          onSuccess: () => showToast(`Đã xóa ${name} khỏi CLB.`),
+          onError: (error) => showAlert('Lỗi', error.message),
         }),
       },
     ]);
   };
 
-  return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView className="flex-1 bg-bg dark:bg-bg-dark">
-        <View className="flex-row items-center justify-between border-b border-border px-4 py-3 dark:border-border-dark">
-          <Text className="text-lg font-black text-slate-900 dark:text-white">Thành viên CLB</Text>
-          <TouchableOpacity onPress={onClose} hitSlop={8}>
-            <X size={22} color="#94A3B8" />
-          </TouchableOpacity>
-        </View>
+  const members = data ?? [];
 
-        {isLoading ? (
-          <LoadingState label="Đang tải…" />
-        ) : (
-          <FlatList
-            data={data ?? []}
-            keyExtractor={(item) => String(item.id)}
-            contentContainerClassName="gap-2.5 p-4"
-            renderItem={({ item }) => (
-              <View className="flex-row items-center gap-3 rounded-2xl border border-border p-3 dark:border-border-dark">
-                <Avatar
-                  uri={resolveMediaUrl(item.avatar_url)}
-                  fallback={item.full_name || 'Người chơi'}
-                  size={42}
-                />
-                <View className="flex-1">
-                  <Text className="text-sm font-bold text-slate-900 dark:text-white" numberOfLines={1}>
-                    {item.full_name || item.email || `Thành viên #${item.user_id}`}
-                  </Text>
-                  <Badge
-                    variant={item.status === 'APPROVED' ? 'success' : item.status === 'PENDING' ? 'warning' : 'neutral'}
-                    label={item.status === 'APPROVED' ? 'Đã duyệt' : item.status === 'PENDING' ? 'Đang chờ' : item.status}
-                    className="mt-1"
-                  />
-                </View>
-                {canManage && item.status === 'PENDING' ? (
-                  <View className="flex-row gap-2">
-                    <Button
-                      size="sm"
-                      loading={setStatus.isPending && setStatus.variables?.userId === item.user_id}
-                      onPress={() => setStatus.mutate({ userId: item.user_id, status: 'APPROVED' })}
-                    >
-                      <Check size={14} color="#fff" />
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      loading={setStatus.isPending && setStatus.variables?.userId === item.user_id}
-                      onPress={() => setStatus.mutate({ userId: item.user_id, status: 'REJECTED' })}
-                    >
-                      <X size={14} color="#fff" />
-                    </Button>
-                  </View>
-                ) : null}
-                {canManage && item.status === 'APPROVED' && item.user_id !== currentUserId ? (
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    loading={removeMember.isPending && removeMember.variables === item.user_id}
-                    onPress={() => handleRemoveMember(item.user_id, item.full_name || 'thành viên này')}
-                  >
-                    <Trash2 size={14} color="#fff" />
-                  </Button>
-                ) : null}
+  return (
+    <PopupModal
+      visible={visible}
+      onClose={onClose}
+      title="Thành viên CLB"
+      subtitle={members.length ? `${members.length} thành viên` : undefined}
+      icon={Users}
+      bodyClassName="gap-2.5"
+    >
+      {isLoading ? (
+        <LoadingState label="Đang tải…" />
+      ) : members.length === 0 ? (
+        <EmptyState title="CLB chưa có thành viên nào" />
+      ) : (
+        members.map((item) => (
+          <View
+            key={item.id}
+            className="flex-row items-center gap-3 rounded-2xl border border-border p-3 dark:border-border-dark"
+          >
+            <Avatar
+              uri={resolveMediaUrl(item.avatar_url)}
+              fallback={item.full_name || 'Người chơi'}
+              size={item.is_premium ? 36 : 42}
+              premium={item.is_premium}
+            />
+            <View className="flex-1">
+              <Text
+                className={cn('text-sm font-bold', item.is_premium ? 'text-[#8b8cff]' : 'text-slate-900 dark:text-white')}
+                numberOfLines={1}
+              >
+                {item.full_name || item.email || `Thành viên #${item.user_id}`}
+              </Text>
+              <Badge
+                variant={item.status === 'APPROVED' ? 'success' : item.status === 'PENDING' ? 'warning' : 'neutral'}
+                label={item.status === 'APPROVED' ? 'Đã duyệt' : item.status === 'PENDING' ? 'Đang chờ' : item.status}
+                className="mt-1"
+              />
+            </View>
+            {canManage && item.status === 'PENDING' ? (
+              <View className="flex-row gap-2">
+                <Button
+                  size="sm"
+                  loading={setStatus.isPending && setStatus.variables?.userId === item.user_id}
+                  onPress={() => setStatus.mutate({ userId: item.user_id, status: 'APPROVED' })}
+                >
+                  <Check size={14} color="#fff" />
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  loading={setStatus.isPending && setStatus.variables?.userId === item.user_id}
+                  onPress={() => setStatus.mutate({ userId: item.user_id, status: 'REJECTED' })}
+                >
+                  <X size={14} color="#fff" />
+                </Button>
               </View>
-            )}
-            ListEmptyComponent={<EmptyState title="CLB chưa có thành viên nào" />}
-            ListFooterComponent={
-              canManage ? (
-                <TouchableOpacity onPress={handleDisband} className="mt-4 flex-row items-center justify-center gap-2 py-2">
-                  <Trash2 size={14} color="#E11D48" />
-                  <Text className="text-xs font-bold text-rose-600">Giải thể CLB</Text>
-                </TouchableOpacity>
-              ) : null
-            }
-          />
-        )}
-      </SafeAreaView>
-    </Modal>
+            ) : null}
+            {canManage && item.status === 'APPROVED' && item.user_id !== currentUserId ? (
+              <Button
+                variant="destructive"
+                size="sm"
+                loading={removeMember.isPending && removeMember.variables === item.user_id}
+                onPress={() => handleRemoveMember(item.user_id, item.full_name || 'thành viên này')}
+              >
+                <Trash2 size={14} color="#fff" />
+              </Button>
+            ) : null}
+          </View>
+        ))
+      )}
+
+      {canManage ? (
+        <TouchableOpacity onPress={handleDisband} className="mt-2 flex-row items-center justify-center gap-2 py-2">
+          <Trash2 size={14} color="#E11D48" />
+          <Text className="text-xs font-bold text-rose-600">Giải thể CLB</Text>
+        </TouchableOpacity>
+      ) : null}
+    </PopupModal>
   );
 }
