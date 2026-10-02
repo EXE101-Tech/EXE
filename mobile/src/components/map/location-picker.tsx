@@ -1,15 +1,15 @@
 import { Text } from '@/components/ui/text';
 import * as Location from 'expo-location';
 import { Check, CheckCircle2, LocateFixed, Map as MapIcon, MapPin, X } from 'lucide-react-native';
-import { useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 
-import { AppDialog } from '@/components/ui/app-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useScrollLock } from '@/components/ui/scroll-lock';
 import { useVenuesQuery } from '@/hooks/queries/use-courts';
 import { env } from '@/lib/env';
+import { cn } from '@/lib/utils';
 import {
   DEFAULT_CENTER,
   buildKnownVenues,
@@ -31,6 +31,20 @@ interface LocationPickerProps {
 }
 
 const MIN_QUERY_LENGTH = 2;
+
+/**
+ * A live GPS fix can fail or time out (emulators, indoors, a cold start), so fall back to the last known
+ * position, which is accurate enough for choosing a venue. Rethrows the live error when there is no fallback.
+ */
+async function getCurrentOrLastKnownPosition(): Promise<Location.LocationObject> {
+  try {
+    return await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+  } catch (error) {
+    const lastKnown = await Location.getLastKnownPositionAsync();
+    if (lastKnown) return lastKnown;
+    throw error;
+  }
+}
 const SEARCH_DEBOUNCE_MS = 350;
 
 /**
@@ -44,6 +58,7 @@ export function LocationPicker({
   error,
   disabled = false,
 }: LocationPickerProps) {
+  const setScrollLocked = useScrollLock();
   const { data: backendVenues } = useVenuesQuery();
   const venues = useMemo(() => buildKnownVenues(backendVenues), [backendVenues]);
 
@@ -58,6 +73,11 @@ export function LocationPicker({
   const searchAbort = useRef<AbortController | null>(null);
   // Only the latest pin may write its address back; a slower earlier lookup is dropped.
   const pickToken = useRef(0);
+
+  // Never leave the form's scrolling locked after the map goes away mid-touch.
+  useEffect(() => {
+    if (!isMapOpen) setScrollLocked(false);
+  }, [isMapOpen, setScrollLocked]);
 
   const locationMap = useMemo(() => loadLocationMap(), []);
   const mapUnavailableMessage = !locationMap
@@ -137,7 +157,11 @@ export function LocationPicker({
         showAlert('Cần quyền vị trí', 'Hãy cấp quyền vị trí để dùng vị trí hiện tại của bạn.');
         return;
       }
-      const position = await Location.getCurrentPositionAsync({});
+      if (!(await Location.hasServicesEnabledAsync())) {
+        showAlert('Vị trí đang tắt', 'Hãy bật Vị trí (Location) trong cài đặt của thiết bị rồi thử lại.');
+        return;
+      }
+      const position = await getCurrentOrLastKnownPosition();
       const coords: LatLng = [position.coords.latitude, position.coords.longitude];
       cancelSearch();
       setSuggestions([]);
@@ -145,8 +169,10 @@ export function LocationPicker({
       setFlyTarget(coords);
       if (!mapUnavailableMessage) setIsMapOpen(true);
       await handlePickCoordinates(coords);
-    } catch {
-      showAlert('Lỗi', 'Không thể lấy vị trí GPS. Vui lòng thử lại.');
+    } catch (error) {
+      // The cause is only appended while developing, so users still get one short, plain message.
+      const detail = __DEV__ && error instanceof Error ? ` (${error.message})` : '';
+      showAlert('Lỗi', `Không thể lấy vị trí GPS. Vui lòng thử lại.${detail}`);
     } finally {
       setIsReverseGeocoding(false);
     }
@@ -200,13 +226,18 @@ export function LocationPicker({
             {isReverseGeocoding ? <ActivityIndicator size="small" color="#3B82F6" /> : <LocateFixed size={18} color="#3B82F6" />}
           </Pressable>
           <Pressable
-            onPress={() => setIsMapOpen(true)}
+            onPress={() => setIsMapOpen((open) => !open)}
             disabled={disabled}
-            accessibilityLabel="Mở bản đồ chọn sân"
-            className="flex-row items-center gap-1 rounded-xl bg-emerald-600 px-2.5 py-1.5"
+            accessibilityLabel={isMapOpen ? 'Thu gọn bản đồ' : 'Mở bản đồ chọn sân'}
+            className={cn(
+              'flex-row items-center gap-1 rounded-xl px-2.5 py-1.5',
+              isMapOpen ? 'bg-emerald-600' : 'bg-slate-200 dark:bg-white/10',
+            )}
           >
-            <MapIcon size={13} color="#fff" />
-            <Text className="text-xs font-bold text-white">Map</Text>
+            <MapIcon size={13} color={isMapOpen ? '#fff' : '#64748B'} />
+            <Text className={cn('text-xs font-bold', isMapOpen ? 'text-white' : 'text-slate-700 dark:text-slate-300')}>
+              {isMapOpen ? 'Đóng map' : 'Map'}
+            </Text>
           </Pressable>
         </View>
       </View>
@@ -245,54 +276,49 @@ export function LocationPicker({
         </View>
       ) : null}
 
-      <Modal visible={isMapOpen} animationType="slide" onRequestClose={() => setIsMapOpen(false)}>
-        <SafeAreaView className="flex-1 bg-bg dark:bg-bg-dark" edges={['top', 'bottom']}>
-          <View className="flex-row items-center justify-between gap-3 border-b border-border px-4 py-3 dark:border-border-dark">
-            <View className="flex-1">
-              <Text className="text-base font-black text-slate-900 dark:text-white">Chọn địa điểm</Text>
-              <Text className="text-xs text-slate-500 dark:text-slate-400">
-                Chạm vào bất kỳ đâu trên bản đồ hoặc chạm icon sân để chọn
+      {isMapOpen ? (
+        // Opens right under the field like the web picker; the form is not scrolled while the map is touched.
+        <View className="mt-2.5 overflow-hidden rounded-2xl border border-border bg-slate-100 dark:border-border-dark dark:bg-slate-900">
+          <View className="flex-row items-center justify-between gap-2 border-b border-border bg-slate-50 px-3 py-2 dark:border-border-dark dark:bg-white/5">
+            <View className="flex-1 flex-row items-center gap-1.5">
+              <View className="h-2 w-2 rounded-full bg-emerald-500" />
+              <Text className="flex-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                Bấm vào bất kỳ đâu trên bản đồ hoặc bấm vào icon sân để chọn
               </Text>
             </View>
             {isReverseGeocoding ? (
-              <View className="flex-row items-center gap-1.5">
+              <View className="flex-row items-center gap-1">
                 <ActivityIndicator size="small" color="#059669" />
                 <Text className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">Đang nhận diện…</Text>
               </View>
             ) : null}
-            <Pressable
-              onPress={() => setIsMapOpen(false)}
-              accessibilityLabel="Đóng bản đồ"
-              hitSlop={8}
-              className="rounded-full p-1.5"
-            >
-              <X size={20} color="#64748B" />
-            </Pressable>
           </View>
 
-          <View className="flex-1">
+          <View
+            style={{ height: 256 }}
+            onTouchStart={() => setScrollLocked(true)}
+            onTouchEnd={() => setScrollLocked(false)}
+            onTouchCancel={() => setScrollLocked(false)}
+          >
             {mapUnavailableMessage || !MapView ? (
               <View className="flex-1 items-center justify-center gap-3 px-8">
                 <MapPin size={28} color="#537fff" />
                 <Text className="text-center text-sm text-slate-500 dark:text-slate-400">{mapUnavailableMessage}</Text>
               </View>
             ) : (
-              // Mounted only while the modal is open, so the native map is not kept alive behind the form.
-              isMapOpen && (
-                <MapView
-                  markerPos={markerPos}
-                  flyTarget={flyTarget}
-                  venues={venues}
-                  onPick={handlePickCoordinates}
-                  onSelectVenue={handleSelectVenue}
-                />
-              )
+              <MapView
+                markerPos={markerPos}
+                flyTarget={flyTarget}
+                venues={venues}
+                onPick={handlePickCoordinates}
+                onSelectVenue={handleSelectVenue}
+              />
             )}
           </View>
 
-          <View className="flex-row items-center gap-3 border-t border-border bg-white px-4 py-3 dark:border-border-dark dark:bg-[#111827]">
+          <View className="flex-row items-center gap-3 border-t border-border bg-white px-3 py-3 dark:border-border-dark dark:bg-[#111827]">
             <View className="flex-1">
-              <Text className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Vị trí bạn đã chọn</Text>
+              <Text className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Vị trí bạn đã chọn:</Text>
               <View className="mt-0.5 flex-row items-center gap-1.5">
                 <CheckCircle2 size={14} color="#10B981" />
                 <Text className="flex-1 text-xs font-bold text-emerald-600 dark:text-emerald-400" numberOfLines={2}>
@@ -305,9 +331,8 @@ export function LocationPicker({
               <Text className="text-sm font-bold text-white">Dùng vị trí này</Text>
             </Button>
           </View>
-          <AppDialog />
-        </SafeAreaView>
-      </Modal>
+        </View>
+      ) : null}
     </View>
   );
 }
