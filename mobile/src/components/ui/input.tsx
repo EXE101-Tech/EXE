@@ -15,7 +15,7 @@ export const Input = React.forwardRef<TextInput, InputProps>(
         ref={ref}
         placeholderTextColor="#94A3B8"
         className={cn(
-          'h-12 rounded-xl border border-border bg-white px-4 text-base text-slate-900 dark:border-border-dark dark:bg-[#0A1A30] dark:text-white',
+          'h-12 rounded-xl border border-border bg-white px-4 text-base text-slate-900 dark:border-border-dark dark:bg-[#0d1424] dark:text-white',
           error && 'border-rose-500',
           className,
         )}

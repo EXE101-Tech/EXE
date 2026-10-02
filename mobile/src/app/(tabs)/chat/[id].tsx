@@ -1,17 +1,24 @@
 import { Text } from '@/components/ui/text';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Send } from 'lucide-react-native';
-import { useState } from 'react';
-import { FlatList, KeyboardAvoidingView, Platform, Pressable, TextInput, View } from 'react-native';
+import { ArrowLeft, Check, Send, UserPlus } from 'lucide-react-native';
+import { useMemo, useState } from 'react';
+import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { chatApi } from '@/api/chat';
 import { resolveMediaUrl } from '@/api/resolve-media-url';
 import { LoadingState } from '@/components/brand/loading-state';
 import { Avatar } from '@/components/ui/avatar';
-import { useMessagesQuery, useSendMessageMutation } from '@/hooks/queries/use-chat';
+import {
+  useAcceptFriendRequestMutation,
+  useMessagesQuery,
+  useSendFriendRequestMutation,
+  useSendMessageMutation,
+} from '@/hooks/queries/use-chat';
 import type { ChatMessageResponse } from '@/schemas/chat';
 import { useAuthStore } from '@/stores/auth-store';
 import { cn } from '@/lib/utils';
+import { showAlert } from '@/stores/dialog-store';
 
 const formatTime = (value: string) => {
   const date = new Date(value.endsWith('Z') ? value : `${value}Z`);
@@ -25,9 +32,68 @@ export default function ChatThreadScreen() {
 
   const { data, isLoading } = useMessagesQuery(conversationId);
   const sendMessage = useSendMessageMutation(conversationId);
+  const sendFriendRequest = useSendFriendRequestMutation();
+  const acceptFriendRequest = useAcceptFriendRequestMutation();
   const [text, setText] = useState('');
 
-  const messages = [...(data?.messages ?? [])].reverse();
+  // The polled query always holds the newest page; older pages are fetched on demand and kept here.
+  // Tagged with the conversation id so a different thread never shows another thread's history.
+  const [olderPages, setOlderPages] = useState<{
+    conversationId: number;
+    messages: ChatMessageResponse[];
+    hasMore: boolean;
+  } | null>(null);
+  const [isLoadingOlder, setIsLoadingOlder] = useState(false);
+  const loadedOlder = olderPages?.conversationId === conversationId ? olderPages : null;
+  const older = loadedOlder?.messages;
+
+  const ordered = useMemo(() => {
+    const seen = new Set<number>();
+    return [...(older ?? []), ...(data?.messages ?? [])].filter((message) => {
+      if (seen.has(message.id)) return false;
+      seen.add(message.id);
+      return true;
+    });
+  }, [older, data?.messages]);
+  const messages = [...ordered].reverse();
+  const hasOlder = loadedOlder?.hasMore ?? data?.has_more ?? false;
+
+  const loadOlder = async () => {
+    const oldestId = ordered[0]?.id;
+    if (!oldestId || isLoadingOlder) return;
+    setIsLoadingOlder(true);
+    try {
+      const page = await chatApi.getMessages(conversationId, { before_id: oldestId, limit: 50 });
+      setOlderPages((current) => ({
+        conversationId,
+        messages: [...page.messages, ...(current?.conversationId === conversationId ? current.messages : [])],
+        hasMore: page.has_more,
+      }));
+    } catch (error) {
+      showAlert('Lỗi', error instanceof Error ? error.message : 'Không tải được tin nhắn cũ hơn');
+    } finally {
+      setIsLoadingOlder(false);
+    }
+  };
+
+  const friendship = data?.friendship_status ?? 'none';
+  const friendshipLabel =
+    friendship === 'accepted'
+      ? 'Bạn bè'
+      : friendship === 'incoming'
+        ? 'Đã gửi lời mời cho bạn'
+        : friendship === 'outgoing'
+          ? 'Đã gửi lời mời'
+          : 'Người lạ';
+  const friendActionBusy = sendFriendRequest.isPending || acceptFriendRequest.isPending;
+  const handleFriendAction = () => {
+    if (!data) return;
+    const onError = (error: Error) => showAlert('Lỗi', error.message);
+    if (friendship === 'none') sendFriendRequest.mutate(data.other_user.id, { onError });
+    else if (friendship === 'incoming' && data.friendship_id != null) {
+      acceptFriendRequest.mutate(data.friendship_id, { onError });
+    }
+  };
 
   const handleSend = () => {
     const value = text.trim();
@@ -44,10 +110,39 @@ export default function ChatThreadScreen() {
         </Pressable>
         {data ? (
           <>
-            <Avatar uri={resolveMediaUrl(data.other_user.avatar_url)} fallback={data.other_user.name} size={36} />
-            <Text className="text-base font-black text-slate-900 dark:text-white" numberOfLines={1}>
-              {data.other_user.name}
-            </Text>
+            <Avatar uri={resolveMediaUrl(data.other_user.avatar_url)} fallback={data.other_user.name} size={36} premium={data.other_user.is_premium} />
+            <View className="flex-1">
+              <Text className="text-base font-black text-slate-900 dark:text-white" numberOfLines={1}>
+                {data.other_user.name}
+              </Text>
+              <View className="flex-row items-center gap-2">
+                <Text
+                  className={cn(
+                    'text-[11px] font-semibold',
+                    friendship === 'accepted' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400',
+                  )}
+                >
+                  {friendshipLabel}
+                </Text>
+                {friendship === 'none' || (friendship === 'incoming' && data.friendship_id != null) ? (
+                  <Pressable
+                    onPress={handleFriendAction}
+                    disabled={friendActionBusy}
+                    hitSlop={6}
+                    className="flex-row items-center gap-1 disabled:opacity-50"
+                  >
+                    {friendship === 'none' ? (
+                      <UserPlus size={12} color="#537fff" />
+                    ) : (
+                      <Check size={12} color="#537fff" />
+                    )}
+                    <Text className="text-[11px] font-bold text-brand dark:text-brand-dark">
+                      {friendship === 'none' ? 'Kết bạn' : 'Chấp nhận'}
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            </View>
           </>
         ) : null}
       </View>
@@ -61,6 +156,24 @@ export default function ChatThreadScreen() {
           inverted
           keyExtractor={(item) => String(item.id)}
           contentContainerClassName="gap-2.5 px-4 py-4"
+          // The list is inverted, so the footer sits above the oldest message.
+          ListFooterComponent={
+            hasOlder ? (
+              <Pressable
+                onPress={loadOlder}
+                disabled={isLoadingOlder}
+                className="mx-auto mb-2 min-h-7 items-center justify-center rounded-full bg-slate-100 px-3 py-1 dark:bg-white/10"
+              >
+                {isLoadingOlder ? (
+                  <ActivityIndicator size="small" color="#537fff" />
+                ) : (
+                  <Text className="text-[11px] font-semibold text-slate-500 dark:text-slate-300">
+                    Xem tin nhắn cũ hơn
+                  </Text>
+                )}
+              </Pressable>
+            ) : null
+          }
           renderItem={({ item }: { item: ChatMessageResponse }) => {
             const own = item.sender_id === currentUserId;
             return (

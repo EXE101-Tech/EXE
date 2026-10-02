@@ -1,19 +1,24 @@
 import { Text } from '@/components/ui/text';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
-import { Eye, ImagePlus, LogOut, Pencil, Trophy, Users } from 'lucide-react-native';
+import { Crown, Eye, ImagePlus, LogOut, MapPin, Pencil, Trophy, Users } from 'lucide-react-native';
 import { useState } from 'react';
-import { Alert, Image, TouchableOpacity, View } from 'react-native';
+import { Image, TouchableOpacity, View } from 'react-native';
 import { storageApi } from '@/api/storage';
 import { Avatar } from '@/components/ui/avatar';
 import { LoadingState } from '@/components/brand/loading-state';
 import { ScreenContainer } from '@/components/brand/screen-container';
 import { StatCard } from '@/components/brand/stat-card';
 import { TopNavbar } from '@/components/navigation/top-navbar';
+import { MySocialPosts } from '@/components/social/my-social-posts';
 import { EditProfileModal } from '@/components/profile/edit-profile-modal';
 import { ImageLightbox } from '@/components/profile/image-lightbox';
 import { useMeStatsQuery, useUpdateProfileMutation } from '@/hooks/queries/use-auth';
 import { isActiveSportName, LEVEL_META, SPORT_KEY_BY_NAME, SPORTS, type SkillLevel } from '@/lib/constants';
 import { useAuthStore } from '@/stores/auth-store';
+import { showAlert } from '@/stores/dialog-store';
+
+const LEVEL_RANK: Record<string, number> = { Beginner: 1, Intermediate: 2, Advanced: 3, Expert: 4 };
 
 export default function ProfileScreen() {
   const user = useAuthStore((s) => s.user);
@@ -30,7 +35,7 @@ export default function ProfileScreen() {
   const handleChangeCover = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Cần quyền truy cập', 'Hãy cấp quyền thư viện ảnh để đổi ảnh bìa.');
+      showAlert('Cần quyền truy cập', 'Hãy cấp quyền thư viện ảnh để đổi ảnh bìa.');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
@@ -41,25 +46,31 @@ export default function ProfileScreen() {
       const url = await storageApi.uploadImage({ uri: asset.uri, fileName: asset.fileName, mimeType: asset.mimeType });
       await updateProfile.mutateAsync({ cover_url: url });
     } catch (error) {
-      Alert.alert('Lỗi', error instanceof Error ? error.message : 'Không tải được ảnh bìa');
+      showAlert('Lỗi', error instanceof Error ? error.message : 'Không tải được ảnh bìa');
     } finally {
       setIsUploadingCover(false);
     }
   };
 
   const displayName = user.name;
-  const skills = (user.sports || []).filter((item) => isActiveSportName(item.sport?.name)).map((item) => {
+  // One card per sport (like the web profile): the highest level wins and the game counts are summed.
+  const skillsBySport = new Map<string, { id: number; sport: string; emoji: string; level: string; rawLevel: string; games: number }>();
+  for (const item of (user.sports || []).filter((entry) => isActiveSportName(entry.sport?.name))) {
     const sportName = item.sport?.name || 'Môn thể thao';
-    const key = SPORT_KEY_BY_NAME[sportName.trim().toLowerCase()];
+    const key = SPORT_KEY_BY_NAME[sportName.trim().toLowerCase()] ?? sportName.toLowerCase();
     const sportMeta = SPORTS.find((s) => s.key === key);
-    return {
+    const previous = skillsBySport.get(key);
+    const higher = (LEVEL_RANK[item.skill_level] || 0) >= (LEVEL_RANK[previous?.rawLevel ?? ''] || 0);
+    skillsBySport.set(key, {
       id: item.id,
-      sport: sportName,
+      sport: sportMeta?.name ?? sportName,
       emoji: sportMeta?.emoji ?? '🏅',
-      level: LEVEL_META[item.skill_level as SkillLevel]?.label ?? item.skill_level,
-      games: item.games_played || 0,
-    };
-  });
+      level: higher || !previous ? (LEVEL_META[item.skill_level as SkillLevel]?.label ?? item.skill_level) : previous.level,
+      rawLevel: higher || !previous ? item.skill_level : previous.rawLevel,
+      games: (previous?.games ?? 0) + (stats?.games_by_sport?.[String(item.sport_id)] ?? item.games_played ?? 0),
+    });
+  }
+  const skills = [...skillsBySport.values()];
 
   const statsCards = [
     { label: 'Trận đã chơi', value: stats?.games_played ?? 0, icon: Trophy, colorClassName: 'bg-amber-500/10', iconColor: '#D97706' },
@@ -71,15 +82,23 @@ export default function ProfileScreen() {
       <TopNavbar />
 
       <View className="mb-2">
-        <Text className="mb-1 text-base font-semibold text-slate-500 dark:text-slate-400">Xin chào</Text>
-        <Text className="text-3xl font-black text-slate-900 dark:text-white">{displayName}</Text>
+        <Text className="mb-1 text-[11px] font-extrabold tracking-widest text-brand dark:text-brand-dark">HÀNH TRÌNH CỦA BẠN</Text>
+        <Text className="text-3xl font-black text-slate-900 dark:text-white">Hồ sơ cá nhân</Text>
       </View>
 
       <View className="overflow-hidden rounded-3xl border border-border dark:border-border-dark">
         <View className="h-40 bg-slate-200 dark:bg-slate-800">
           {user.profile?.cover_url ? (
             <Image source={{ uri: user.profile.cover_url }} className="h-full w-full" resizeMode="cover" />
-          ) : null}
+          ) : (
+            // Default cover, same slate-to-blue tint the web profile lays over its stock photo.
+            <LinearGradient
+              colors={['#0b1325', '#1c2b52', '#4a6fd8']}
+              start={{ x: 0, y: 0.3 }}
+              end={{ x: 1, y: 0.7 }}
+              style={{ width: '100%', height: '100%' }}
+            />
+          )}
 
           <View className="absolute right-3 top-3 flex-row gap-2">
             {user.profile?.cover_url ? (
@@ -102,20 +121,38 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        <View className="bg-white px-5 pb-6 dark:bg-[#0F1E36]">
+        <View className="bg-white px-5 pb-6 dark:bg-[#111827]">
           <View className="-mt-10 flex-row items-end gap-4 pb-4">
-            <View className="rounded-full border-4 border-white p-0.5 dark:border-[#0F1E36]">
-              <Avatar uri={user.profile?.avatar_url} fallback={displayName} size={80} />
+            <View className="rounded-full border-4 border-white p-0.5 dark:border-[#111827]">
+              <Avatar uri={user.profile?.avatar_url} fallback={displayName} size={80} premium={user.isPremium} />
             </View>
             <View className="flex-1 pb-1">
-              <Text className="text-xl font-black text-slate-900 dark:text-white" numberOfLines={1}>
-                {displayName}
-              </Text>
+              <View className="flex-row items-center gap-1.5">
+                <Text
+                  className={`shrink text-xl font-black ${user.isPremium ? 'text-[#8b8cff]' : 'text-slate-900 dark:text-white'}`}
+                  numberOfLines={1}
+                >
+                  {displayName}
+                </Text>
+                {user.isPremium ? <Crown size={16} color="#8b8cff" fill="#8b8cff" /> : null}
+              </View>
               <Text className="mt-0.5 text-sm text-slate-500 dark:text-slate-400" numberOfLines={1}>
                 {user.email}
               </Text>
+              {user.profile?.district ? (
+                <View className="mt-1 flex-row items-center gap-1">
+                  <MapPin size={12} color="#94A3B8" />
+                  <Text className="text-xs font-semibold text-slate-500 dark:text-slate-400" numberOfLines={1}>
+                    Khu vực: {user.profile.district}
+                  </Text>
+                </View>
+              ) : null}
             </View>
           </View>
+
+          {user.profile?.bio ? (
+            <Text className="-mt-1 mb-4 text-[13px] leading-5 text-slate-500 dark:text-slate-400">{user.profile.bio}</Text>
+          ) : null}
 
           <View className="flex-row gap-2">
             <TouchableOpacity
@@ -150,7 +187,8 @@ export default function ProfileScreen() {
           )}
 
           <View className="mt-6 border-t border-border pt-5 dark:border-border-dark">
-            <Text className="mb-3 text-lg font-bold text-slate-900 dark:text-white">Hồ sơ kỹ năng</Text>
+            <Text className="text-lg font-bold text-slate-900 dark:text-white">Hồ sơ kỹ năng</Text>
+            <Text className="mb-3 text-sm text-slate-500 dark:text-slate-400">Trình độ và hoạt động thể thao</Text>
             {skills.length === 0 ? (
               <Text className="rounded-2xl border border-dashed border-border p-5 text-center text-sm text-slate-500 dark:border-border-dark dark:text-slate-400">
                 Bạn chưa thêm môn thể thao hoặc trình độ. Hãy cập nhật hồ sơ để lưu kỹ năng của mình.
@@ -177,6 +215,8 @@ export default function ProfileScreen() {
           </View>
         </View>
       </View>
+
+      <MySocialPosts />
 
       <EditProfileModal visible={isEditOpen} user={user} onClose={() => setIsEditOpen(false)} />
       {user.profile?.cover_url ? (

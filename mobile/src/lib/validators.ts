@@ -24,6 +24,12 @@ export const validateEmail = (email: string): string | null => {
   return null;
 };
 
+/** Đăng ký chỉ nhận email @gmail.com (khớp rule của server). */
+export const validateGmailEmail = (email: string): string | null => {
+  if (!/^[^\s@]+@gmail\.com$/i.test(email.trim())) return 'Vui lòng sử dụng email có đuôi @gmail.com';
+  return null;
+};
+
 /** Trả về chuỗi lỗi nếu không hợp lệ, hoặc null nếu hợp lệ. */
 export const validatePassword = (password: string, minLength = 6): string | null => {
   if (password.length < minLength) return `Mật khẩu tối thiểu ${minLength} ký tự`;

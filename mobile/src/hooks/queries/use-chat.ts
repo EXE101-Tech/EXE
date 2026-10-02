@@ -14,10 +14,28 @@ export function useConversationsQuery() {
   });
 }
 
+/** Total unread messages for the chat tab badge; refreshed every 12s like the web navbar. */
+export function useChatUnreadCount() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const { data } = useQuery({
+    queryKey: queryKeys.chat.unreadCount(),
+    queryFn: chatApi.getUnreadCount,
+    enabled: isAuthenticated,
+    refetchInterval: isAuthenticated ? 12000 : false,
+  });
+  return data?.unread_count ?? 0;
+}
+
 export function useMessagesQuery(conversationId: number) {
+  const queryClient = useQueryClient();
   return useQuery({
     queryKey: queryKeys.chat.messages(conversationId),
-    queryFn: () => chatApi.getMessages(conversationId),
+    queryFn: async () => {
+      const detail = await chatApi.getMessages(conversationId);
+      // Fetching a thread marks it read on the server, so the tab badge has to catch up.
+      queryClient.invalidateQueries({ queryKey: queryKeys.chat.unreadCount() });
+      return detail;
+    },
     enabled: Number.isFinite(conversationId),
     refetchInterval: Number.isFinite(conversationId) ? 5000 : false,
   });
@@ -77,6 +95,8 @@ function useInvalidateFriendLists() {
     queryClient.invalidateQueries({ queryKey: queryKeys.chat.friends() });
     queryClient.invalidateQueries({ queryKey: queryKeys.chat.friendRequests() });
     queryClient.invalidateQueries({ queryKey: ['chat', 'users'] });
+    // The thread header shows the friendship state, which these actions change.
+    queryClient.invalidateQueries({ queryKey: ['chat', 'messages'] });
   };
 }
 

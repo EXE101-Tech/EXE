@@ -13,7 +13,7 @@ export interface GradientButtonProps extends PressableProps {
   className?: string;
 }
 
-/** Primary CTA style used across the app (mirrors web's `from-[#74C365] to-[#589470]` gradient buttons). */
+/** Primary CTA style used across the app (mirrors web's `from-[#6b94ff] to-[#4e73ed]` gradient buttons). */
 export function GradientButton({ label, loading, icon, className, disabled, ...props }: GradientButtonProps) {
   return (
     <Pressable

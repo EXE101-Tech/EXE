@@ -4,6 +4,7 @@ import {
   teamResponseSchema,
   teamReviewResponseSchema,
   type TeamCreateInput,
+  type TeamPremiumSettingsInput,
   type TeamReviewCreateInput,
   type TeamUpdateInput,
 } from '@/schemas/teams';
@@ -20,6 +21,8 @@ export const teamsApi = {
   create: async (data: TeamCreateInput) => teamResponseSchema.parse(await apiClient.post('/teams', data)),
   update: async (id: number, data: TeamUpdateInput) =>
     teamResponseSchema.parse(await apiClient.patch(`/teams/${id}`, data)),
+  updatePremiumSettings: async (id: number, data: TeamPremiumSettingsInput) =>
+    teamResponseSchema.parse(await apiClient.patch(`/teams/${id}/premium-settings`, data)),
   remove: async (id: number) => apiClient.delete(`/teams/${id}`),
   join: async (id: number) => teamMemberResponseSchema.parse(await apiClient.post(`/teams/${id}/join`)),
   leave: async (id: number) => apiClient.delete(`/teams/${id}/membership`),

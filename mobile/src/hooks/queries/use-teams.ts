@@ -1,17 +1,32 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { teamsApi, type TeamFilters } from '@/api/teams';
-import type { TeamCreateInput, TeamReviewCreateInput, TeamUpdateInput } from '@/schemas/teams';
+import type {
+  TeamCreateInput,
+  TeamPremiumSettingsInput,
+  TeamReviewCreateInput,
+  TeamUpdateInput,
+} from '@/schemas/teams';
 import { useAuthStore } from '@/stores/auth-store';
 import { queryKeys } from './keys';
 
-export function useTeamsQuery(filters: TeamFilters = {}) {
+/** `poll` keeps the club screen live (2s); other screens that only glance at the list turn it off. */
+export function useTeamsQuery(filters: TeamFilters = {}, { poll = true }: { poll?: boolean } = {}) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   return useQuery({
     queryKey: queryKeys.teams.list(filters),
     queryFn: () => teamsApi.getAll(filters),
     enabled: isAuthenticated,
-    refetchInterval: isAuthenticated ? 2_000 : false,
+    refetchInterval: isAuthenticated && poll ? 2_000 : false,
+  });
+}
+
+export function useTeamQuery(id: number) {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  return useQuery({
+    queryKey: queryKeys.teams.detail(id),
+    queryFn: () => teamsApi.getById(id),
+    enabled: isAuthenticated && Number.isFinite(id),
   });
 }
 
@@ -35,6 +50,15 @@ export function useUpdateTeamMutation() {
   const invalidate = useInvalidateTeamLists();
   return useMutation({
     mutationFn: ({ id, data }: { id: number; data: TeamUpdateInput }) => teamsApi.update(id, data),
+    onSuccess: (_res, { id }) => invalidate(id),
+  });
+}
+
+export function useUpdateTeamPremiumSettingsMutation() {
+  const invalidate = useInvalidateTeamLists();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: TeamPremiumSettingsInput }) =>
+      teamsApi.updatePremiumSettings(id, data),
     onSuccess: (_res, { id }) => invalidate(id),
   });
 }

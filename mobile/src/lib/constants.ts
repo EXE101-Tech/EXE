@@ -31,6 +31,17 @@ export const LOCATION_FILTER_OPTIONS: { value: string; label: string }[] = [
   })),
 ];
 
+/** Areas a user can pick as their activity district (ported from client/src/shared/constants/districts.js). */
+export const ACTIVITY_DISTRICTS: string[] = [
+  'Quận 1', 'Quận 2', 'Quận 3', 'Quận 4', 'Quận 5', 'Quận 6', 'Quận 7', 'Quận 8',
+  'Quận 9', 'Quận 10', 'Quận 11', 'Quận 12', 'Quận Bình Thạnh', 'Quận Tân Bình',
+  'Quận Tân Phú', 'Quận Phú Nhuận', 'Quận Gò Vấp', 'Quận Bình Tân', 'Quận Thủ Đức',
+  'TP. Thủ Đức', 'Huyện Bình Chánh', 'Huyện Hóc Môn', 'Huyện Củ Chi', 'Huyện Nhà Bè', 'Huyện Cần Giờ',
+];
+
+/** Clubs owned by non-Premium accounts are capped at this many members (matches the server). */
+export const BASIC_TEAM_MAX_MEMBERS = 15;
+
 export const SPORT_KEY_BY_NAME: Record<string, SportKey> = {
   badminton: 'badminton',
   'cầu lông': 'badminton',
@@ -71,6 +82,3 @@ export const SKILL_REQUIREMENT_OPTIONS: { value: string; label: string }[] = [
   { value: 'Advanced', label: 'Khá / Giỏi' },
   { value: 'Expert', label: 'Chuyên nghiệp' },
 ];
-
-export const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL?.trim() || 'http://127.0.0.1:8000/api';

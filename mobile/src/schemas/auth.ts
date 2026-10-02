@@ -4,6 +4,7 @@ import { sportResponseSchema } from './common';
 export const tokenSchema = z.object({
   access_token: z.string(),
   token_type: z.string(),
+  is_new_user: z.boolean().default(false),
 });
 export type Token = z.infer<typeof tokenSchema>;
 
@@ -13,10 +14,16 @@ export const userLoginSchema = z.object({
 });
 export type UserLogin = z.infer<typeof userLoginSchema>;
 
+export const GMAIL_ONLY_MESSAGE = 'Vui lòng sử dụng email có đuôi @gmail.com';
+
 export const userCreateSchema = z.object({
-  email: z.string().email('Email không hợp lệ'),
+  email: z
+    .string()
+    .trim()
+    .regex(/^[^\s@]+@gmail\.com$/i, GMAIL_ONLY_MESSAGE),
   password: z.string().min(6, 'Mật khẩu tối thiểu 6 ký tự'),
   name: z.string().trim().min(1, 'Vui lòng nhập tên'),
+  district: z.string().trim().max(120).optional(),
 });
 export type UserCreate = z.infer<typeof userCreateSchema>;
 
@@ -51,6 +58,9 @@ export const userResponseSchema = z.object({
   email: z.string(),
   status: z.string(),
   owner_status: z.string().default('none'),
+  is_admin: z.boolean().default(false),
+  premium_until: z.string().nullable().optional(),
+  is_premium: z.boolean().default(false),
   created_at: z.string(),
   profile: userProfileResponseSchema.nullable().optional(),
   sports: z.array(userSportResponseSchema).default([]),
@@ -62,12 +72,15 @@ export const userProfileWithSportsUpdateSchema = z.object({
   sports: z.record(z.string(), z.string()).optional(),
   avatar_url: z.string().optional(),
   cover_url: z.string().optional(),
+  district: z.string().trim().max(120).optional(),
 });
 export type UserProfileWithSportsUpdate = z.infer<typeof userProfileWithSportsUpdateSchema>;
 
 export const userStatsResponseSchema = z.object({
   games_played: z.number().default(0),
   teams_joined: z.number().default(0),
+  /** Games played per sport id (JSON object keys arrive as strings). */
+  games_by_sport: z.record(z.string(), z.number()).default({}),
   bookings_count: z.number().default(0),
   average_skill_rating: z.number().nullable().optional(),
 });

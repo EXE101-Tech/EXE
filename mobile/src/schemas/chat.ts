@@ -4,6 +4,7 @@ export const chatUserResponseSchema = z.object({
   id: z.number(),
   name: z.string(),
   avatar_url: z.string().nullable().optional(),
+  is_premium: z.boolean().default(false),
 });
 export type ChatUserResponse = z.infer<typeof chatUserResponseSchema>;
 
@@ -38,10 +39,13 @@ export const chatConversationResponseSchema = z.object({
   last_message: z.string().nullable().optional(),
   updated_at: z.string().nullable().optional(),
   unread_count: z.number().default(0),
+  friendship_status: z.string().default('none'),
+  friendship_id: z.number().nullable().optional(),
 });
 export type ChatConversationResponse = z.infer<typeof chatConversationResponseSchema>;
 
 export const chatConversationDetailResponseSchema = chatConversationResponseSchema.extend({
   messages: z.array(chatMessageResponseSchema).default([]),
+  has_more: z.boolean().default(false),
 });
 export type ChatConversationDetailResponse = z.infer<typeof chatConversationDetailResponseSchema>;

@@ -13,8 +13,11 @@ export const chatApi = {
   getUnreadCount: async () => apiClient.get<{ unread_count: number }, { unread_count: number }>('/chat/unread-count'),
   startConversation: async (recipientId: number) =>
     chatConversationResponseSchema.parse(await apiClient.post('/chat/conversations', { recipient_id: recipientId })),
-  getMessages: async (conversationId: number) =>
-    chatConversationDetailResponseSchema.parse(await apiClient.get(`/chat/conversations/${conversationId}/messages`)),
+  /** Latest 50 by default; `before_id` pages back to older messages (the server rejects before_id together with after_id). */
+  getMessages: async (conversationId: number, params: { limit?: number; before_id?: number; after_id?: number } = {}) =>
+    chatConversationDetailResponseSchema.parse(
+      await apiClient.get(`/chat/conversations/${conversationId}/messages`, { params }),
+    ),
   sendMessage: async (conversationId: number, text: string) =>
     chatMessageResponseSchema.parse(await apiClient.post(`/chat/conversations/${conversationId}/messages`, { text })),
   searchUsers: async (q: string) =>

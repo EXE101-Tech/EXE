@@ -4,10 +4,12 @@ import { Link, router } from 'expo-router';
 import { Eye, EyeOff, Zap } from 'lucide-react-native';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Alert, Pressable, View } from 'react-native';
+import { Pressable, View } from 'react-native';
+import { GoogleSignInButton } from '@/components/auth/google-sign-in-button';
 import { Button } from '@/components/ui/button';
 import { ScreenContainer } from '@/components/brand/screen-container';
 import { Input } from '@/components/ui/input';
+import { homeHref } from '@/lib/routes';
 import { userLoginSchema, type UserLogin } from '@/schemas/auth';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -28,8 +30,9 @@ export default function LoginScreen() {
   const onSubmit = async (data: UserLogin) => {
     setFormError('');
     try {
-      await login(data);
-      router.replace('/(tabs)/profile');
+      const user = await login(data);
+      // Admins land in the moderation console, members in the community feed (or onboarding if unfinished).
+      router.replace(homeHref(user.isAdmin, useAuthStore.getState().onboardingPending));
     } catch (error) {
       setFormError(error instanceof Error ? error.message : 'Đăng nhập thất bại');
     }
@@ -40,9 +43,9 @@ export default function LoginScreen() {
       <View className="items-center gap-3">
         <View
           className="h-14 w-14 items-center justify-center rounded-2xl bg-brand/10 dark:bg-brand-dark/10"
-          style={{ shadowColor: '#0EA5E9', shadowOpacity: 0.35, shadowRadius: 14, shadowOffset: { width: 0, height: 0 } }}
+          style={{ shadowColor: '#537fff', shadowOpacity: 0.35, shadowRadius: 14, shadowOffset: { width: 0, height: 0 } }}
         >
-          <Zap size={26} color="#0EA5E9" />
+          <Zap size={26} color="#537fff" />
         </View>
         <View className="items-center">
           <Text className="text-2xl font-black text-slate-900 dark:text-white">Đăng nhập</Text>
@@ -71,10 +74,7 @@ export default function LoginScreen() {
         </View>
 
         <View>
-          <View className="mb-1.5 flex-row items-center justify-between">
-            <Text className="text-sm font-bold text-slate-700 dark:text-slate-200">Mật khẩu</Text>
-            <Text className="text-xs font-bold text-brand dark:text-brand-dark">Quên mật khẩu?</Text>
-          </View>
+          <Text className="mb-1.5 text-sm font-bold text-slate-700 dark:text-slate-200">Mật khẩu</Text>
           <Controller
             control={control}
             name="password"
@@ -111,11 +111,7 @@ export default function LoginScreen() {
           <View className="h-px flex-1 bg-border dark:bg-border-dark" />
         </View>
 
-        <Button
-          variant="outline"
-          label="Google"
-          onPress={() => Alert.alert('Sắp ra mắt', 'Đăng nhập bằng Google sẽ có ở giai đoạn tiếp theo.')}
-        />
+        <GoogleSignInButton onError={setFormError} />
       </View>
 
       <View className="flex-row justify-center gap-1">

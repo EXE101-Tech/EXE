@@ -21,24 +21,24 @@ module.exports = {
       },
       colors: {
         brand: {
-          DEFAULT: '#0EA5E9',
-          dark: '#65E6A0',
+          DEFAULT: '#4e73ed',
+          dark: '#537fff',
         },
         bg: {
-          DEFAULT: '#F8FAFC',
-          dark: '#0B1220',
+          DEFAULT: '#f3f6fc',
+          dark: '#080b14',
         },
         surface: {
-          DEFAULT: 'rgba(255,255,255,0.86)',
-          dark: 'rgba(16,32,56,0.86)',
+          DEFAULT: 'rgba(255,255,255,0.9)',
+          dark: 'rgba(17,24,39,0.86)',
         },
         border: {
-          DEFAULT: 'rgba(100,155,190,0.2)',
-          dark: 'rgba(117,158,204,0.17)',
+          DEFAULT: 'rgba(35,52,82,0.12)',
+          dark: 'rgba(174,196,236,0.11)',
         },
         cta: {
-          from: '#74C365',
-          to: '#589470',
+          from: '#6b94ff',
+          to: '#4e73ed',
         },
       },
       borderRadius: {

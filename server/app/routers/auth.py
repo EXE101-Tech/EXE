@@ -63,6 +63,57 @@ def login(request: Request, login_data: schemas.UserLogin, db: Session = Depends
     return {"access_token": access_token, "token_type": "bearer"}
 
 
+def _complete_google_login(claims: dict, db: Session) -> dict:
+    """Find or create the SportGo user for verified Google ID-token claims and issue an access token."""
+    subject = claims.get("sub")
+    email = (claims.get("email") or "").strip().lower()
+    if not subject or not email or claims.get("email_verified") is not True:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Google chưa xác minh địa chỉ email này")
+
+    is_new_user = False
+    identity = db.query(models.OAuthIdentity).filter_by(provider="google", subject=subject).first()
+    if identity:
+        user = db.query(models.User).filter_by(id=identity.user_id).first()
+    else:
+        user = db.query(models.User).filter(func.lower(models.User.email) == email).first()
+        if user and user.status != "active":
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Tài khoản SportGo này hiện không thể đăng nhập")
+
+        if user:
+            linked_identity = db.query(models.OAuthIdentity).filter_by(user_id=user.id, provider="google").first()
+            if linked_identity and linked_identity.subject != subject:
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Tài khoản SportGo này đã liên kết với một tài khoản Google khác")
+        else:
+            from app.auth_utils import get_password_hash
+            user = models.User(email=email, password_hash=get_password_hash(secrets.token_urlsafe(32)))
+            is_new_user = True
+            db.add(user)
+            db.flush()
+            db.add(models.UserProfile(
+                user_id=user.id,
+                full_name=claims.get("name") or email.split("@", 1)[0],
+                avatar_url=claims.get("picture"),
+            ))
+
+        if not db.query(models.OAuthIdentity).filter_by(user_id=user.id, provider="google").first():
+            db.add(models.OAuthIdentity(user_id=user.id, provider="google", subject=subject))
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            is_new_user = False
+            identity = db.query(models.OAuthIdentity).filter_by(provider="google", subject=subject).first()
+            if not identity:
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Tài khoản Google vừa được liên kết. Vui lòng thử lại")
+            user = db.query(models.User).filter_by(id=identity.user_id).first()
+
+    if not user or user.status != "active":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Tài khoản SportGo này hiện không thể đăng nhập")
+
+    access_token = auth_utils.create_access_token(data={"sub": user.email})
+    return {"access_token": access_token, "token_type": "bearer", "is_new_user": is_new_user}
+
+
 @router.post("/google", response_model=schemas.Token)
 def login_with_google(request: Request, login_data: schemas.GoogleLoginRequest, db: Session = Depends(database.get_db)):
     client_id = os.getenv("GOOGLE_CLIENT_ID")
@@ -115,53 +166,30 @@ def login_with_google(request: Request, login_data: schemas.GoogleLoginRequest, 
     except (GoogleAuthError, TransportError):
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Không thể xác minh với Google lúc này")
 
-    subject = claims.get("sub")
-    email = (claims.get("email") or "").strip().lower()
-    if not subject or not email or claims.get("email_verified") is not True:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Google chưa xác minh địa chỉ email này")
+    return _complete_google_login(claims, db)
 
-    is_new_user = False
-    identity = db.query(models.OAuthIdentity).filter_by(provider="google", subject=subject).first()
-    if identity:
-        user = db.query(models.User).filter_by(id=identity.user_id).first()
-    else:
-        user = db.query(models.User).filter(func.lower(models.User.email) == email).first()
-        if user and user.status != "active":
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Tài khoản SportGo này hiện không thể đăng nhập")
+@router.post("/google/mobile", response_model=schemas.Token)
+def login_with_google_mobile(login_data: schemas.GoogleMobileLoginRequest, db: Session = Depends(database.get_db)):
+    """Sign in from the mobile app: the app completes Google's OAuth (PKCE) itself and sends the ID token."""
+    # Accept tokens issued for the mobile OAuth clients and for our web client (the audience a native
+    # Google Sign-In ID token carries when the app passes the web client as its server client ID).
+    audiences = [
+        item.strip()
+        for item in [*os.getenv("GOOGLE_MOBILE_CLIENT_IDS", "").split(","), os.getenv("GOOGLE_CLIENT_ID", "")]
+        if item.strip()
+    ]
+    if not audiences:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Đăng nhập Google trên di động chưa được cấu hình")
 
-        if user:
-            linked_identity = db.query(models.OAuthIdentity).filter_by(user_id=user.id, provider="google").first()
-            if linked_identity and linked_identity.subject != subject:
-                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Tài khoản SportGo này đã liên kết với một tài khoản Google khác")
-        else:
-            from app.auth_utils import get_password_hash
-            user = models.User(email=email, password_hash=get_password_hash(secrets.token_urlsafe(32)))
-            is_new_user = True
-            db.add(user)
-            db.flush()
-            db.add(models.UserProfile(
-                user_id=user.id,
-                full_name=claims.get("name") or email.split("@", 1)[0],
-                avatar_url=claims.get("picture"),
-            ))
+    try:
+        claims = id_token.verify_oauth2_token(login_data.id_token, GoogleRequest(), audience=audiences)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Thông tin đăng nhập Google không hợp lệ")
+    except (GoogleAuthError, TransportError):
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Không thể xác minh với Google lúc này")
 
-        if not db.query(models.OAuthIdentity).filter_by(user_id=user.id, provider="google").first():
-            db.add(models.OAuthIdentity(user_id=user.id, provider="google", subject=subject))
-        try:
-            db.commit()
-        except IntegrityError:
-            db.rollback()
-            is_new_user = False
-            identity = db.query(models.OAuthIdentity).filter_by(provider="google", subject=subject).first()
-            if not identity:
-                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Tài khoản Google vừa được liên kết. Vui lòng thử lại")
-            user = db.query(models.User).filter_by(id=identity.user_id).first()
+    return _complete_google_login(claims, db)
 
-    if not user or user.status != "active":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Tài khoản SportGo này hiện không thể đăng nhập")
-
-    access_token = auth_utils.create_access_token(data={"sub": user.email})
-    return {"access_token": access_token, "token_type": "bearer", "is_new_user": is_new_user}
 
 @router.post("/register", response_model=schemas.Token, status_code=status.HTTP_201_CREATED)
 def register(register_data: schemas.UserCreate, db: Session = Depends(database.get_db)):
