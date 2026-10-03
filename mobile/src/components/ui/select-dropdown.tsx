@@ -17,10 +17,21 @@ interface SelectDropdownProps {
   options: SelectOption[];
   onChange: (value: string) => void;
   className?: string;
+  /** `md` is the taller full-width row used inside the expandable filter bar. */
+  size?: 'sm' | 'md';
 }
 
 /** Anchored dropdown: a filter pill that opens a list positioned right under itself. */
-export function SelectDropdown({ icon: Icon, iconColor = '#94A3B8', value, options, onChange, className }: SelectDropdownProps) {
+export function SelectDropdown({
+  icon: Icon,
+  iconColor = '#94A3B8',
+  value,
+  options,
+  onChange,
+  className,
+  size = 'sm',
+}: SelectDropdownProps) {
+  const large = size === 'md';
   const triggerRef = useRef<RNView>(null);
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState({ x: 0, y: 0, width: 0, height: 0 });
@@ -40,16 +51,20 @@ export function SelectDropdown({ icon: Icon, iconColor = '#94A3B8', value, optio
         ref={triggerRef}
         onPress={handleOpen}
         className={cn(
-          'h-10 flex-row items-center gap-1.5 rounded-xl border border-border bg-slate-50 px-3 dark:border-border-dark dark:bg-white/5',
+          'flex-row items-center rounded-xl border border-border bg-slate-50 dark:border-border-dark dark:bg-white/5',
+          large ? 'h-12 gap-2.5 px-4' : 'h-10 gap-1.5 px-3',
           className,
         )}
       >
-        {Icon ? <Icon size={14} color={iconColor} /> : null}
-        <Text className="flex-1 text-xs font-bold text-slate-700 dark:text-slate-200" numberOfLines={1}>
+        {Icon ? <Icon size={large ? 18 : 14} color={iconColor} /> : null}
+        <Text
+          className={cn('flex-1 font-bold text-slate-700 dark:text-slate-200', large ? 'text-sm' : 'text-xs')}
+          numberOfLines={1}
+        >
           {selected?.emoji ? `${selected.emoji} ` : ''}
           {selected?.label ?? '—'}
         </Text>
-        <ChevronDown size={14} color="#94A3B8" />
+        <ChevronDown size={large ? 18 : 14} color="#94A3B8" />
       </Pressable>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>

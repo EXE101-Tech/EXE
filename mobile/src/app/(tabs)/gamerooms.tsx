@@ -1,6 +1,6 @@
 import { Text } from '@/components/ui/text';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Award, DollarSign, Gamepad2, MapPin, Plus, Sparkles, Trophy, UserRound, X } from 'lucide-react-native';
+import { Award, CirclePlus, DollarSign, Gamepad2, MapPin, Sparkles, Trophy, UserRound, X } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { FlatList, TouchableOpacity, View } from 'react-native';
 import { EmptyState } from '@/components/brand/empty-state';
@@ -13,7 +13,7 @@ import { AutoSearchModal } from '@/components/gamerooms/auto-search-modal';
 import { GameroomManageModal } from '@/components/gamerooms/gameroom-manage-modal';
 import { JoinRoomModal } from '@/components/gamerooms/join-room-modal';
 import { Button } from '@/components/ui/button';
-import { FilterGrid } from '@/components/ui/filter-grid';
+import { FilterActionButton, FilterBar } from '@/components/ui/filter-bar';
 import type { SelectOption } from '@/components/ui/select-dropdown';
 import { useStartConversationMutation } from '@/hooks/queries/use-chat';
 import { useSportsQuery } from '@/hooks/queries/use-courts';
@@ -106,6 +106,10 @@ export default function GameroomsScreen() {
     locationFilter !== 'all' ||
     priceFilter !== 'all' ||
     skillFilter !== 'all';
+
+  const activeFilterCount = [activeSportFilter, scopeFilter, locationFilter, priceFilter, skillFilter].filter(
+    (value) => value !== 'all',
+  ).length;
 
   const resetFilters = () => {
     setSportFilter('all');
@@ -203,28 +207,7 @@ export default function GameroomsScreen() {
     <ScreenContainer scroll={false} className="px-4">
       <TopNavbar />
 
-      <View className="mb-3 flex-row items-center justify-between">
-        <Text className="text-xl font-black text-slate-900 dark:text-white">Phòng chờ thi đấu</Text>
-        <View className="flex-row items-center gap-2">
-          <TouchableOpacity
-            onPress={openAutoSearch}
-            className="flex-row items-center gap-1 rounded-full border border-violet-300/50 bg-violet-400/10 px-3 py-2"
-          >
-            <Sparkles size={14} color="#8B5CF6" />
-            <Text className="text-xs font-bold text-violet-600 dark:text-violet-300">Thiết lập</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => {
-              setEditingRoom(null);
-              setIsCreateOpen(true);
-            }}
-            className="flex-row items-center gap-1 rounded-full bg-brand px-3 py-2 dark:bg-brand-dark"
-          >
-            <Plus size={16} color="#fff" />
-            <Text className="text-xs font-bold text-white">Mở phòng</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      <Text className="mb-3 text-xl font-black text-slate-900 dark:text-white">Phòng chờ thi đấu</Text>
 
       {searchTerm ? (
         <View className="mb-3 flex-row items-center justify-between gap-3 rounded-2xl border border-border bg-white px-4 py-3 dark:border-border-dark dark:bg-[#111827]">
@@ -237,7 +220,21 @@ export default function GameroomsScreen() {
         </View>
       ) : null}
 
-      <FilterGrid
+      <FilterBar
+        activeCount={activeFilterCount}
+        actions={
+          <>
+            <FilterActionButton label="Thiết lập" icon={Sparkles} tone="violet" onPress={openAutoSearch} />
+            <FilterActionButton
+              label="Mở phòng"
+              icon={CirclePlus}
+              onPress={() => {
+                setEditingRoom(null);
+                setIsCreateOpen(true);
+              }}
+            />
+          </>
+        }
         items={[
           { icon: Trophy, iconColor: '#F59E0B', value: activeSportFilter, options: sportOptions, onChange: handleSportChange },
           { icon: UserRound, iconColor: '#8B5CF6', value: scopeFilter, options: SCOPE_OPTIONS, onChange: setScopeFilter },
