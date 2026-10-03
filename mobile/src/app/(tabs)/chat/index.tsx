@@ -21,6 +21,7 @@ import {
 import type { ChatUserSearchResponse, FriendshipResponse } from '@/schemas/chat';
 import { useChatUiStore } from '@/stores/chat-ui-store';
 import { showAlert } from '@/stores/dialog-store';
+import { UserName } from '@/components/ui/user-name';
 
 /** One entry of the Tin nhắn tab: an existing conversation, or a friend you have not messaged yet. */
 interface ChatRow {
@@ -138,12 +139,9 @@ export default function ChatListScreen() {
         premium={item.isPremium}
       />
       <View className="flex-1">
-        <Text
-          className={`text-sm font-bold ${item.isPremium ? 'text-[#8b8cff]' : 'text-slate-900 dark:text-white'}`}
-          numberOfLines={1}
-        >
+        <UserName premium={item.isPremium} className="text-sm font-bold" numberOfLines={1}>
           {item.name}
-        </Text>
+        </UserName>
         <Text className="text-xs text-slate-500 dark:text-slate-400" numberOfLines={1}>
           {item.lastMessage || (item.conversationId == null ? 'Bạn bè · Chạm để bắt đầu trò chuyện' : 'Chưa có tin nhắn')}
         </Text>

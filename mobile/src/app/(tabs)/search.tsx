@@ -21,6 +21,7 @@ import { isPremiumUser } from '@/lib/premium';
 import type { ChatUserSearchResponse } from '@/schemas/chat';
 import type { SearchResult } from '@/schemas/common';
 import { showAlert } from '@/stores/dialog-store';
+import { UserName } from '@/components/ui/user-name';
 
 const MAX_RESULTS = 12;
 const MAX_PEOPLE = 3;
@@ -181,12 +182,9 @@ export default function SearchScreen() {
                 >
                   <Avatar uri={resolveMediaUrl(person.avatar_url)} fallback={person.name} size={premium ? 36 : 40} premium={premium} />
                   <View className="flex-1">
-                    <Text
-                      className={`font-bold ${premium ? 'text-[#8b8cff]' : 'text-slate-900 dark:text-white'}`}
-                      numberOfLines={1}
-                    >
+                    <UserName premium={premium} className="font-bold" numberOfLines={1}>
                       {person.name}
-                    </Text>
+                    </UserName>
                     <Text className="text-xs text-slate-500 dark:text-slate-400">Người chơi · Chạm để nhắn tin</Text>
                   </View>
                   {renderFriendAction(person)}

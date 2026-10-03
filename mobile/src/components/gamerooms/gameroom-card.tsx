@@ -25,6 +25,7 @@ import { parseStoredCostToVnd } from '@/lib/price';
 import { formatDateVi, formatTimeVi, isFutureTime } from '@/lib/slots';
 import { cn } from '@/lib/utils';
 import type { MatchResponse } from '@/schemas/gamerooms';
+import { UserName } from '@/components/ui/user-name';
 
 interface GameroomCardProps {
   room: MatchResponse;
@@ -149,12 +150,9 @@ export function GameroomCard({
             <Avatar uri={resolveMediaUrl(room.host.profile?.avatar_url)} fallback={hostName} size={40} premium={hostPremium} />
             <View className="flex-1 gap-1">
               <View className="flex-row flex-wrap items-center gap-1.5">
-                <Text
-                  className={cn('font-bold', hostPremium ? 'text-[#8b8cff]' : 'text-slate-900 dark:text-white')}
-                  numberOfLines={1}
-                >
+                <UserName premium={hostPremium} className="font-bold" numberOfLines={1}>
                   {hostName}
-                </Text>
+                </UserName>
                 {hostPremium ? <Crown size={13} color="#8b8cff" fill="#8b8cff" /> : null}
                 {isHost ? (
                   <View className="flex-row items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2 py-0.5">
@@ -260,19 +258,16 @@ export function GameroomCard({
               return (
                 <View key={index} className="w-12 items-center gap-1">
                   <SlotAvatar slot={slot} />
-                  <Text
-                    className={cn(
-                      'text-[9px] font-bold',
-                      slot.premium
-                        ? 'text-[#8b8cff]'
-                        : slot.type === 'host'
-                          ? 'text-amber-600 dark:text-amber-400'
-                          : 'text-slate-500 dark:text-slate-400',
-                    )}
+                  <UserName
+                    premium={slot.premium}
+                    className="text-[9px] font-bold"
+                    plainColorClassName={
+                      slot.type === 'host' ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500 dark:text-slate-400'
+                    }
                     numberOfLines={1}
                   >
-                    {slot.type === 'host' ? 'Host' : slot.name.split(' ').pop()}
-                  </Text>
+                    {slot.type === 'host' ? 'Host' : (slot.name.split(' ').pop() ?? '')}
+                  </UserName>
                 </View>
               );
             })}

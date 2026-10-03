@@ -204,7 +204,9 @@ export function LocationPicker({
           placeholder={placeholder}
           editable={!disabled}
           error={error}
-          className="pl-10 pr-28"
+          // Keep the text clear of the buttons on the right: the clear (X) and search-spinner icons only appear
+          // with a value, and the "Đóng map" label is wider than "Map".
+          className={cn('pl-10', value ? 'pr-48' : 'pr-36')}
         />
         <View pointerEvents="none" className="absolute left-3.5 top-0 h-12 justify-center">
           <MapPin size={16} color="#F43F5E" />

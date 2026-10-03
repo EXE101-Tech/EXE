@@ -21,6 +21,7 @@ import { toUtcEpoch } from '@/lib/slots';
 import { cn } from '@/lib/utils';
 import type { SocialPost } from '@/schemas/social';
 import { showAlert } from '@/stores/dialog-store';
+import { UserName } from '@/components/ui/user-name';
 
 /** "HH:mm | dd/MM/yyyy" in Vietnam time, matching the web feed. */
 function formatPostDate(value: string): string {
@@ -119,12 +120,9 @@ export function SocialPostCard({ post, currentUserId, canManage = false, onEdit,
         />
         <View className="flex-1">
           <View className="flex-row items-center gap-1.5">
-            <Text
-              className={cn('shrink text-sm font-extrabold', premium ? 'text-[#8b8cff]' : 'text-slate-900 dark:text-white')}
-              numberOfLines={1}
-            >
+            <UserName premium={premium} className="shrink text-sm font-extrabold" numberOfLines={1}>
               {post.author_name}
-            </Text>
+            </UserName>
             {premium ? <Crown size={12} color="#8b8cff" fill="#8b8cff" /> : null}
           </View>
           <Text className="text-xs text-slate-500 dark:text-slate-400">{formatPostDate(post.created_at)}</Text>
