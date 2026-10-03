@@ -17,6 +17,7 @@ import { useMeStatsQuery, useUpdateProfileMutation } from '@/hooks/queries/use-a
 import { isActiveSportName, LEVEL_META, SPORT_KEY_BY_NAME, SPORTS, type SkillLevel } from '@/lib/constants';
 import { useAuthStore } from '@/stores/auth-store';
 import { showAlert } from '@/stores/dialog-store';
+import { UserName } from '@/components/ui/user-name';
 
 const LEVEL_RANK: Record<string, number> = { Beginner: 1, Intermediate: 2, Advanced: 3, Expert: 4 };
 
@@ -128,12 +129,9 @@ export default function ProfileScreen() {
             </View>
             <View className="flex-1 pb-1">
               <View className="flex-row items-center gap-1.5">
-                <Text
-                  className={`shrink text-xl font-black ${user.isPremium ? 'text-[#8b8cff]' : 'text-slate-900 dark:text-white'}`}
-                  numberOfLines={1}
-                >
+                <UserName premium={user.isPremium} className="shrink text-xl font-black" numberOfLines={1}>
                   {displayName}
-                </Text>
+                </UserName>
                 {user.isPremium ? <Crown size={16} color="#8b8cff" fill="#8b8cff" /> : null}
               </View>
               <Text className="mt-0.5 text-sm text-slate-500 dark:text-slate-400" numberOfLines={1}>

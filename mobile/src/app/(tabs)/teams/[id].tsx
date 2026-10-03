@@ -19,9 +19,9 @@ import {
   useTeamQuery,
   useTeamReviewsQuery,
 } from '@/hooks/queries/use-teams';
-import { cn } from '@/lib/utils';
 import { showToast } from '@/stores/toast-store';
 import { showAlert } from '@/stores/dialog-store';
+import { UserName } from '@/components/ui/user-name';
 
 export default function TeamDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -183,12 +183,9 @@ export default function TeamDetailScreen() {
           <View className="flex-1">
             <Text className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Người mở CLB</Text>
             <View className="flex-row items-center gap-1.5">
-              <Text
-                className={cn('text-sm font-black', ownerPremium ? 'text-[#8b8cff]' : 'text-slate-900 dark:text-white')}
-                numberOfLines={1}
-              >
+              <UserName premium={ownerPremium} className="text-sm font-black" numberOfLines={1}>
                 {team.owner_name}
-              </Text>
+              </UserName>
               {ownerPremium ? <Crown size={12} color="#8b8cff" fill="#8b8cff" /> : null}
             </View>
           </View>
@@ -209,12 +206,9 @@ export default function TeamDetailScreen() {
                 size={person.is_premium ? 30 : 36}
                 premium={person.is_premium}
               />
-              <Text
-                className={cn('flex-1 text-sm font-bold', person.is_premium ? 'text-[#8b8cff]' : 'text-slate-900 dark:text-white')}
-                numberOfLines={1}
-              >
+              <UserName premium={person.is_premium} className="flex-1 text-sm font-bold" numberOfLines={1}>
                 {person.full_name || 'Người chơi'}
-              </Text>
+              </UserName>
             </View>
           ))
         ) : (

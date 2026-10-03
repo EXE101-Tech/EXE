@@ -11,9 +11,9 @@ import { LoadingState } from '@/components/brand/loading-state';
 import { useRemoveTeamMemberMutation, useRemoveTeamMutation, useSetTeamMemberStatusMutation, useTeamMembersQuery } from '@/hooks/queries/use-teams';
 import { resolveMediaUrl } from '@/api/resolve-media-url';
 import { useAuthStore } from '@/stores/auth-store';
-import { cn } from '@/lib/utils';
 import { showToast } from '@/stores/toast-store';
 import { showAlert } from '@/stores/dialog-store';
+import { UserName } from '@/components/ui/user-name';
 
 interface TeamMembersModalProps {
   visible: boolean;
@@ -86,12 +86,9 @@ export function TeamMembersModal({ visible, teamId, canManage, onClose }: TeamMe
               premium={item.is_premium}
             />
             <View className="flex-1">
-              <Text
-                className={cn('text-sm font-bold', item.is_premium ? 'text-[#8b8cff]' : 'text-slate-900 dark:text-white')}
-                numberOfLines={1}
-              >
+              <UserName premium={item.is_premium} className="text-sm font-bold" numberOfLines={1}>
                 {item.full_name || item.email || `Thành viên #${item.user_id}`}
-              </Text>
+              </UserName>
               <Badge
                 variant={item.status === 'APPROVED' ? 'success' : item.status === 'PENDING' ? 'warning' : 'neutral'}
                 label={item.status === 'APPROVED' ? 'Đã duyệt' : item.status === 'PENDING' ? 'Đang chờ' : item.status}

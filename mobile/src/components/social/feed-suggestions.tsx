@@ -13,12 +13,12 @@ import { useJoinTeamMutation, useTeamsQuery } from '@/hooks/queries/use-teams';
 import { SPORTS } from '@/lib/constants';
 import { isPremiumUser } from '@/lib/premium';
 import { formatDateVi, formatTimeVi, isFutureTime } from '@/lib/slots';
-import { cn } from '@/lib/utils';
 import type { MatchResponse } from '@/schemas/gamerooms';
 import { useAuthStore } from '@/stores/auth-store';
 import { showToast } from '@/stores/toast-store';
 import { ContentPreviewModal, type PreviewTarget } from './content-preview-modal';
 import { showAlert } from '@/stores/dialog-store';
+import { UserName } from '@/components/ui/user-name';
 
 const MAX_ITEMS = 8;
 
@@ -205,12 +205,14 @@ export function FeedSuggestions() {
               >
                 <Avatar uri={resolveMediaUrl(person.avatar_url)} fallback={person.name} size={premium ? 44 : 52} premium={premium} />
                 <View className="flex-row items-center gap-0.5">
-                  <Text
-                    className={cn('text-[11px] font-bold', premium ? 'text-[#8b8cff]' : 'text-slate-700 dark:text-slate-200')}
+                  <UserName
+                    premium={premium}
+                    className="text-[11px] font-bold"
+                    plainColorClassName="text-slate-700 dark:text-slate-200"
                     numberOfLines={1}
                   >
-                    {person.name.split(' ').pop()}
-                  </Text>
+                    {person.name.split(' ').pop() ?? ''}
+                  </UserName>
                   {premium ? <Crown size={9} color="#8b8cff" fill="#8b8cff" /> : null}
                 </View>
               </Pressable>

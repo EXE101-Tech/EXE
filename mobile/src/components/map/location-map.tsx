@@ -40,6 +40,12 @@ interface PickerMapProps {
   onSelectVenue: (venue: KnownVenue) => void;
 }
 
+/**
+ * `androidView="texture"` on both maps: the default GLSurfaceView sits in its own window layer on Android, so
+ * when the map is inside a scrolling modal it is not clipped by the modal and bleeds over the header/edges while
+ * the form scrolls. A TextureView is a normal view and is clipped (and scrolled) with its parent.
+ */
+
 /** Tap anywhere to drop the pin, or tap a venue icon to choose that venue (web: "Bấm vào bất kỳ đâu trên bản đồ"). */
 export function PickerMap({ markerPos, flyTarget, venues, onPick, onSelectVenue }: PickerMapProps) {
   const cameraRef = useFlyTo(flyTarget, 16);
@@ -50,6 +56,7 @@ export function PickerMap({ markerPos, flyTarget, venues, onPick, onSelectVenue 
     <MapLibreMap
       style={{ flex: 1 }}
       mapStyle={env.mapStyleUrl}
+      androidView="texture"
       onPress={(event) => {
         if (selectingVenue.current) return;
         const [lng, lat] = event.nativeEvent.lngLat;
@@ -100,7 +107,7 @@ export function PinMap({ center, label }: PinMapProps) {
   const cameraRef = useFlyTo(center, 16);
 
   return (
-    <MapLibreMap style={{ flex: 1 }} mapStyle={env.mapStyleUrl}>
+    <MapLibreMap style={{ flex: 1 }} mapStyle={env.mapStyleUrl} androidView="texture">
       <Camera ref={cameraRef} initialViewState={{ center: toLngLat(center), zoom: 16 }} />
       <Marker id="location-pin" lngLat={toLngLat(center)} anchor="bottom">
         <View className="items-center">

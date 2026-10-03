@@ -19,8 +19,8 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { SPORTS } from '@/lib/constants';
 import { toUtcEpoch } from '@/lib/slots';
-import { cn } from '@/lib/utils';
 import type { TeamResponse } from '@/schemas/teams';
+import { UserName } from '@/components/ui/user-name';
 
 interface TeamCardProps {
   team: TeamResponse;
@@ -89,15 +89,9 @@ export function TeamCard({
                   size={ownerPremium ? 18 : 22}
                   premium={ownerPremium}
                 />
-                <Text
-                  className={cn(
-                    'flex-1 text-xs font-bold',
-                    ownerPremium ? 'text-[#8b8cff]' : 'text-slate-900 dark:text-white',
-                  )}
-                  numberOfLines={1}
-                >
+                <UserName premium={ownerPremium} className="flex-1 text-xs font-bold" numberOfLines={1}>
                   {team.owner_name}
-                </Text>
+                </UserName>
                 {ownerPremium ? <Crown size={11} color="#8b8cff" fill="#8b8cff" /> : null}
               </View>
               <Badge variant={full ? 'neutral' : 'success'} label={full ? 'Đã đầy' : `Còn ${available} slot`} />
