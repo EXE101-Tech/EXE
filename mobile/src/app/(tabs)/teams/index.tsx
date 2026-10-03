@@ -1,8 +1,8 @@
 import { Text } from '@/components/ui/text';
 import { router } from 'expo-router';
-import { Crown, Plus, Trophy, UserCheck, Users } from 'lucide-react-native';
+import { CirclePlus, Crown, Trophy, UserCheck, Users } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { FlatList, TouchableOpacity, View } from 'react-native';
+import { FlatList } from 'react-native';
 import { EmptyState } from '@/components/brand/empty-state';
 import { LoadingState } from '@/components/brand/loading-state';
 import { ScreenContainer } from '@/components/brand/screen-container';
@@ -12,7 +12,7 @@ import { ReviewTeamModal } from '@/components/teams/review-team-modal';
 import { TeamCard } from '@/components/teams/team-card';
 import { TeamMembersModal } from '@/components/teams/team-members-modal';
 import { TeamPremiumSettingsModal } from '@/components/teams/team-premium-settings-modal';
-import { FilterGrid } from '@/components/ui/filter-grid';
+import { FilterActionButton, FilterBar } from '@/components/ui/filter-bar';
 import type { SelectOption } from '@/components/ui/select-dropdown';
 import { useStartConversationMutation } from '@/hooks/queries/use-chat';
 import { useJoinTeamMutation, useLeaveTeamMutation, useTeamsQuery } from '@/hooks/queries/use-teams';
@@ -35,6 +35,8 @@ const SCOPE_TABS: { value: Scope; label: string; icon: typeof Crown }[] = [
   { value: 'member', label: 'CLB tôi tham gia', icon: UserCheck },
   { value: 'discover', label: 'Khám phá CLB', icon: Users },
 ];
+
+const SCOPE_OPTIONS: SelectOption[] = SCOPE_TABS.map(({ value, label }) => ({ value, label }));
 
 export default function TeamsScreen() {
   const userSports = useAuthStore((s) => s.user?.sports);
@@ -85,28 +87,20 @@ export default function TeamsScreen() {
     <ScreenContainer scroll={false} className="px-4">
       <TopNavbar />
 
-      <View className="mb-3 flex-row items-center justify-between">
-        <Text className="text-xl font-black text-slate-900 dark:text-white">Đội / Club</Text>
-        <TouchableOpacity
-          onPress={() => setIsCreateOpen(true)}
-          className="flex-row items-center gap-1 rounded-full bg-brand px-3 py-2 dark:bg-brand-dark"
-        >
-          <Plus size={16} color="#fff" />
-          <Text className="text-xs font-bold text-white">Thành lập CLB</Text>
-        </TouchableOpacity>
-      </View>
+      <Text className="mb-3 text-xl font-black text-slate-900 dark:text-white">Đội / Club</Text>
 
-      <FilterGrid
+      <FilterBar
+        activeCount={(sportFilter !== 'all' ? 1 : 0) + (scope !== 'captain' ? 1 : 0)}
+        actions={<FilterActionButton label="Thành lập CLB" icon={CirclePlus} onPress={() => setIsCreateOpen(true)} />}
         items={[
           { icon: Trophy, iconColor: '#F59E0B', value: sportFilter, options: SPORT_OPTIONS, onChange: setSportFilter },
-          ...SCOPE_TABS.map((tab) => ({
-            kind: 'toggle' as const,
-            icon: tab.icon,
+          {
+            icon: SCOPE_TABS.find((tab) => tab.value === scope)?.icon ?? Users,
             iconColor: '#8B5CF6',
-            label: tab.label,
-            active: scope === tab.value,
-            onPress: () => setScope(tab.value),
-          })),
+            value: scope,
+            options: SCOPE_OPTIONS,
+            onChange: (value) => setScope(value as Scope),
+          },
         ]}
       />
 

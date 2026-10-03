@@ -6,7 +6,9 @@ import { Pressable, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
+import { Avatar } from '@/components/ui/avatar';
 import { useChatUnreadCount } from '@/hooks/queries/use-chat';
+import { useAuthStore } from '@/stores/auth-store';
 import { useResolvedColorScheme } from '@/stores/theme-store';
 import { colors } from '@/theme/colors';
 
@@ -59,6 +61,7 @@ export function BottomTabBar() {
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const unreadChats = useChatUnreadCount();
+  const user = useAuthStore((s) => s.user);
   const [width, setWidth] = useState(0);
 
   const panel = scheme === 'dark' ? '#111827' : '#ffffff';
@@ -69,6 +72,8 @@ export function BottomTabBar() {
   const renderItem = (item: BarItem) => {
     const active = activeName === item.routeName;
     const Icon = item.icon;
+    // Once signed in, the "Hồ sơ" tab shows the member's own avatar instead of a generic icon.
+    const showAvatar = item.routeName === 'profile' && user != null;
     return (
       <TouchableOpacity
         key={item.routeName}
@@ -77,7 +82,23 @@ export function BottomTabBar() {
         accessibilityLabel={item.label}
       >
         <View>
-          <Icon size={22} color={active ? theme.brand : '#94A3B8'} strokeWidth={active ? 2.4 : 2} />
+          {showAvatar ? (
+            <View
+              style={{
+                width: 26,
+                height: 26,
+                borderRadius: 13,
+                borderWidth: 2,
+                borderColor: active ? theme.brand : 'transparent',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Avatar uri={user.profile?.avatar_url} fallback={user.name} size={20} />
+            </View>
+          ) : (
+            <Icon size={22} color={active ? theme.brand : '#94A3B8'} strokeWidth={active ? 2.4 : 2} />
+          )}
           {item.routeName === 'chat' && unreadChats > 0 ? (
             <View className="absolute -right-2.5 -top-1.5 h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1">
               <Text className="text-[9px] font-black text-white">{unreadChats > 9 ? '9+' : unreadChats}</Text>
