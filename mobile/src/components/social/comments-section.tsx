@@ -1,9 +1,11 @@
 import { Text } from '@/components/ui/text';
-import { Check, Pencil, Send, Trash2, X } from 'lucide-react-native';
+import { Check, Flag, Pencil, Send, Trash2, X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, TextInput, View } from 'react-native';
 
 import { resolveMediaUrl } from '@/api/resolve-media-url';
+import { CommunityRulesModal } from '@/components/moderation/community-rules-modal';
+import { ReportModal } from '@/components/moderation/report-modal';
 import { Avatar } from '@/components/ui/avatar';
 import { useSocialCommentMutations, useSocialCommentsQuery } from '@/hooks/queries/use-social';
 import { cn } from '@/lib/utils';
@@ -31,6 +33,8 @@ export function CommentsSection({ postId, isPostAuthor, onCountChange }: Comment
   const [editing, setEditing] = useState<SocialComment | null>(null);
   const [pickerFor, setPickerFor] = useState<number | null>(null);
   const [acceptedGuidelines, setAcceptedGuidelines] = useState(Boolean(user?.community_guidelines_accepted));
+  const [reporting, setReporting] = useState<SocialComment | null>(null);
+  const [rulesOpen, setRulesOpen] = useState(false);
 
   const all = comments ?? [];
   const roots = all.filter((comment) => comment.parent_id == null);
@@ -105,6 +109,11 @@ export function CommentsSection({ postId, isPostAuthor, onCountChange }: Comment
                 {comment.author_name}
               </Text>
               <View className="flex-row items-center gap-3">
+                {!mine ? (
+                  <Pressable hitSlop={8} accessibilityLabel="Báo cáo bình luận" onPress={() => setReporting(comment)}>
+                    <Flag size={13} color="#D97706" />
+                  </Pressable>
+                ) : null}
                 {mine ? (
                   <Pressable
                     hitSlop={8}
@@ -220,7 +229,13 @@ export function CommentsSection({ postId, isPostAuthor, onCountChange }: Comment
           <View className="mt-0.5 h-5 w-5 items-center justify-center rounded-md border border-border dark:border-border-dark" style={{ backgroundColor: acceptedGuidelines ? '#537fff' : 'transparent' }}>
             {acceptedGuidelines ? <Check size={14} color="#fff" /> : null}
           </View>
-          <Text className="flex-1 text-xs leading-5 text-slate-500 dark:text-slate-400">Tôi đồng ý tuân thủ quy tắc cộng đồng SportGo.</Text>
+          <Text className="flex-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+            Tôi đồng ý tuân thủ{' '}
+            <Text className="font-bold text-brand dark:text-brand-dark" onPress={() => setRulesOpen(true)}>
+              quy tắc cộng đồng SportGo
+            </Text>
+            .
+          </Text>
         </Pressable>
       ) : null}
 
@@ -246,6 +261,15 @@ export function CommentsSection({ postId, isPostAuthor, onCountChange }: Comment
           {busy ? <ActivityIndicator size="small" color="#fff" /> : <Send size={17} color="#fff" />}
         </Pressable>
       </View>
+
+      <ReportModal
+        visible={reporting != null}
+        targetType="comment"
+        targetId={reporting?.id ?? 0}
+        onClose={() => setReporting(null)}
+        onSubmitted={() => showAlert('Đã gửi báo cáo', 'Quản trị viên SportGo sẽ xem xét bình luận này.')}
+      />
+      <CommunityRulesModal visible={rulesOpen} onClose={() => setRulesOpen(false)} />
     </View>
   );
 }

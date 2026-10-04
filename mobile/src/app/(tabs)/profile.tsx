@@ -18,6 +18,8 @@ import { useMeStatsQuery, useUpdateProfileMutation } from '@/hooks/queries/use-a
 import { isActiveSportName, LEVEL_META, SPORT_KEY_BY_NAME, SPORTS, type SkillLevel } from '@/lib/constants';
 import { useAuthStore } from '@/stores/auth-store';
 import { showAlert } from '@/stores/dialog-store';
+import { CommunityRulesModal } from '@/components/moderation/community-rules-modal';
+import { ACCOUNT_DELETION_URL, PRIVACY_POLICY_URL } from '@/lib/legal';
 import { UserName } from '@/components/ui/user-name';
 
 const LEVEL_RANK: Record<string, number> = { Beginner: 1, Intermediate: 2, Advanced: 3, Expert: 4 };
@@ -32,6 +34,7 @@ export default function ProfileScreen() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isCoverPreviewOpen, setIsCoverPreviewOpen] = useState(false);
   const [isUploadingCover, setIsUploadingCover] = useState(false);
+  const [rulesOpen, setRulesOpen] = useState(false);
 
   const confirmDeleteAccount = () => {
     showAlert('Xóa tài khoản', 'Tài khoản và dữ liệu gắn với tài khoản sẽ được xóa. Hành động này không thể hoàn tác.', [
@@ -188,10 +191,13 @@ export default function ProfileScreen() {
           </View>
 
           <View className="mt-4 flex-row flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-4 dark:border-border-dark">
-            <TouchableOpacity onPress={() => Linking.openURL('https://sportgo.io.vn/privacy-policy')}>
+            <TouchableOpacity onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}>
               <Text className="text-xs font-bold text-brand dark:text-brand-dark">Chính sách quyền riêng tư</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => Linking.openURL('https://sportgo.io.vn/account-deletion')}>
+            <TouchableOpacity onPress={() => setRulesOpen(true)}>
+              <Text className="text-xs font-bold text-brand dark:text-brand-dark">Quy tắc cộng đồng</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => Linking.openURL(ACCOUNT_DELETION_URL)}>
               <Text className="text-xs font-bold text-brand dark:text-brand-dark">Yêu cầu xóa tài khoản</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={confirmDeleteAccount} className="ml-auto flex-row items-center gap-1">
@@ -250,6 +256,7 @@ export default function ProfileScreen() {
           onClose={() => setIsCoverPreviewOpen(false)}
         />
       ) : null}
+      <CommunityRulesModal visible={rulesOpen} onClose={() => setRulesOpen(false)} />
     </ScreenContainer>
   );
 }

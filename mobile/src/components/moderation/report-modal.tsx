@@ -11,11 +11,13 @@ interface ReportModalProps {
   visible: boolean;
   targetType: 'post' | 'comment' | 'user' | 'message';
   targetId: number;
+  /** Extra context sent with the report, e.g. which room or club the reported user runs. */
+  details?: string;
   onClose: () => void;
   onSubmitted?: () => void;
 }
 
-export function ReportModal({ visible, targetType, targetId, onClose, onSubmitted }: ReportModalProps) {
+export function ReportModal({ visible, targetType, targetId, details, onClose, onSubmitted }: ReportModalProps) {
   const [reason, setReason] = useState('Nội dung không phù hợp');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -25,7 +27,7 @@ export function ReportModal({ visible, targetType, targetId, onClose, onSubmitte
     setSubmitting(true);
     setError('');
     try {
-      await moderationApi.report({ target_type: targetType, target_id: targetId, reason: reason.trim() });
+      await moderationApi.report({ target_type: targetType, target_id: targetId, reason: reason.trim(), details });
       onSubmitted?.();
       onClose();
     } catch (requestError) {

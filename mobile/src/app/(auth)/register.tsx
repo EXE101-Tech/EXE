@@ -4,13 +4,15 @@ import { Link, router } from 'expo-router';
 import { Check, Eye, EyeOff, UserPlus } from 'lucide-react-native';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Pressable, View } from 'react-native';
+import { Linking, Pressable, View } from 'react-native';
 import { z } from 'zod';
 
 import { GoogleSignInButton } from '@/components/auth/google-sign-in-button';
+import { CommunityRulesModal } from '@/components/moderation/community-rules-modal';
 import { Button } from '@/components/ui/button';
 import { ScreenContainer } from '@/components/brand/screen-container';
 import { Input } from '@/components/ui/input';
+import { PRIVACY_POLICY_URL } from '@/lib/legal';
 import { userCreateSchema } from '@/schemas/auth';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -33,6 +35,7 @@ export default function RegisterScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [rulesOpen, setRulesOpen] = useState(false);
 
   const {
     control,
@@ -167,7 +170,15 @@ export default function RegisterScreen() {
             {acceptedTerms ? <Check size={14} color="#fff" /> : null}
           </View>
           <Text className="flex-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
-            Tôi đồng ý tuân thủ quy tắc cộng đồng SportGo và đã đọc chính sách quyền riêng tư.
+            Tôi đồng ý tuân thủ{' '}
+            <Text className="font-bold text-brand dark:text-brand-dark" onPress={() => setRulesOpen(true)}>
+              quy tắc cộng đồng SportGo
+            </Text>{' '}
+            và đã đọc{' '}
+            <Text className="font-bold text-brand dark:text-brand-dark" onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}>
+              chính sách quyền riêng tư
+            </Text>
+            .
           </Text>
         </Pressable>
 
@@ -188,6 +199,8 @@ export default function RegisterScreen() {
           </Pressable>
         </Link>
       </View>
+
+      <CommunityRulesModal visible={rulesOpen} onClose={() => setRulesOpen(false)} />
     </ScreenContainer>
   );
 }
