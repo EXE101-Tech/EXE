@@ -19,6 +19,7 @@ function RegisterForm({ onShowLogin }) {
   const [successRedirect, setSuccessRedirect] = useState('/home');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   useEffect(() => {
     googleCallbackRef.current = async (code) => {
@@ -29,7 +30,7 @@ function RegisterForm({ onShowLogin }) {
       setErrors({});
       setIsLoading(true);
       try {
-        const result = await loginWithGoogle(code);
+        const result = await loginWithGoogle(code, acceptedTerms);
         if (result?.is_new_user) {
           localStorage.setItem('sportgo-onboarding-pending', String(result.user.id));
           navigate('/onboarding');
@@ -47,7 +48,7 @@ function RegisterForm({ onShowLogin }) {
       }
     };
     return () => { googleCallbackRef.current = null; };
-  }, [loginWithGoogle, navigate]);
+  }, [acceptedTerms, loginWithGoogle, navigate]);
 
   useEffect(() => {
     if (!googleClientId) return undefined;
@@ -125,17 +126,21 @@ function RegisterForm({ onShowLogin }) {
     if (form.password !== form.confirmPassword) {
       errs.confirmPassword = 'Mật khẩu xác nhận không khớp';
     }
+    if (!acceptedTerms) {
+      errs.terms = 'Vui lòng chấp nhận quy tắc cộng đồng';
+    }
 
     if (Object.keys(errs).length) { setErrors(errs); return; }
     
     setErrors({});
     setIsLoading(true);
     
-    try {
+      try {
       const result = await register({
         email: form.email,
         password: form.password,
         name: form.name,
+        accepted_terms: true,
       });
       localStorage.setItem('sportgo-onboarding-pending', String(result.user.id));
       navigate('/onboarding');
@@ -266,6 +271,12 @@ function RegisterForm({ onShowLogin }) {
           {errors.general && (
             <p className="text-red-300 text-xs text-center font-medium mt-1">{errors.general}</p>
           )}
+
+          <label className="flex cursor-pointer items-start gap-2 text-[11px] leading-5 text-slate-500 dark:text-gray-400">
+            <input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} className="mt-1 accent-[var(--brand-primary)]" />
+            <span>Tôi đồng ý tuân thủ quy tắc cộng đồng SportGo và đã đọc chính sách quyền riêng tư.</span>
+          </label>
+          {errors.terms && <p className="text-red-300 text-[10px] pl-1 font-medium">{errors.terms}</p>}
 
           <button
             type="submit"

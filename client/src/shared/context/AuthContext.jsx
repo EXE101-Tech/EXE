@@ -76,7 +76,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const login = async (credentials) => completeLogin(await authService.login(credentials));
-  const loginWithGoogle = async (code) => completeLogin(await authService.loginWithGoogle(code));
+  const loginWithGoogle = async (code, acceptedTerms = false) => completeLogin(await authService.loginWithGoogle(code, acceptedTerms));
 
   const register = async (data) => completeLogin(await authService.register(data));
 
@@ -111,6 +111,18 @@ export const AuthProvider = ({ children }) => {
     return updatedUser;
   };
 
+  const acceptTerms = async () => {
+    await authService.acceptTerms();
+    setUser((current) => current ? { ...current, community_guidelines_accepted: true } : current);
+  };
+
+  const deleteAccount = async () => {
+    await authService.deleteAccount();
+    localStorage.removeItem('token');
+    setToken(null);
+    setUser(null);
+  };
+
   const value = {
     user,
     token,
@@ -122,6 +134,8 @@ export const AuthProvider = ({ children }) => {
     refreshProfile,
     applyOwnerRegistration,
     cancelOwnerRegistration,
+    acceptTerms,
+    deleteAccount,
     loading,
     isAuthenticated: !!user,
   };

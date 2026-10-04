@@ -5,7 +5,7 @@ import { resolveMediaUrl } from '../../../shared/services/api';
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
 
-export default function SocialPostComposer({ isOpen, onClose, onSave, initialPost = null }) {
+export default function SocialPostComposer({ isOpen, onClose, onSave, initialPost = null, onAcceptTerms, guidelinesAccepted = false }) {
   const [content, setContent] = useState(initialPost?.content || '');
   const [mediaUrl, setMediaUrl] = useState(initialPost?.media_url || null);
   const [mediaType, setMediaType] = useState(initialPost?.media_type || null);
@@ -13,6 +13,7 @@ export default function SocialPostComposer({ isOpen, onClose, onSave, initialPos
   const [previewUrl, setPreviewUrl] = useState('');
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [acceptedGuidelines, setAcceptedGuidelines] = useState(guidelinesAccepted);
 
   useEffect(() => () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -52,9 +53,14 @@ export default function SocialPostComposer({ isOpen, onClose, onSave, initialPos
       setError('Hãy nhập nội dung hoặc chọn ảnh/video để đăng.');
       return;
     }
+    if (!initialPost && !acceptedGuidelines) {
+      setError('Vui lòng xác nhận bạn đã đọc và đồng ý quy tắc cộng đồng trước khi đăng.');
+      return;
+    }
     setIsSaving(true);
     setError('');
     try {
+      if (!initialPost && !guidelinesAccepted) await onAcceptTerms?.();
       await onSave({
         content: content.trim() || null,
         media_url: mediaUrl,
@@ -110,6 +116,7 @@ export default function SocialPostComposer({ isOpen, onClose, onSave, initialPos
               </label>
               <span className="ml-auto text-[11px] text-slate-400">Ảnh ≤ 8 MB · Video ≤ 50 MB</span>
             </div>
+            {!initialPost && !guidelinesAccepted && <label className="flex cursor-pointer items-start gap-2 text-xs leading-5 text-slate-500 dark:text-slate-400"><input type="checkbox" checked={acceptedGuidelines} onChange={(event) => setAcceptedGuidelines(event.target.checked)} className="mt-1 accent-emerald-600" /><span>Tôi đồng ý tuân thủ quy tắc cộng đồng SportGo.</span></label>}
           </div>
           <footer className="flex justify-end border-t border-slate-100 bg-slate-50 px-5 py-4 dark:border-white/10 dark:bg-white/[0.02]">
             <button type="submit" disabled={isSaving} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-emerald-600/20 disabled:opacity-50">

@@ -2,7 +2,6 @@ import { Text } from '@/components/ui/text';
 import { BellRing, ReceiptText } from 'lucide-react-native';
 import { View } from 'react-native';
 
-import { PostMedia } from '@/components/social/post-media';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useMyPaymentsQuery } from '@/hooks/queries/use-premium';
@@ -57,8 +56,7 @@ export function PaymentHistory({ onContinue }: PaymentHistoryProps) {
             <View className="flex-1 gap-1">
               <Text className="text-sm font-black text-amber-700 dark:text-amber-300">Bạn chưa hoàn tất thanh toán</Text>
               <Text className="text-xs leading-5 text-amber-700 dark:text-amber-300">
-                Mã <Text className="font-mono text-xs font-bold text-amber-700 dark:text-amber-300">{unsent.payment_code}</Text>{' '}
-                đã được tạo nhưng chưa có ảnh chuyển khoản. Hãy chuyển khoản và gửi ảnh để quản trị viên kiểm tra.
+          Thanh toán trên mobile sẽ sớm được cập nhật. Vui lòng truy cập trang web của SportGo để thực hiện giao dịch.
               </Text>
             </View>
           </View>
@@ -102,11 +100,6 @@ export function PaymentHistory({ onContinue }: PaymentHistoryProps) {
               </Text>
             ) : null}
 
-            {payment.proof_url ? (
-              <View className="overflow-hidden rounded-xl border border-border dark:border-border-dark">
-                <PostMedia url={payment.proof_url} type="image" label="Ảnh chuyển khoản" height={130} />
-              </View>
-            ) : null}
           </View>
         );
       })}

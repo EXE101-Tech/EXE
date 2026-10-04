@@ -1,7 +1,8 @@
 import { Text } from '@/components/ui/text';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Linking from 'expo-linking';
 import * as ImagePicker from 'expo-image-picker';
-import { Crown, Eye, ImagePlus, LogOut, MapPin, Pencil, Trophy, Users } from 'lucide-react-native';
+import { Crown, Eye, ImagePlus, LogOut, MapPin, Pencil, Trash2, Trophy, Users } from 'lucide-react-native';
 import { useState } from 'react';
 import { Image, TouchableOpacity, View } from 'react-native';
 import { storageApi } from '@/api/storage';
@@ -24,12 +25,24 @@ const LEVEL_RANK: Record<string, number> = { Beginner: 1, Intermediate: 2, Advan
 export default function ProfileScreen() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const deleteAccount = useAuthStore((s) => s.deleteAccount);
   const { data: stats, isLoading: statsLoading } = useMeStatsQuery();
   const updateProfile = useUpdateProfileMutation();
 
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isCoverPreviewOpen, setIsCoverPreviewOpen] = useState(false);
   const [isUploadingCover, setIsUploadingCover] = useState(false);
+
+  const confirmDeleteAccount = () => {
+    showAlert('Xóa tài khoản', 'Tài khoản và dữ liệu gắn với tài khoản sẽ được xóa. Hành động này không thể hoàn tác.', [
+      { text: 'Hủy', style: 'cancel' },
+      {
+        text: 'Xóa tài khoản',
+        style: 'destructive',
+        onPress: () => deleteAccount().catch((error) => showAlert('Lỗi', error instanceof Error ? error.message : 'Không thể xóa tài khoản.')),
+      },
+    ]);
+  };
 
   if (!user) return <LoadingState />;
 
@@ -171,6 +184,19 @@ export default function ProfileScreen() {
               <Text className="text-center text-[11px] font-bold text-rose-600 dark:text-rose-400" numberOfLines={1}>
                 Đăng xuất
               </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View className="mt-4 flex-row flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-4 dark:border-border-dark">
+            <TouchableOpacity onPress={() => Linking.openURL('https://sportgo.io.vn/privacy-policy')}>
+              <Text className="text-xs font-bold text-brand dark:text-brand-dark">Chính sách quyền riêng tư</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => Linking.openURL('https://sportgo.io.vn/account-deletion')}>
+              <Text className="text-xs font-bold text-brand dark:text-brand-dark">Yêu cầu xóa tài khoản</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={confirmDeleteAccount} className="ml-auto flex-row items-center gap-1">
+              <Trash2 size={13} color="#DC2626" />
+              <Text className="text-xs font-bold text-rose-600 dark:text-rose-400">Xóa tài khoản</Text>
             </TouchableOpacity>
           </View>
 

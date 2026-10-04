@@ -32,9 +32,11 @@ class TokenData(BaseModel):
 
 class GoogleLoginRequest(BaseModel):
     code: str = Field(min_length=1, max_length=4096)
+    accepted_terms: bool = False
 
 class GoogleMobileLoginRequest(BaseModel):
     id_token: str = Field(min_length=1, max_length=8192)
+    accepted_terms: bool = False
 
 # Sport Schemas
 class SportBase(BaseModel):
@@ -111,6 +113,7 @@ class UserCreate(UserBase):
     password: str
     name: str
     district: Optional[str] = Field(None, max_length=120)
+    accepted_terms: bool = False
 
     @field_validator("email")
     @classmethod
@@ -140,11 +143,52 @@ class UserBasicResponse(BaseModel):
     premium_until: Optional[datetime] = None
     is_premium: bool = False
     created_at: datetime
+    community_guidelines_accepted: bool = False
     profile: Optional[UserProfileResponse] = None
     model_config = ConfigDict(from_attributes=True)
 
 class UserResponse(UserBasicResponse):
     sports: List[UserSportResponse] = []
+
+
+class AccountDeletionRequestCreate(BaseModel):
+    email: str = Field(..., min_length=5, max_length=255)
+    reason: Optional[str] = Field(None, max_length=1000)
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: str) -> str:
+        return value.strip().lower()
+
+
+class AccountDeletionRequestResponse(BaseModel):
+    message: str
+
+
+class ContentReportCreate(BaseModel):
+    target_type: Literal["post", "comment", "user", "message"]
+    target_id: int = Field(..., gt=0)
+    reason: str = Field(..., min_length=2, max_length=80)
+    details: Optional[str] = Field(None, max_length=1000)
+
+
+class ContentReportResponse(BaseModel):
+    id: int
+    reporter_id: int
+    target_type: str
+    target_id: int
+    reason: str
+    details: Optional[str] = None
+    status: str
+    reviewed_at: Optional[datetime] = None
+    action: Optional[str] = None
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ContentReportReview(BaseModel):
+    status: Literal["RESOLVED", "DISMISSED"]
+    action: Optional[str] = Field(None, max_length=40)
 
 
 class AdminAccountCreate(BaseModel):

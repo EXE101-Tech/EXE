@@ -11,7 +11,7 @@ import uvicorn
 
 from app.database import engine, Base, SessionLocal
 from app.admin_seed import bootstrap_admins
-from app.routers import auth, courts, gamerooms, bookings, teams, lfg, owner, chat, search, storage, notifications, social, admin
+from app.routers import auth, courts, gamerooms, bookings, teams, lfg, owner, chat, search, storage, notifications, social, admin, moderation
 from app.auto_room_invites import process_auto_room_invites
 from app.team_fee_reminders import process_team_fee_reminders
 
@@ -86,6 +86,7 @@ app.include_router(storage.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")
 app.include_router(social.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
+app.include_router(moderation.router, prefix="/api")
 
 @app.get("/")
 def read_root():

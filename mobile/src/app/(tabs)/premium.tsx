@@ -1,5 +1,5 @@
 import { Text } from '@/components/ui/text';
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   ArrowLeft,
@@ -10,13 +10,11 @@ import {
   Users,
   type LucideIcon,
 } from 'lucide-react-native';
-import { useCallback, useState } from 'react';
-import { Pressable, TouchableOpacity, View } from 'react-native';
+import { useCallback } from 'react';
+import { TouchableOpacity, View } from 'react-native';
 
 import { ScreenContainer } from '@/components/brand/screen-container';
 import { TopNavbar } from '@/components/navigation/top-navbar';
-import { PaymentHistory } from '@/components/premium/payment-history';
-import { PremiumPaymentModal } from '@/components/premium/premium-payment-modal';
 import { useAuthStore } from '@/stores/auth-store';
 
 const BENEFITS: { icon: LucideIcon; title: string; text: string }[] = [
@@ -45,18 +43,9 @@ const BENEFITS: { icon: LucideIcon; title: string; text: string }[] = [
 export default function PremiumScreen() {
   const user = useAuthStore((s) => s.user);
   const refreshProfile = useAuthStore((s) => s.refreshProfile);
-  const { pay } = useLocalSearchParams<{ pay?: string }>();
-  const [paymentOpen, setPaymentOpen] = useState(false);
   const isPremium = Boolean(user?.isPremium);
-  // ?pay=1 (from a Premium notification) opens the popup right away unless the account is already Premium.
-  const paymentVisible = paymentOpen || (pay === '1' && !isPremium);
 
-  const closePayment = () => {
-    setPaymentOpen(false);
-    if (pay) router.setParams({ pay: undefined });
-  };
-
-  // The admin approves payments out-of-band, so re-read the profile whenever this tab is shown.
+  // Re-read the profile whenever this tab is shown so an existing entitlement stays current.
   useFocusEffect(
     useCallback(() => {
       refreshProfile().catch(() => {});
@@ -91,15 +80,13 @@ export default function PremiumScreen() {
           <Text className="text-4xl font-black leading-[42px] text-[#b8b1ff]">trong mỗi trận chơi.</Text>
         </Text>
         <Text className="mt-3 text-[13px] leading-6 text-[#b1bdd4]">
-          Gói Premium 30.000đ/tháng giúp bạn tự động tìm phòng, mời người cùng khu vực để lấp đầy phòng và quản lý hoạt
-          động CLB theo lịch đã thiết lập.
+          Gói Premium sẽ sớm được mở trên mobile với các tính năng tự động tìm phòng, mời người cùng khu vực để lấp đầy
+          phòng và quản lý hoạt động CLB theo lịch đã thiết lập.
         </Text>
 
-        <Pressable
-          disabled={isPremium}
-          onPress={() => setPaymentOpen(true)}
-          accessibilityLabel={isPremium ? 'Gói Premium đang hoạt động' : 'Nâng cấp Premium với giá 30.000đ mỗi tháng'}
-          className="mt-6 flex-row items-center gap-2 self-start rounded-xl border px-4 py-3 active:opacity-80"
+        <View
+          accessibilityLabel={isPremium ? 'Gói Premium đang hoạt động' : 'Premium sẽ sớm mở trên mobile'}
+          className="mt-6 flex-row items-center gap-2 self-start rounded-xl border px-4 py-3"
           style={{
             borderColor: isPremium ? 'rgba(103,211,184,0.55)' : '#6879aa',
             backgroundColor: isPremium ? 'rgba(48,143,124,0.2)' : 'rgba(15,24,48,0.3)',
@@ -111,12 +98,9 @@ export default function PremiumScreen() {
               <Text className="text-sm font-black text-[#b9f3e2]">Đã nâng cấp</Text>
             </>
           ) : (
-            <>
-              <Text className="text-sm font-black text-white">30.000đ/tháng</Text>
-              <Text className="text-xs font-bold text-[#e1e7f6]">· Nâng cấp ngay</Text>
-            </>
+            <Text className="text-sm font-black text-white">Premium sẽ sớm mở trên mobile</Text>
           )}
-        </Pressable>
+        </View>
         {isPremium && user?.premium_until ? (
           <Text className="mt-2 text-xs text-[#b9f3e2]">
             Hiệu lực đến {new Date(user.premium_until).toLocaleDateString('vi-VN')}
@@ -124,12 +108,8 @@ export default function PremiumScreen() {
         ) : null}
       </LinearGradient>
 
-      <PaymentHistory onContinue={() => setPaymentOpen(true)} />
-
       <View className="mb-4 mt-8">
-        <Text className="text-[11px] font-extrabold tracking-widest text-brand dark:text-brand-dark">
-          GÓI PREMIUM · 30.000Đ/THÁNG
-        </Text>
+        <Text className="text-[11px] font-extrabold tracking-widest text-brand dark:text-brand-dark">GÓI PREMIUM</Text>
         <Text className="mt-1 text-xl font-extrabold text-slate-900 dark:text-white">
           Tự động hóa những việc bạn thường phải làm thủ công
         </Text>
@@ -150,11 +130,7 @@ export default function PremiumScreen() {
         ))}
       </View>
 
-      <Text className="mt-6 text-[11px] leading-4 text-slate-500">
-        Thanh toán bằng mã QR, ghi đúng mã giao dịch và gửi ảnh xác nhận để quản trị viên kiểm tra.
-      </Text>
-
-      <PremiumPaymentModal visible={paymentVisible} onClose={closePayment} />
+      <Text className="mt-6 text-[11px] leading-4 text-slate-500">Premium sẽ sớm mở trên mobile.</Text>
     </ScreenContainer>
   );
 }

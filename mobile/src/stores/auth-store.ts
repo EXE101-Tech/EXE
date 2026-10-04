@@ -49,12 +49,14 @@ interface AuthState {
   onboardingPending: boolean;
   hydrate: () => Promise<void>;
   login: (credentials: UserLogin) => Promise<NormalizedUser>;
-  loginWithGoogle: (idToken: string) => Promise<NormalizedUser>;
+  loginWithGoogle: (idToken: string, acceptedTerms?: boolean) => Promise<NormalizedUser>;
   register: (data: UserCreate) => Promise<NormalizedUser>;
   completeOnboarding: () => Promise<void>;
   logout: () => void;
   refreshProfile: () => Promise<NormalizedUser>;
   updateProfile: (data: UserProfileWithSportsUpdate) => Promise<NormalizedUser>;
+  acceptTerms: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => {
@@ -102,8 +104,8 @@ export const useAuthStore = create<AuthState>((set) => {
       return establishSession(response.access_token, false);
     },
 
-    loginWithGoogle: async (idToken) => {
-      const response = await authApi.googleLogin(idToken);
+    loginWithGoogle: async (idToken, acceptedTerms = false) => {
+      const response = await authApi.googleLogin(idToken, acceptedTerms);
       return establishSession(response.access_token, response.is_new_user);
     },
 
@@ -133,6 +135,17 @@ export const useAuthStore = create<AuthState>((set) => {
       const normalized = normalizeUser(await authApi.updateMe(data));
       set({ user: normalized });
       return normalized;
+    },
+
+    acceptTerms: async () => {
+      await authApi.acceptTerms();
+      set((state) => ({ user: state.user ? { ...state.user, community_guidelines_accepted: true } : state.user }));
+    },
+
+    deleteAccount: async () => {
+      await authApi.deleteAccount();
+      await secureStorage.deleteItemAsync(TOKEN_STORAGE_KEY);
+      set({ user: null, isAuthenticated: false, onboardingPending: false });
     },
 
 

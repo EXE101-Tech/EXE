@@ -1,7 +1,7 @@
 import { Text } from '@/components/ui/text';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, router } from 'expo-router';
-import { Eye, EyeOff, UserPlus } from 'lucide-react-native';
+import { Check, Eye, EyeOff, UserPlus } from 'lucide-react-native';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Pressable, View } from 'react-native';
@@ -32,6 +32,7 @@ export default function RegisterScreen() {
   const register = useAuthStore((s) => s.register);
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const {
     control,
@@ -45,7 +46,11 @@ export default function RegisterScreen() {
   const onSubmit = async (data: RegisterForm) => {
     setFormError('');
     try {
-      await register({ name: data.name, email: data.email, password: data.password });
+      if (!acceptedTerms) {
+        setFormError('Vui lòng chấp nhận quy tắc cộng đồng trước khi tạo tài khoản.');
+        return;
+      }
+      await register({ name: data.name, email: data.email, password: data.password, accepted_terms: true });
       // Account is created and signed in; new users go straight to onboarding.
       router.replace('/onboarding');
     } catch (error) {
@@ -157,13 +162,22 @@ export default function RegisterScreen() {
 
         <Button label="Hoàn tất Đăng ký" loading={isSubmitting} onPress={handleSubmit(onSubmit)} />
 
+        <Pressable onPress={() => setAcceptedTerms((value) => !value)} className="flex-row items-start gap-2">
+          <View className="mt-0.5 h-5 w-5 items-center justify-center rounded-md border border-border dark:border-border-dark" style={{ backgroundColor: acceptedTerms ? '#537fff' : 'transparent' }}>
+            {acceptedTerms ? <Check size={14} color="#fff" /> : null}
+          </View>
+          <Text className="flex-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+            Tôi đồng ý tuân thủ quy tắc cộng đồng SportGo và đã đọc chính sách quyền riêng tư.
+          </Text>
+        </Pressable>
+
         <View className="flex-row items-center gap-3">
           <View className="h-px flex-1 bg-border dark:bg-border-dark" />
           <Text className="text-[11px] font-bold uppercase text-slate-400">Hoặc đăng ký qua</Text>
           <View className="h-px flex-1 bg-border dark:bg-border-dark" />
         </View>
 
-        <GoogleSignInButton onError={setFormError} />
+        <GoogleSignInButton acceptedTerms={acceptedTerms} onError={setFormError} />
       </View>
 
       <View className="flex-row justify-center gap-1">

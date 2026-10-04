@@ -1,11 +1,12 @@
 import { Text } from '@/components/ui/text';
 import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { Crown, Heart, MessageCircle, Pencil, Trash2, UserPlus, UserRoundCheck } from 'lucide-react-native';
+import { Ban, Crown, Flag, Heart, MessageCircle, Pencil, Trash2, UserPlus, UserRoundCheck } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { resolveMediaUrl } from '@/api/resolve-media-url';
+import { moderationApi } from '@/api/moderation';
 import { Avatar } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
 import { CommentsSection } from '@/components/social/comments-section';
@@ -22,6 +23,7 @@ import { cn } from '@/lib/utils';
 import type { SocialPost } from '@/schemas/social';
 import { showAlert } from '@/stores/dialog-store';
 import { UserName } from '@/components/ui/user-name';
+import { ReportModal } from '@/components/moderation/report-modal';
 
 /** "HH:mm | dd/MM/yyyy" in Vietnam time, matching the web feed. */
 function formatPostDate(value: string): string {
@@ -69,6 +71,7 @@ export function SocialPostCard({ post, currentUserId, canManage = false, onEdit,
   const [likeCount, setLikeCount] = useState(post.like_count);
   const [commentCount, setCommentCount] = useState(post.comment_count);
   const [commentsOpen, setCommentsOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
 
   const isMine = post.author_id === currentUserId;
   const premium = post.author_is_premium;
@@ -109,6 +112,19 @@ export function SocialPostCard({ post, currentUserId, canManage = false, onEdit,
     }
   };
 
+  const handleBlock = () => {
+    showAlert('Chặn người dùng', `Bạn sẽ không thấy bài viết và không thể nhắn tin với ${post.author_name}.`, [
+      { text: 'Hủy', style: 'cancel' },
+      {
+        text: 'Chặn',
+        style: 'destructive',
+        onPress: () => moderationApi.block(post.author_id)
+          .then(() => queryClient.invalidateQueries({ queryKey: queryKeys.social.feed() }))
+          .catch((error) => showAlert('Lỗi', error instanceof Error ? error.message : 'Không thể chặn người dùng.')),
+      },
+    ]);
+  };
+
   return (
     <Card>
       <View className="flex-row items-center gap-3 px-4 py-3.5">
@@ -128,6 +144,13 @@ export function SocialPostCard({ post, currentUserId, canManage = false, onEdit,
           <Text className="text-xs text-slate-500 dark:text-slate-400">{formatPostDate(post.created_at)}</Text>
         </View>
         {!isMine ? (
+          <View className="flex-row items-center gap-1">
+          <Pressable onPress={() => setReportOpen(true)} accessibilityLabel="Báo cáo bài viết" className="rounded-xl p-2">
+            <Flag size={15} color="#D97706" />
+          </Pressable>
+          <Pressable onPress={handleBlock} accessibilityLabel="Chặn người dùng" className="rounded-xl p-2">
+            <Ban size={15} color="#E11D48" />
+          </Pressable>
           <Pressable
             onPress={handleFriend}
             disabled={friendBusy || post.friendship_status === 'outgoing'}
@@ -145,6 +168,7 @@ export function SocialPostCard({ post, currentUserId, canManage = false, onEdit,
               {FRIEND_LABEL[post.friendship_status] ?? 'Kết bạn'}
             </Text>
           </Pressable>
+          </View>
         ) : null}
       </View>
 
@@ -193,6 +217,7 @@ export function SocialPostCard({ post, currentUserId, canManage = false, onEdit,
       </View>
 
       {commentsOpen ? <CommentsSection postId={post.id} isPostAuthor={isMine} onCountChange={setCommentCount} /> : null}
+      <ReportModal visible={reportOpen} targetType="post" targetId={post.id} onClose={() => setReportOpen(false)} onSubmitted={() => showAlert('Đã gửi báo cáo', 'Quản trị viên SportGo sẽ xem xét nội dung này.')} />
     </Card>
   );
 }

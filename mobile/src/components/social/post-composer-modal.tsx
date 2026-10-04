@@ -1,6 +1,6 @@
 import { Text } from '@/components/ui/text';
 import * as ImagePicker from 'expo-image-picker';
-import { Film, ImagePlus, Send, X } from 'lucide-react-native';
+import { Check, Film, ImagePlus, Send, X } from 'lucide-react-native';
 import { useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, TextInput, View } from 'react-native';
 
@@ -12,6 +12,7 @@ import { useCreateSocialPostMutation, useUpdateSocialPostMutation } from '@/hook
 import type { SocialPost } from '@/schemas/social';
 import { showToast } from '@/stores/toast-store';
 import { showAlert } from '@/stores/dialog-store';
+import { useAuthStore } from '@/stores/auth-store';
 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
@@ -49,6 +50,8 @@ export function PostComposerModal({ visible, onClose, post, onSaved }: PostCompo
 function ComposerBody({ post, onClose, onSaved }: { post: SocialPost | null; onClose: () => void; onSaved?: () => void }) {
   const create = useCreateSocialPostMutation();
   const update = useUpdateSocialPostMutation();
+  const acceptTerms = useAuthStore((state) => state.acceptTerms);
+  const guidelinesAccepted = useAuthStore((state) => Boolean(state.user?.community_guidelines_accepted));
 
   const [content, setContent] = useState(post?.content ?? '');
   const [existingMedia, setExistingMedia] = useState<{ url: string; type: 'image' | 'video' } | null>(
@@ -57,6 +60,7 @@ function ComposerBody({ post, onClose, onSaved }: { post: SocialPost | null; onC
   const [pickedMedia, setPickedMedia] = useState<PickedMedia | null>(null);
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [acceptedGuidelines, setAcceptedGuidelines] = useState(guidelinesAccepted);
 
   const chooseMedia = async (kind: 'images' | 'videos') => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -93,9 +97,14 @@ function ComposerBody({ post, onClose, onSaved }: { post: SocialPost | null; onC
       setError('Hãy nhập nội dung hoặc chọn ảnh/video để đăng.');
       return;
     }
+    if (!post && !acceptedGuidelines) {
+      setError('Vui lòng xác nhận bạn đã đọc và đồng ý quy tắc cộng đồng trước khi đăng.');
+      return;
+    }
     setIsSaving(true);
     setError('');
     try {
+      if (!post && !guidelinesAccepted) await acceptTerms();
       let mediaUrl: string | null = existingMedia?.url ?? null;
       let mediaType: 'image' | 'video' | null = existingMedia?.type ?? null;
       if (pickedMedia) {
@@ -190,6 +199,14 @@ function ComposerBody({ post, onClose, onSaved }: { post: SocialPost | null; onC
           </Pressable>
           <Text className="ml-auto text-[11px] text-slate-400">Ảnh ≤ 8 MB · Video ≤ 50 MB</Text>
         </View>
+        {!post && !guidelinesAccepted ? (
+          <Pressable onPress={() => setAcceptedGuidelines((value) => !value)} className="flex-row items-start gap-2">
+            <View className="mt-0.5 h-5 w-5 items-center justify-center rounded-md border border-border dark:border-border-dark" style={{ backgroundColor: acceptedGuidelines ? '#537fff' : 'transparent' }}>
+              {acceptedGuidelines ? <Check size={14} color="#fff" /> : null}
+            </View>
+            <Text className="flex-1 text-xs leading-5 text-slate-500 dark:text-slate-400">Tôi đồng ý tuân thủ quy tắc cộng đồng SportGo.</Text>
+          </Pressable>
+        ) : null}
       </ScrollView>
 
       <View className="flex-row items-center justify-end border-t border-border bg-bg px-4 py-3 dark:border-border-dark dark:bg-bg-dark">

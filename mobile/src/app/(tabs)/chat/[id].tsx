@@ -1,11 +1,12 @@
 import { Text } from '@/components/ui/text';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Check, Send, UserPlus } from 'lucide-react-native';
+import { ArrowLeft, Ban, Check, Flag, Send, UserPlus } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { chatApi } from '@/api/chat';
+import { moderationApi } from '@/api/moderation';
 import { resolveMediaUrl } from '@/api/resolve-media-url';
 import { LoadingState } from '@/components/brand/loading-state';
 import { Avatar } from '@/components/ui/avatar';
@@ -19,6 +20,7 @@ import type { ChatMessageResponse } from '@/schemas/chat';
 import { useAuthStore } from '@/stores/auth-store';
 import { cn } from '@/lib/utils';
 import { showAlert } from '@/stores/dialog-store';
+import { ReportModal } from '@/components/moderation/report-modal';
 
 const formatTime = (value: string) => {
   const date = new Date(value.endsWith('Z') ? value : `${value}Z`);
@@ -35,6 +37,7 @@ export default function ChatThreadScreen() {
   const sendFriendRequest = useSendFriendRequestMutation();
   const acceptFriendRequest = useAcceptFriendRequestMutation();
   const [text, setText] = useState('');
+  const [reportOpen, setReportOpen] = useState(false);
 
   // The polled query always holds the newest page; older pages are fetched on demand and kept here.
   // Tagged with the conversation id so a different thread never shows another thread's history.
@@ -102,6 +105,20 @@ export default function ChatThreadScreen() {
     sendMessage.mutate(value);
   };
 
+  const handleBlock = () => {
+    if (!data) return;
+    showAlert('Chặn người dùng', `Bạn sẽ không thể tiếp tục nhắn tin với ${data.other_user.name}.`, [
+      { text: 'Hủy', style: 'cancel' },
+      {
+        text: 'Chặn',
+        style: 'destructive',
+        onPress: () => moderationApi.block(data.other_user.id)
+          .then(() => router.replace('/chat'))
+          .catch((error) => showAlert('Lỗi', error instanceof Error ? error.message : 'Không thể chặn người dùng.')),
+      },
+    ]);
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-bg dark:bg-bg-dark" edges={['top', 'left', 'right']}>
       <View className="flex-row items-center gap-3 border-b border-border px-4 py-3 dark:border-border-dark">
@@ -142,6 +159,14 @@ export default function ChatThreadScreen() {
                   </Pressable>
                 ) : null}
               </View>
+            </View>
+            <View className="flex-row items-center gap-1">
+              <Pressable onPress={() => setReportOpen(true)} accessibilityLabel="Báo cáo người dùng" className="rounded-xl p-2">
+                <Flag size={16} color="#D97706" />
+              </Pressable>
+              <Pressable onPress={handleBlock} accessibilityLabel="Chặn người dùng" className="rounded-xl p-2">
+                <Ban size={16} color="#E11D48" />
+              </Pressable>
             </View>
           </>
         ) : null}
@@ -221,6 +246,7 @@ export default function ChatThreadScreen() {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+      {data ? <ReportModal visible={reportOpen} targetType="user" targetId={data.other_user.id} onClose={() => setReportOpen(false)} onSubmitted={() => showAlert('Đã gửi báo cáo', 'Quản trị viên SportGo sẽ xem xét báo cáo này.')} /> : null}
     </SafeAreaView>
   );
 }

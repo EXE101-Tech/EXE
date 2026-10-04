@@ -9,6 +9,8 @@ const tabs = [
   { id: 'content', label: 'Kiểm duyệt nội dung', icon: Shield },
   { id: 'accounts', label: 'Tài khoản admin', icon: Users },
   { id: 'users', label: 'Danh sách tài khoản', icon: UserRound },
+  { id: 'deletions', label: 'Yêu cầu xoá', icon: Trash2 },
+  { id: 'reports', label: 'Báo cáo', icon: Shield },
 ];
 
 const PAGE_SIZE = 5;
@@ -24,6 +26,8 @@ export default function AdminDashboard() {
   const [posts, setPosts] = useState([]);
   const [rooms, setRooms] = useState([]);
   const [teams, setTeams] = useState([]);
+  const [deletionRequests, setDeletionRequests] = useState([]);
+  const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [accountForm, setAccountForm] = useState({ name: '', email: '', password: '' });
@@ -35,7 +39,7 @@ export default function AdminDashboard() {
 
   const load = async () => {
     setLoading(true);
-    const [summaryResult, paymentsResult, premiumAccountsResult, accountsResult, usersResult, postsResult, roomsResult, teamsResult] = await Promise.allSettled([
+    const [summaryResult, paymentsResult, premiumAccountsResult, accountsResult, usersResult, postsResult, roomsResult, teamsResult, deletionResult, reportsResult] = await Promise.allSettled([
       adminService.getSummary(),
       adminService.getPayments('PENDING'),
       adminService.getPremiumAccounts(),
@@ -44,6 +48,8 @@ export default function AdminDashboard() {
       adminService.getPosts(),
       adminService.getRooms(),
       teamService.getAll(),
+      adminService.getDeletionRequests(),
+      adminService.getReports(),
     ]);
     if (summaryResult.status === 'fulfilled') setSummary(summaryResult.value);
     if (paymentsResult.status === 'fulfilled') setPayments(paymentsResult.value);
@@ -53,6 +59,8 @@ export default function AdminDashboard() {
     if (postsResult.status === 'fulfilled') setPosts(postsResult.value);
     if (roomsResult.status === 'fulfilled') setRooms(roomsResult.value);
     if (teamsResult.status === 'fulfilled') setTeams(teamsResult.value);
+    if (deletionResult.status === 'fulfilled') setDeletionRequests(deletionResult.value);
+    if (reportsResult.status === 'fulfilled') setReports(reportsResult.value);
     setLoading(false);
   };
 
@@ -123,6 +131,24 @@ export default function AdminDashboard() {
     } catch (error) { setMessage(error.message || 'Không thể tạo tài khoản admin.'); }
   };
 
+  const completeDeletion = async (request) => {
+    if (!window.confirm(`Xử lý yêu cầu xoá dữ liệu của ${request.email}?`)) return;
+    try {
+      await adminService.completeDeletionRequest(request.id);
+      setDeletionRequests((current) => current.filter((item) => item.id !== request.id));
+      setUsers((current) => current.filter((item) => item.id !== request.user_id));
+      setMessage('Đã xử lý yêu cầu xoá tài khoản.');
+    } catch (error) { setMessage(error.message || 'Không thể xử lý yêu cầu xoá.'); }
+  };
+
+  const reviewReport = async (report, status) => {
+    try {
+      await adminService.reviewReport(report.id, { status, action: status === 'RESOLVED' ? 'reviewed' : 'dismissed' });
+      setReports((current) => current.filter((item) => item.id !== report.id));
+      setMessage(status === 'RESOLVED' ? 'Đã xử lý báo cáo.' : 'Đã bỏ qua báo cáo.');
+    } catch (error) { setMessage(error.message || 'Không thể cập nhật báo cáo.'); }
+  };
+
   const pendingTotalPages = Math.max(1, Math.ceil(payments.length / PAGE_SIZE));
   const activeTotalPages = Math.max(1, Math.ceil(premiumAccounts.length / PAGE_SIZE));
   const usersTotalPages = Math.max(1, Math.ceil(users.length / PAGE_SIZE));
@@ -143,6 +169,8 @@ export default function AdminDashboard() {
     {message && <div role="status" className="mx-auto mt-4 max-w-[1500px] rounded-xl bg-indigo-500/15 px-4 py-3 text-sm text-indigo-200">{message}</div>}
     {loading ? <div className="mx-auto mt-8 max-w-[1500px] text-slate-400">Đang tải dữ liệu quản trị...</div> : <section className="mx-auto mt-6 grid max-w-[1500px] gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
       <div className="space-y-3">
+        {tab === 'reports' && <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"><h2 className="mb-4 font-black">Báo cáo đang chờ xử lý ({reports.length})</h2>{reports.length === 0 ? <Empty text="Chưa có báo cáo mới." /> : <div className="space-y-2">{reports.map((report) => <div key={report.id} className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/60 px-3 py-3"><div className="min-w-0"><p className="font-bold">{report.target_type} #{report.target_id} · {report.reason}</p><p className="mt-1 text-xs text-slate-400">{report.details || 'Không có mô tả thêm'} · {new Date(report.created_at).toLocaleString('vi-VN')}</p></div><div className="flex gap-2"><button type="button" onClick={() => reviewReport(report, 'DISMISSED')} className="rounded-lg border border-white/15 px-3 py-2 text-xs font-bold text-slate-300">Bỏ qua</button><button type="button" onClick={() => reviewReport(report, 'RESOLVED')} className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-bold text-white">Đã xử lý</button></div></div>)}</div>}</section>}
+        {tab === 'deletions' && <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"><h2 className="mb-4 font-black">Yêu cầu xoá tài khoản ({deletionRequests.length})</h2>{deletionRequests.length === 0 ? <Empty text="Chưa có yêu cầu xoá đang chờ xử lý." /> : <div className="space-y-2">{deletionRequests.map((request) => <div key={request.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/60 px-3 py-3"><div className="min-w-0"><p className="font-bold">{request.email}</p><p className="mt-1 text-xs text-slate-400">{new Date(request.created_at).toLocaleString('vi-VN')}{request.reason ? ` · ${request.reason}` : ''}</p></div><button type="button" onClick={() => completeDeletion(request)} className="inline-flex items-center gap-1.5 rounded-lg border border-rose-400/40 px-3 py-2 text-xs font-bold text-rose-300 hover:bg-rose-500/10"><Trash2 className="h-3.5 w-3.5" /> Xoá sau khi xác minh</button></div>)}</div>}</section>}
         {tab === 'payments' && <div className="space-y-5">
           <div role="tablist" aria-label="Trạng thái giao dịch" className="flex flex-wrap gap-2 rounded-2xl border border-white/10 bg-white/[0.03] p-2">
             <button type="button" role="tab" aria-selected={paymentView === 'pending'} onClick={() => setPaymentView('pending')} className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition ${paymentView === 'pending' ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:bg-white/10 hover:text-slate-200'}`}><Clock3 className="h-4 w-4" /> Chờ kiểm duyệt ({payments.length})</button>

@@ -24,6 +24,7 @@ export const userCreateSchema = z.object({
   password: z.string().min(6, 'Mật khẩu tối thiểu 6 ký tự'),
   name: z.string().trim().min(1, 'Vui lòng nhập tên'),
   district: z.string().trim().max(120).optional(),
+  accepted_terms: z.boolean().default(false),
 });
 export type UserCreate = z.infer<typeof userCreateSchema>;
 
@@ -61,6 +62,7 @@ export const userResponseSchema = z.object({
   is_admin: z.boolean().default(false),
   premium_until: z.string().nullable().optional(),
   is_premium: z.boolean().default(false),
+  community_guidelines_accepted: z.boolean().default(false),
   created_at: z.string(),
   profile: userProfileResponseSchema.nullable().optional(),
   sports: z.array(userSportResponseSchema).default([]),

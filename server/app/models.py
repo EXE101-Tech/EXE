@@ -55,6 +55,16 @@ class User(Base):
         uselist=False,
         cascade="all, delete-orphan",
     )
+    policy_acceptance = relationship(
+        "UserPolicyAcceptance",
+        uselist=False,
+        cascade="all, delete-orphan",
+        back_populates="user",
+    )
+
+    @property
+    def community_guidelines_accepted(self):
+        return bool(self.policy_acceptance)
 
 
 class OAuthIdentity(Base):
@@ -279,6 +289,58 @@ class LoginAttempt(Base):
     id = Column(Integer, primary_key=True, index=True)
     ip = Column(String, index=True, nullable=False)
     attempted_at = Column(DateTime, default=utc_now_naive)
+
+
+class UserPolicyAcceptance(Base):
+    """Records the user's explicit acceptance of the community rules before creating UGC."""
+    __tablename__ = "user_policy_acceptances"
+
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    policy_version = Column(String(32), nullable=False, default="2026-10")
+    accepted_at = Column(DateTime, nullable=False, default=utc_now_naive)
+
+    user = relationship("User", back_populates="policy_acceptance")
+
+
+class UserBlock(Base):
+    """A user-controlled block for direct communication and social discovery."""
+    __tablename__ = "user_blocks"
+    __table_args__ = (UniqueConstraint("blocker_id", "blocked_id", name="uq_user_blocks_pair"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    blocker_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    blocked_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at = Column(DateTime, nullable=False, default=utc_now_naive)
+
+
+class ContentReport(Base):
+    """A report submitted by a member for admin review."""
+    __tablename__ = "content_reports"
+
+    id = Column(Integer, primary_key=True, index=True)
+    reporter_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    target_type = Column(String(20), nullable=False, index=True)  # post, comment, user, message
+    target_id = Column(Integer, nullable=False, index=True)
+    reason = Column(String(80), nullable=False)
+    details = Column(Text, nullable=True)
+    status = Column(String(20), nullable=False, default="PENDING", index=True)
+    reviewed_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    reviewed_at = Column(DateTime, nullable=True)
+    action = Column(String(40), nullable=True)
+
+
+class AccountDeletionRequest(Base):
+    """Public deletion requests made from the website without exposing account existence."""
+    __tablename__ = "account_deletion_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String(255), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    reason = Column(Text, nullable=True)
+    status = Column(String(20), nullable=False, default="PENDING", index=True)
+    created_at = Column(DateTime, nullable=False, default=utc_now_naive)
+    processed_at = Column(DateTime, nullable=True)
+    processed_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
 
 class Team(Base):

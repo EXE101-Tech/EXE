@@ -1,5 +1,5 @@
 import { Text } from '@/components/ui/text';
-import { Pencil, Send, Trash2, X } from 'lucide-react-native';
+import { Check, Pencil, Send, Trash2, X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, TextInput, View } from 'react-native';
 
@@ -22,6 +22,7 @@ interface CommentsSectionProps {
 /** Comments shown inline under a post (mirrors the web card): list, replies, reactions and the composer. */
 export function CommentsSection({ postId, isPostAuthor, onCountChange }: CommentsSectionProps) {
   const user = useAuthStore((s) => s.user);
+  const acceptTerms = useAuthStore((s) => s.acceptTerms);
   const { data: comments, isLoading } = useSocialCommentsQuery(postId, true);
   const { add, update, remove, react } = useSocialCommentMutations(postId);
 
@@ -29,6 +30,7 @@ export function CommentsSection({ postId, isPostAuthor, onCountChange }: Comment
   const [replyTo, setReplyTo] = useState<SocialComment | null>(null);
   const [editing, setEditing] = useState<SocialComment | null>(null);
   const [pickerFor, setPickerFor] = useState<number | null>(null);
+  const [acceptedGuidelines, setAcceptedGuidelines] = useState(Boolean(user?.community_guidelines_accepted));
 
   const all = comments ?? [];
   const roots = all.filter((comment) => comment.parent_id == null);
@@ -49,10 +51,15 @@ export function CommentsSection({ postId, isPostAuthor, onCountChange }: Comment
     setEditing(null);
   };
 
-  const submit = () => {
+  const submit = async () => {
     const content = text.trim();
     if (!content) return;
+    if (!editing && !user?.community_guidelines_accepted && !acceptedGuidelines) {
+      showAlert('Quy tắc cộng đồng', 'Vui lòng xác nhận bạn đồng ý tuân thủ quy tắc cộng đồng trước khi bình luận.');
+      return;
+    }
     const onError = (error: Error) => showAlert('Lỗi', error.message);
+    if (!editing && !user?.community_guidelines_accepted) await acceptTerms();
     if (editing) {
       update.mutate({ commentId: editing.id, content }, { onSuccess: resetComposer, onError });
     } else {
@@ -206,6 +213,15 @@ export function CommentsSection({ postId, isPostAuthor, onCountChange }: Comment
             <X size={14} color="#94A3B8" />
           </Pressable>
         </View>
+      ) : null}
+
+      {!user?.community_guidelines_accepted ? (
+        <Pressable onPress={() => setAcceptedGuidelines((value) => !value)} className="mb-2 mt-1 flex-row items-start gap-2">
+          <View className="mt-0.5 h-5 w-5 items-center justify-center rounded-md border border-border dark:border-border-dark" style={{ backgroundColor: acceptedGuidelines ? '#537fff' : 'transparent' }}>
+            {acceptedGuidelines ? <Check size={14} color="#fff" /> : null}
+          </View>
+          <Text className="flex-1 text-xs leading-5 text-slate-500 dark:text-slate-400">Tôi đồng ý tuân thủ quy tắc cộng đồng SportGo.</Text>
+        </Pressable>
       ) : null}
 
       <View className="mt-2 flex-row items-center gap-2.5">

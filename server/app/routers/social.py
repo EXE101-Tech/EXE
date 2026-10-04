@@ -16,6 +16,25 @@ def _ensure_interaction_allowed(current_user: models.User) -> None:
         raise HTTPException(status_code=403, detail="Tài khoản quản trị chỉ dùng để kiểm duyệt")
 
 
+def _ensure_community_guidelines(db: Session, current_user: models.User) -> None:
+    accepted = db.query(models.UserPolicyAcceptance.user_id).filter_by(user_id=current_user.id).first()
+    if not accepted:
+        raise HTTPException(
+            status_code=428,
+            detail="Vui lòng chấp nhận quy tắc cộng đồng trước khi đăng hoặc bình luận",
+        )
+
+
+def _blocked_user_ids(db: Session, user_id: int) -> set[int]:
+    rows = db.query(models.UserBlock.blocker_id, models.UserBlock.blocked_id).filter(
+        or_(models.UserBlock.blocker_id == user_id, models.UserBlock.blocked_id == user_id),
+    ).all()
+    return {
+        blocked_id if blocker_id == user_id else blocker_id
+        for blocker_id, blocked_id in rows
+    }
+
+
 def _post_or_404(db: Session, post_id: int) -> models.SocialPost:
     post = db.query(models.SocialPost).options(
         joinedload(models.SocialPost.author).joinedload(models.User.profile),
@@ -181,6 +200,9 @@ def list_social_posts(
     query = db.query(models.SocialPost).options(
         joinedload(models.SocialPost.author).joinedload(models.User.profile),
     )
+    blocked_ids = _blocked_user_ids(db, current_user.id)
+    if blocked_ids:
+        query = query.filter(~models.SocialPost.author_id.in_(blocked_ids))
     if search and search.strip():
         term = search.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         query = query.join(models.SocialPost.author).outerjoin(
@@ -215,6 +237,7 @@ def create_social_post(
     db: Session = Depends(database.get_db),
 ):
     _ensure_interaction_allowed(current_user)
+    _ensure_community_guidelines(db, current_user)
     post = models.SocialPost(author_id=current_user.id, **data.model_dump())
     db.add(post)
     db.commit()
@@ -230,6 +253,7 @@ def update_social_post(
     db: Session = Depends(database.get_db),
 ):
     _ensure_interaction_allowed(current_user)
+    _ensure_community_guidelines(db, current_user)
     post = _post_or_404(db, post_id)
     if post.author_id != current_user.id:
         raise HTTPException(status_code=403, detail="Chỉ tác giả mới được chỉnh sửa bài viết")
@@ -318,6 +342,7 @@ def create_social_post_comment(
     db: Session = Depends(database.get_db),
 ):
     _ensure_interaction_allowed(current_user)
+    _ensure_community_guidelines(db, current_user)
     _post_or_404(db, post_id)
     parent_id = data.parent_id
     if parent_id is not None:
