@@ -74,6 +74,9 @@
     "owner": "sportgo",
     "updates": {
       "url": "https://u.expo.dev/41cf65ed-f332-431f-8d7c-223a643f5d74"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
     }
   }
 }
