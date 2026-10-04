@@ -22,18 +22,47 @@ logger = logging.getLogger(__name__)
 
 
 def _delete_user_media(user_id: int) -> None:
-    """Best-effort cleanup of objects uploaded under the user's storage prefix."""
+    """Delete every object uploaded under the user's storage prefix before deleting the account."""
     try:
         from app.routers.storage import _storage_config
         client, bucket = _storage_config()
         prefix = f"sportgo/{user_id}/"
-        response = client.list_objects_v2(Bucket=bucket, Prefix=prefix)
-        keys = [{"Key": item["Key"]} for item in response.get("Contents", [])]
-        if keys:
-            client.delete_objects(Bucket=bucket, Delete={"Objects": keys, "Quiet": True})
+        continuation_token = None
+        seen_tokens = set()
+
+        while True:
+            params = {"Bucket": bucket, "Prefix": prefix}
+            if continuation_token:
+                params["ContinuationToken"] = continuation_token
+
+            response = client.list_objects_v2(**params)
+            contents = response.get("Contents", [])
+            if contents:
+                keys = [{"Key": item["Key"]} for item in contents]
+                delete_response = client.delete_objects(
+                    Bucket=bucket,
+                    Delete={"Objects": keys, "Quiet": True},
+                )
+                errors = delete_response.get("Errors", [])
+                if errors:
+                    raise RuntimeError(f"storage returned {len(errors)} deletion errors")
+
+            if not response.get("IsTruncated"):
+                break
+
+            next_token = response.get("NextContinuationToken")
+            if not next_token or next_token in seen_tokens:
+                raise RuntimeError("storage pagination did not provide a new continuation token")
+            seen_tokens.add(next_token)
+            continuation_token = next_token
+    except HTTPException:
+        raise
     except Exception:
-        # Account deletion must still complete when an old storage installation is unavailable.
-        logger.warning("Could not clean uploaded media for deleted user %s", user_id, exc_info=True)
+        logger.error("Could not clean uploaded media for user %s", user_id, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Chưa thể xoá toàn bộ dữ liệu lưu trữ. Vui lòng thử lại sau.",
+        )
 
 def check_rate_limit(db: Session, ip: str) -> bool:
     now = datetime.now(timezone.utc).replace(tzinfo=None)

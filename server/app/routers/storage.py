@@ -85,7 +85,8 @@ async def upload_image(
             Body=BytesIO(content),
             ContentLength=len(content),
             ContentType=content_type,
-            CacheControl="public, max-age=31536000, immutable",
+            # User media must not remain available from an intermediary cache after account deletion.
+            CacheControl="no-store",
         )
     except ClientError as error:
         response = error.response
@@ -140,7 +141,8 @@ async def upload_video(
             Body=BytesIO(content),
             ContentLength=len(content),
             ContentType=content_type,
-            CacheControl="public, max-age=31536000, immutable",
+            # User media must not remain available from an intermediary cache after account deletion.
+            CacheControl="no-store",
         )
     except ClientError as error:
         response = error.response
@@ -180,7 +182,8 @@ def get_media(key: str):
         body.iter_chunks(chunk_size=64 * 1024),
         media_type=result.get("ContentType", "application/octet-stream"),
         headers={
-            "Cache-Control": result.get("CacheControl", "public, max-age=86400"),
+            # Do not let browsers/CDNs serve a deleted user's media from cache.
+            "Cache-Control": "no-store",
             "X-Content-Type-Options": "nosniff",
         },
         background=BackgroundTask(body.close),
