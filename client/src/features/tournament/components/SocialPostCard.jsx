@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Heart, LoaderCircle, MessageCircle, Pencil, Send, Trash2, UserPlus, UserRoundCheck, X } from 'lucide-react';
-import { chatService, resolveMediaUrl, socialPostService } from '../../../shared/services/api';
+import { Ban, Flag, Heart, LoaderCircle, MessageCircle, Pencil, Send, Trash2, UserPlus, UserRoundCheck, X } from 'lucide-react';
+import { chatService, moderationService, resolveMediaUrl, socialPostService } from '../../../shared/services/api';
 
 const normalizeUtcTimestamp = (value) => {
   if (typeof value !== 'string' || !value) return value;
@@ -41,7 +41,7 @@ function Avatar({ src, name, className = 'h-10 w-10' }) {
   );
 }
 
-export default function SocialPostCard({ post, user, canManage = false, onEdit, onDelete, onRefresh, onMessage }) {
+export default function SocialPostCard({ post, user, canManage = false, onEdit, onDelete, onRefresh, onMessage, onAcceptTerms }) {
   const [liked, setLiked] = useState(Boolean(post.liked_by_me));
   const [likeCount, setLikeCount] = useState(post.like_count || 0);
   const [isLiking, setIsLiking] = useState(false);
@@ -62,10 +62,26 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
   const [isCommenting, setIsCommenting] = useState(false);
   const [friendError, setFriendError] = useState('');
   const [friendBusy, setFriendBusy] = useState(false);
+  const [acceptedGuidelines, setAcceptedGuidelines] = useState(Boolean(user?.community_guidelines_accepted));
   const [commentCount, setCommentCount] = useState(post.comment_count || 0);
   const commentMutationVersionRef = useRef(0);
 
   const isMine = Number(post.author_id) === Number(user?.id);
+
+  const report = async (targetType, targetId) => {
+    const reason = window.prompt('Lý do báo cáo:', 'Nội dung không phù hợp');
+    if (!reason?.trim()) return;
+    try {
+      await moderationService.report({ target_type: targetType, target_id: targetId, reason: reason.trim() });
+      setActionError('Đã gửi báo cáo cho quản trị viên.');
+    } catch (error) { setActionError(error.message || 'Không thể gửi báo cáo.'); }
+  };
+
+  const blockAuthor = async () => {
+    if (!window.confirm(`Chặn ${post.author_name}?`)) return;
+    try { await moderationService.block(post.author_id); await onRefresh?.(); }
+    catch (error) { setActionError(error.message || 'Không thể chặn người dùng.'); }
+  };
 
   useEffect(() => {
     if (!commentsOpen) return undefined;
@@ -132,10 +148,15 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
   const sendComment = async (event) => {
     event.preventDefault();
     if (!commentText.trim() || isCommenting) return;
+    if (!user?.community_guidelines_accepted && !acceptedGuidelines) {
+      setCommentError('Vui lòng xác nhận bạn đồng ý tuân thủ quy tắc cộng đồng trước khi bình luận.');
+      return;
+    }
     setIsCommenting(true);
     setCommentError('');
     commentMutationVersionRef.current += 1;
     try {
+      if (!user?.community_guidelines_accepted) await onAcceptTerms?.();
       const comment = await socialPostService.addComment(post.id, commentText.trim());
       setComments((current) => [...current, comment]);
       setCommentText('');
@@ -193,10 +214,15 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
     event.preventDefault();
     const content = replyText.trim();
     if (!content || isReplying) return;
+    if (!user?.community_guidelines_accepted && !acceptedGuidelines) {
+      setCommentError('Vui lòng xác nhận bạn đồng ý tuân thủ quy tắc cộng đồng trước khi trả lời.');
+      return;
+    }
     setIsReplying(true);
     setCommentError('');
     commentMutationVersionRef.current += 1;
     try {
+      if (!user?.community_guidelines_accepted) await onAcceptTerms?.();
       const reply = await socialPostService.addComment(post.id, content, parentComment.id);
       setComments((current) => [...current, reply]);
       setCommentCount((count) => count + 1);
@@ -285,6 +311,7 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
             <div className="flex shrink-0 items-center gap-2">
               {isCommentAuthor && !isEditing && <button type="button" onClick={() => startEditingComment(comment)} title="Sửa bình luận" aria-label="Sửa bình luận" className="text-slate-400 hover:text-emerald-600"><Pencil className="h-3.5 w-3.5" /></button>}
               {(isCommentAuthor || isMine) && <button type="button" onClick={() => removeComment(comment)} title="Xóa bình luận" aria-label="Xóa bình luận" className="text-slate-400 hover:text-rose-500"><Trash2 className="h-3.5 w-3.5" /></button>}
+              {!isCommentAuthor && <button type="button" onClick={() => report('comment', comment.id)} title="Báo cáo bình luận" aria-label="Báo cáo bình luận" className="text-slate-400 hover:text-amber-600"><Flag className="h-3.5 w-3.5" /></button>}
             </div>
           </div>
           {isEditing ? <form onSubmit={(event) => saveCommentEdit(event, comment)} className="mt-2 flex items-end gap-2">
@@ -327,10 +354,10 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
           <p className={`truncate text-sm font-extrabold text-slate-900 dark:text-white ${post.author_is_premium ? 'sg-premium-name' : ''}`}>{post.author_name}</p>
           <time className="text-xs text-slate-500 dark:text-slate-400" dateTime={normalizeUtcTimestamp(post.created_at)}>{formatDate(post.created_at)}</time>
         </div>
-        {!isMine && <button type="button" onClick={connectOrMessage} disabled={friendBusy || post.friendship_status === 'outgoing'} className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-default disabled:opacity-65 dark:bg-white/10 dark:text-slate-200 dark:hover:bg-emerald-400/10 dark:hover:text-emerald-200">
+        {!isMine && <div className="flex shrink-0 items-center gap-1"><button type="button" onClick={() => report('post', post.id)} title="Báo cáo bài viết" aria-label="Báo cáo bài viết" className="rounded-xl p-2 text-slate-400 hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-400/10"><Flag className="h-4 w-4" /></button><button type="button" onClick={blockAuthor} title="Chặn người dùng" aria-label="Chặn người dùng" className="rounded-xl p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-400/10"><Ban className="h-4 w-4" /></button><button type="button" onClick={connectOrMessage} disabled={friendBusy || post.friendship_status === 'outgoing'} className="inline-flex items-center gap-1.5 rounded-xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-default disabled:opacity-65 dark:bg-white/10 dark:text-slate-200 dark:hover:bg-emerald-400/10 dark:hover:text-emerald-200">
           {friendBusy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : post.friendship_status === 'accepted' ? <MessageCircle className="h-4 w-4" /> : post.friendship_status === 'outgoing' ? <UserRoundCheck className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
           <span className="hidden sm:inline">{friendshipLabel}</span>
-        </button>}
+        </button></div>}
       </header>
 
       {post.content && <p className="whitespace-pre-wrap break-words px-4 pb-4 text-sm leading-6 text-slate-800 dark:text-slate-100 sm:px-5">{post.content}</p>}
@@ -369,6 +396,7 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
               {rootComments.map((comment) => renderComment(comment))}
             </div>
           )}
+          {!user?.community_guidelines_accepted && <label className="mb-2 flex cursor-pointer items-start gap-2 text-[11px] leading-5 text-slate-500 dark:text-slate-400"><input type="checkbox" checked={acceptedGuidelines} onChange={(event) => setAcceptedGuidelines(event.target.checked)} className="mt-1 accent-emerald-600" /><span>Tôi đồng ý tuân thủ quy tắc cộng đồng SportGo.</span></label>}
           <form onSubmit={sendComment} className="mt-3 flex items-center gap-2">
             <Avatar src={user?.profile?.avatar_url || user?.avatar} name={user?.profile?.full_name || user?.email} className="h-8 w-8 text-xs" />
             <input value={commentText} onChange={(event) => setCommentText(event.target.value)} maxLength={1000} placeholder="Viết bình luận…" className="min-w-0 flex-1 rounded-full border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-slate-800 dark:text-white" />

@@ -1,6 +1,7 @@
 import os
 import secrets
 import requests
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from google.auth.exceptions import GoogleAuthError, TransportError
 from google.auth.transport.requests import Request as GoogleRequest
@@ -16,6 +17,23 @@ router = APIRouter(
     prefix="/auth",
     tags=["Authentication"]
 )
+
+logger = logging.getLogger(__name__)
+
+
+def _delete_user_media(user_id: int) -> None:
+    """Best-effort cleanup of objects uploaded under the user's storage prefix."""
+    try:
+        from app.routers.storage import _storage_config
+        client, bucket = _storage_config()
+        prefix = f"sportgo/{user_id}/"
+        response = client.list_objects_v2(Bucket=bucket, Prefix=prefix)
+        keys = [{"Key": item["Key"]} for item in response.get("Contents", [])]
+        if keys:
+            client.delete_objects(Bucket=bucket, Delete={"Objects": keys, "Quiet": True})
+    except Exception:
+        # Account deletion must still complete when an old storage installation is unavailable.
+        logger.warning("Could not clean uploaded media for deleted user %s", user_id, exc_info=True)
 
 def check_rate_limit(db: Session, ip: str) -> bool:
     now = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -63,7 +81,7 @@ def login(request: Request, login_data: schemas.UserLogin, db: Session = Depends
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-def _complete_google_login(claims: dict, db: Session) -> dict:
+def _complete_google_login(claims: dict, db: Session, accepted_terms: bool = False) -> dict:
     """Find or create the SportGo user for verified Google ID-token claims and issue an access token."""
     subject = claims.get("sub")
     email = (claims.get("email") or "").strip().lower()
@@ -84,6 +102,11 @@ def _complete_google_login(claims: dict, db: Session) -> dict:
             if linked_identity and linked_identity.subject != subject:
                 raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Tài khoản SportGo này đã liên kết với một tài khoản Google khác")
         else:
+            if not accepted_terms:
+                raise HTTPException(
+                    status_code=status.HTTP_428_PRECONDITION_REQUIRED,
+                    detail="Vui lòng chấp nhận quy tắc cộng đồng trước khi tạo tài khoản",
+                )
             from app.auth_utils import get_password_hash
             user = models.User(email=email, password_hash=get_password_hash(secrets.token_urlsafe(32)))
             is_new_user = True
@@ -166,7 +189,7 @@ def login_with_google(request: Request, login_data: schemas.GoogleLoginRequest, 
     except (GoogleAuthError, TransportError):
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Không thể xác minh với Google lúc này")
 
-    return _complete_google_login(claims, db)
+    return _complete_google_login(claims, db, login_data.accepted_terms)
 
 @router.post("/google/mobile", response_model=schemas.Token)
 def login_with_google_mobile(login_data: schemas.GoogleMobileLoginRequest, db: Session = Depends(database.get_db)):
@@ -188,11 +211,16 @@ def login_with_google_mobile(login_data: schemas.GoogleMobileLoginRequest, db: S
     except (GoogleAuthError, TransportError):
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Không thể xác minh với Google lúc này")
 
-    return _complete_google_login(claims, db)
+    return _complete_google_login(claims, db, login_data.accepted_terms)
 
 
 @router.post("/register", response_model=schemas.Token, status_code=status.HTTP_201_CREATED)
 def register(register_data: schemas.UserCreate, db: Session = Depends(database.get_db)):
+    if not register_data.accepted_terms:
+        raise HTTPException(
+            status_code=status.HTTP_428_PRECONDITION_REQUIRED,
+            detail="Vui lòng chấp nhận quy tắc cộng đồng trước khi tạo tài khoản",
+        )
     user = crud.get_user_by_email(db, email=register_data.email)
     if user:
         raise HTTPException(
@@ -201,8 +229,127 @@ def register(register_data: schemas.UserCreate, db: Session = Depends(database.g
         )
         
     user = crud.create_user(db, user=register_data)
+    db.add(models.UserPolicyAcceptance(user_id=user.id))
+    db.commit()
     access_token = auth_utils.create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer", "is_new_user": True}
+
+
+@router.post("/accept-terms")
+def accept_community_guidelines(
+    current_user: models.User = Depends(auth_utils.get_current_user),
+    db: Session = Depends(database.get_db),
+):
+    acceptance = db.query(models.UserPolicyAcceptance).filter_by(user_id=current_user.id).first()
+    if not acceptance:
+        db.add(models.UserPolicyAcceptance(user_id=current_user.id))
+        db.commit()
+    return {"accepted": True}
+
+
+def _delete_user_data(db: Session, user_id: int) -> None:
+    """Delete account-owned data before removing the user row.
+
+    The project uses PostgreSQL in production, but this explicit ordering also keeps deletion predictable
+    for existing installations whose older foreign keys do not all have ON DELETE CASCADE yet.
+    """
+    _delete_user_media(user_id)
+    # Records that can reference the user in more than one role.
+    db.query(models.ContentReport).filter(
+        (models.ContentReport.reporter_id == user_id) | (models.ContentReport.reviewed_by == user_id)
+    ).delete(synchronize_session=False)
+    db.query(models.AccountDeletionRequest).filter(
+        (models.AccountDeletionRequest.user_id == user_id) | (models.AccountDeletionRequest.processed_by == user_id)
+    ).delete(synchronize_session=False)
+    db.query(models.UserBlock).filter(
+        (models.UserBlock.blocker_id == user_id) | (models.UserBlock.blocked_id == user_id)
+    ).delete(synchronize_session=False)
+    db.query(models.UserPolicyAcceptance).filter_by(user_id=user_id).delete(synchronize_session=False)
+    db.query(models.Notification).filter(
+        (models.Notification.recipient_id == user_id) | (models.Notification.actor_id == user_id)
+    ).delete(synchronize_session=False)
+    db.query(models.ModerationWarning).filter(
+        (models.ModerationWarning.recipient_id == user_id) | (models.ModerationWarning.admin_id == user_id)
+    ).delete(synchronize_session=False)
+
+    # Conversations and messages are private account data and are removed together.
+    conversation_ids = [row[0] for row in db.query(models.Conversation.id).filter(
+        (models.Conversation.user1_id == user_id) | (models.Conversation.user2_id == user_id)
+    ).all()]
+    if conversation_ids:
+        db.query(models.Message).filter(models.Message.conversation_id.in_(conversation_ids)).delete(synchronize_session=False)
+        db.query(models.Conversation).filter(models.Conversation.id.in_(conversation_ids)).delete(synchronize_session=False)
+    db.query(models.Message).filter_by(sender_id=user_id).delete(synchronize_session=False)
+    db.query(models.Friendship).filter(
+        (models.Friendship.user_low_id == user_id)
+        | (models.Friendship.user_high_id == user_id)
+        | (models.Friendship.requester_id == user_id)
+    ).delete(synchronize_session=False)
+
+    # User-generated content and its dependent rows.
+    db.query(models.SocialPostCommentReaction).filter_by(user_id=user_id).delete(synchronize_session=False)
+    db.query(models.SocialPostLike).filter_by(user_id=user_id).delete(synchronize_session=False)
+    db.query(models.SocialPostComment).filter_by(author_id=user_id).delete(synchronize_session=False)
+    db.query(models.SocialPost).filter_by(author_id=user_id).delete(synchronize_session=False)
+    db.query(models.LfgPostParticipant).filter_by(user_id=user_id).delete(synchronize_session=False)
+    lfg_ids = [row[0] for row in db.query(models.LfgPost.id).filter_by(author_id=user_id).all()]
+    if lfg_ids:
+        db.query(models.LfgPostParticipant).filter(models.LfgPostParticipant.post_id.in_(lfg_ids)).delete(synchronize_session=False)
+        db.query(models.LfgPost).filter(models.LfgPost.id.in_(lfg_ids)).delete(synchronize_session=False)
+
+    # Bookings, rooms, teams and venues created/owned by the account.
+    db.query(models.Booking).filter_by(user_id=user_id).delete(synchronize_session=False)
+    db.query(models.VenueReservationBlock).filter_by(created_by=user_id).delete(synchronize_session=False)
+    match_ids = [row[0] for row in db.query(models.Match.id).filter_by(host_id=user_id).all()]
+    if match_ids:
+        db.query(models.MatchParticipant).filter(models.MatchParticipant.match_id.in_(match_ids)).delete(synchronize_session=False)
+        db.query(models.Match).filter(models.Match.id.in_(match_ids)).delete(synchronize_session=False)
+    db.query(models.MatchParticipant).filter_by(user_id=user_id).delete(synchronize_session=False)
+    db.query(models.TeamReview).filter_by(user_id=user_id).delete(synchronize_session=False)
+    db.query(models.TeamMembership).filter_by(user_id=user_id).delete(synchronize_session=False)
+    team_ids = [row[0] for row in db.query(models.Team.id).filter_by(owner_id=user_id).all()]
+    if team_ids:
+        db.query(models.TeamReview).filter(models.TeamReview.team_id.in_(team_ids)).delete(synchronize_session=False)
+        db.query(models.TeamMembership).filter(models.TeamMembership.team_id.in_(team_ids)).delete(synchronize_session=False)
+        db.query(models.Team).filter(models.Team.id.in_(team_ids)).delete(synchronize_session=False)
+    venue_ids = [row[0] for row in db.query(models.Venue.id).filter_by(owner_id=user_id).all()]
+    if venue_ids:
+        db.query(models.Venue).filter(models.Venue.id.in_(venue_ids)).delete(synchronize_session=False)
+
+    db.query(models.PremiumPayment).filter_by(user_id=user_id).delete(synchronize_session=False)
+    db.query(models.RoomSearchPreference).filter_by(user_id=user_id).delete(synchronize_session=False)
+    db.query(models.OAuthIdentity).filter_by(user_id=user_id).delete(synchronize_session=False)
+    db.query(models.UserSport).filter_by(user_id=user_id).delete(synchronize_session=False)
+    db.query(models.UserProfile).filter_by(user_id=user_id).delete(synchronize_session=False)
+    db.query(models.User).filter_by(id=user_id).delete(synchronize_session=False)
+
+
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
+def delete_my_account(
+    current_user: models.User = Depends(auth_utils.get_current_user),
+    db: Session = Depends(database.get_db),
+):
+    if current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Tài khoản quản trị cần được xử lý trong trung tâm quản trị")
+    _delete_user_data(db, current_user.id)
+    db.commit()
+    return None
+
+
+@router.post("/account-deletion-requests", response_model=schemas.AccountDeletionRequestResponse, status_code=status.HTTP_202_ACCEPTED)
+def request_account_deletion(
+    data: schemas.AccountDeletionRequestCreate,
+    db: Session = Depends(database.get_db),
+):
+    user = crud.get_user_by_email(db, data.email)
+    db.add(models.AccountDeletionRequest(
+        email=data.email,
+        user_id=user.id if user else None,
+        reason=data.reason,
+    ))
+    db.commit()
+    # Deliberately do not reveal whether an account exists at this email.
+    return {"message": "Yêu cầu đã được ghi nhận. SportGo sẽ xử lý việc xoá dữ liệu liên quan đến tài khoản."}
 
 @router.post("/logout")
 def logout(credentials = Depends(auth_utils.security), db: Session = Depends(database.get_db)):

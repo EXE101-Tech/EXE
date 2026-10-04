@@ -62,7 +62,7 @@ apiClient.interceptors.response.use(
 
 export const authService = {
   login: (data) => apiClient.post('/auth/login', data),
-  loginWithGoogle: (code) => apiClient.post('/auth/google', { code }, {
+  loginWithGoogle: (code, acceptedTerms = false) => apiClient.post('/auth/google', { code, accepted_terms: acceptedTerms }, {
     headers: { 'X-Requested-With': 'XmlHttpRequest' },
   }),
   register: (data) => apiClient.post('/auth/register', data),
@@ -70,6 +70,9 @@ export const authService = {
   getProfile: () => apiClient.get('/auth/me'),
   updateProfile: (data) => apiClient.put('/auth/me', data),
   getStats: () => apiClient.get('/auth/me/stats'),
+  acceptTerms: () => apiClient.post('/auth/accept-terms'),
+  deleteAccount: () => apiClient.delete('/auth/me'),
+  requestDeletion: (data) => apiClient.post('/auth/account-deletion-requests', data),
 };
 
 export const premiumService = {
@@ -92,6 +95,10 @@ export const adminService = {
   deleteUser: (id) => apiClient.delete(`/admin/users/${id}`),
   createAccount: (data) => apiClient.post('/admin/accounts', data),
   sendWarning: (data) => apiClient.post('/admin/warnings', data),
+  getDeletionRequests: () => apiClient.get('/moderation/admin/account-deletion-requests'),
+  completeDeletionRequest: (id) => apiClient.post(`/moderation/admin/account-deletion-requests/${id}/complete`),
+  getReports: () => apiClient.get('/moderation/admin/reports', { params: { status: 'PENDING' } }),
+  reviewReport: (id, data) => apiClient.patch(`/moderation/admin/reports/${id}`, data),
 };
 
 export const resolveMediaUrl = (path) => {
@@ -227,6 +234,12 @@ export const chatService = {
   sendFriendRequest: (userId) => apiClient.post('/chat/friends/requests', { recipient_id: userId }),
   acceptFriendRequest: (friendshipId) => apiClient.post(`/chat/friends/requests/${friendshipId}/accept`),
   removeFriendship: (friendshipId) => apiClient.delete(`/chat/friends/${friendshipId}`),
+};
+
+export const moderationService = {
+  report: (data) => apiClient.post('/moderation/reports', data),
+  block: (userId) => apiClient.post(`/moderation/blocks/${userId}`),
+  unblock: (userId) => apiClient.delete(`/moderation/blocks/${userId}`),
 };
 
 export const notificationService = {

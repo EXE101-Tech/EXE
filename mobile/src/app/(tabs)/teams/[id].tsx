@@ -1,12 +1,13 @@
 import { Text } from '@/components/ui/text';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, CalendarClock, Crown, MapPin, MessageCircle, Star, Users } from 'lucide-react-native';
+import { ArrowLeft, CalendarClock, Crown, Flag, MapPin, MessageCircle, Star, Users } from 'lucide-react-native';
 import { useState } from 'react';
 import { Image, Pressable, View } from 'react-native';
 
 import { resolveMediaUrl } from '@/api/resolve-media-url';
 import { LoadingState } from '@/components/brand/loading-state';
 import { ScreenContainer } from '@/components/brand/screen-container';
+import { ReportModal } from '@/components/moderation/report-modal';
 import { ImageLightbox } from '@/components/profile/image-lightbox';
 import { ReviewTeamModal } from '@/components/teams/review-team-modal';
 import { TeamPremiumSettingsModal } from '@/components/teams/team-premium-settings-modal';
@@ -36,6 +37,7 @@ export default function TeamDetailScreen() {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [premiumOpen, setPremiumOpen] = useState(false);
   const [coverOpen, setCoverOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
 
   const handleJoin = () =>
     joinTeam.mutate(teamId, {
@@ -152,6 +154,12 @@ export default function TeamDetailScreen() {
                 <Text className="text-xs font-bold text-brand dark:text-brand-dark">Nhắn tin</Text>
               </Button>
             ) : null}
+            {team.owner_id && !team.is_captain ? (
+              <Button variant="outline" size="sm" onPress={() => setReportOpen(true)}>
+                <Flag size={14} color="#D97706" />
+                <Text className="text-xs font-bold text-amber-600 dark:text-amber-400">Báo cáo</Text>
+              </Button>
+            ) : null}
           </View>
         </View>
       </View>
@@ -257,6 +265,17 @@ export default function TeamDetailScreen() {
         <TeamPremiumSettingsModal visible team={team} canEdit={team.is_captain} onClose={() => setPremiumOpen(false)} />
       ) : null}
       {coverUri ? <ImageLightbox visible={coverOpen} uri={coverUri} onClose={() => setCoverOpen(false)} /> : null}
+      {/* The API reports users, so a club is reported through its owner, with the club named in the details. */}
+      {team.owner_id ? (
+        <ReportModal
+          visible={reportOpen}
+          targetType="user"
+          targetId={team.owner_id}
+          details={`CLB #${team.id}: ${team.name}`.slice(0, 1000)}
+          onClose={() => setReportOpen(false)}
+          onSubmitted={() => showAlert('Đã gửi báo cáo', 'Quản trị viên SportGo sẽ xem xét CLB này.')}
+        />
+      ) : null}
     </ScreenContainer>
   );
 }

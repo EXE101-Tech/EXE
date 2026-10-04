@@ -48,7 +48,7 @@ function getPersonName(person) {
 }
 
 export default function SocialFeed() {
-  const { user } = useAuth();
+  const { user, acceptTerms } = useAuth();
   const { openChat } = useChat();
   const [searchParams, setSearchParams] = useSearchParams();
   const searchQuery = (searchParams.get('search') || '').trim();
@@ -186,8 +186,8 @@ export default function SocialFeed() {
       {searchQuery.length >= 2 && <div className="sg-search-filter">Kết quả bài viết cho <strong>“{searchQuery}”</strong><button type="button" onClick={() => setSearchParams({})} aria-label="Xóa tìm kiếm"><X size={16} /></button></div>}
       <section className="sg-panel sg-composer" aria-label="Tạo bài viết"><div className="sg-composer-top"><Avatar src={avatar} name={name} /><button type="button" onClick={() => setIsComposerOpen(true)} className="sg-composer-prompt">Bạn muốn chia sẻ gì?</button></div></section>
       {error && <div role="alert" className="sg-notice sg-error">{error}</div>}
-      {isLoading ? <><div className="sg-skeleton sg-loading-card" /><div className="sg-skeleton sg-loading-card" /></> : visiblePosts.length === 0 ? <div className="sg-panel sg-empty"><Camera size={36} /><h2>{searchQuery ? 'Chưa tìm thấy bài viết phù hợp' : 'Câu chuyện đầu tiên đang chờ bạn'}</h2><p>{searchQuery ? 'Thử một từ khóa khác hoặc xóa tìm kiếm.' : 'Chia sẻ một khoảnh khắc tập luyện, trận đấu hoặc câu chuyện thể thao của bạn.'}</p><button type="button" className="sg-primary-button" onClick={() => searchQuery ? setSearchParams({}) : setIsComposerOpen(true)}>{searchQuery ? 'Xóa tìm kiếm' : 'Tạo bài viết'}</button></div> : <div>{visiblePosts.map((post) => <SocialPostCard key={post.id} post={post} user={user} onRefresh={() => loadFeed(false, true)} onMessage={(recipient) => openChat(recipient)} />)}{hasMore && <button type="button" className="sg-primary-button sg-more-posts" onClick={() => loadFeed(true)} disabled={isLoadingMore}>{isLoadingMore ? 'Đang tải...' : 'Xem thêm bài viết'}</button>}</div>}
-      <SocialPostComposer key={isComposerOpen ? 'open' : 'closed'} isOpen={isComposerOpen} onClose={() => setIsComposerOpen(false)} onSave={savePost} />
+      {isLoading ? <><div className="sg-skeleton sg-loading-card" /><div className="sg-skeleton sg-loading-card" /></> : visiblePosts.length === 0 ? <div className="sg-panel sg-empty"><Camera size={36} /><h2>{searchQuery ? 'Chưa tìm thấy bài viết phù hợp' : 'Câu chuyện đầu tiên đang chờ bạn'}</h2><p>{searchQuery ? 'Thử một từ khóa khác hoặc xóa tìm kiếm.' : 'Chia sẻ một khoảnh khắc tập luyện, trận đấu hoặc câu chuyện thể thao của bạn.'}</p><button type="button" className="sg-primary-button" onClick={() => searchQuery ? setSearchParams({}) : setIsComposerOpen(true)}>{searchQuery ? 'Xóa tìm kiếm' : 'Tạo bài viết'}</button></div> : <div>{visiblePosts.map((post) => <SocialPostCard key={post.id} post={post} user={user} onRefresh={() => loadFeed(false, true)} onMessage={(recipient) => openChat(recipient)} onAcceptTerms={acceptTerms} />)}{hasMore && <button type="button" className="sg-primary-button sg-more-posts" onClick={() => loadFeed(true)} disabled={isLoadingMore}>{isLoadingMore ? 'Đang tải...' : 'Xem thêm bài viết'}</button>}</div>}
+      <SocialPostComposer key={isComposerOpen ? 'open' : 'closed'} isOpen={isComposerOpen} onClose={() => setIsComposerOpen(false)} onSave={savePost} onAcceptTerms={acceptTerms} guidelinesAccepted={Boolean(user?.community_guidelines_accepted)} />
     </main>
 
     <aside className="sg-feed-side sg-right-side" aria-label="Gợi ý cộng đồng">

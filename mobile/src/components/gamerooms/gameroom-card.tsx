@@ -4,6 +4,7 @@ import {
   CalendarClock,
   Clock,
   Crown,
+  Flag,
   MapPin,
   MessageCircle,
   Plus,
@@ -18,6 +19,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ViewLocationModal } from '@/components/map/view-location-modal';
+import { ReportModal } from '@/components/moderation/report-modal';
 import { Card } from '@/components/ui/card';
 import { SPORTS } from '@/lib/constants';
 import { isPremiumUser } from '@/lib/premium';
@@ -25,6 +27,7 @@ import { parseStoredCostToVnd } from '@/lib/price';
 import { formatDateVi, formatTimeVi, isFutureTime } from '@/lib/slots';
 import { cn } from '@/lib/utils';
 import type { MatchResponse } from '@/schemas/gamerooms';
+import { showAlert } from '@/stores/dialog-store';
 import { UserName } from '@/components/ui/user-name';
 
 interface GameroomCardProps {
@@ -95,6 +98,7 @@ export function GameroomCard({
   isResponding,
 }: GameroomCardProps) {
   const [isMapOpen, setIsMapOpen] = useState(false);
+  const [isReportOpen, setIsReportOpen] = useState(false);
   const approvedParticipants = room.participants.filter((p) => p.status === 'APPROVED');
   const approvedCount = approvedParticipants.length;
   const pendingCount = room.participants.filter((p) => p.status === 'PENDING').length;
@@ -285,6 +289,11 @@ export function GameroomCard({
 
         {/* Footer actions */}
         <View className="flex-row items-center justify-end gap-2 border-t border-border pt-3 dark:border-border-dark">
+          {!isHost ? (
+            <Button variant="outline" size="icon" accessibilityLabel="Báo cáo chủ phòng" onPress={() => setIsReportOpen(true)}>
+              <Flag size={15} color="#D97706" />
+            </Button>
+          ) : null}
           <Button variant="outline" size="icon" onPress={onChat}>
             <MessageCircle size={15} color="#537fff" />
           </Button>
@@ -330,6 +339,15 @@ export function GameroomCard({
       {isMapOpen && location ? (
         <ViewLocationModal title={room.title} location={location} coords={venueCoords} onClose={() => setIsMapOpen(false)} />
       ) : null}
+      {/* The API reports users, so a room is reported through its host, with the room named in the details. */}
+      <ReportModal
+        visible={isReportOpen}
+        targetType="user"
+        targetId={room.host_id}
+        details={`Phòng #${room.id}: ${room.title}`.slice(0, 1000)}
+        onClose={() => setIsReportOpen(false)}
+        onSubmitted={() => showAlert('Đã gửi báo cáo', 'Quản trị viên SportGo sẽ xem xét phòng này.')}
+      />
     </Card>
   );
 }

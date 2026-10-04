@@ -26,6 +26,20 @@ def _user_payload(user: models.User):
     }
 
 
+def _is_blocked(db: Session, first_id: int, second_id: int) -> bool:
+    return db.query(models.UserBlock.id).filter(
+        or_(
+            (models.UserBlock.blocker_id == first_id) & (models.UserBlock.blocked_id == second_id),
+            (models.UserBlock.blocker_id == second_id) & (models.UserBlock.blocked_id == first_id),
+        )
+    ).first() is not None
+
+
+def _ensure_chat_allowed(db: Session, first_id: int, second_id: int) -> None:
+    if _is_blocked(db, first_id, second_id):
+        raise HTTPException(status_code=403, detail="Không thể nhắn tin với người dùng này")
+
+
 def _friendship_payload(friendship: models.Friendship, current_user_id: int):
     peer_id = friendship.user_high_id if friendship.user_low_id == current_user_id else friendship.user_low_id
     peer = friendship.user_high if friendship.user_high_id == peer_id else friendship.user_low
@@ -87,6 +101,7 @@ def _get_conversation(db: Session, conversation_id: int, user_id: int):
     ).first()
     if not conversation:
         raise HTTPException(status_code=404, detail="Không tìm thấy cuộc trò chuyện")
+    _ensure_chat_allowed(db, user_id, _other_user(conversation, user_id).id)
     return conversation
 
 
@@ -101,6 +116,10 @@ def list_conversations(
     ).filter(
         or_(models.Conversation.user1_id == current_user.id, models.Conversation.user2_id == current_user.id),
     ).order_by(models.Conversation.updated_at.desc()).all()
+    conversations = [
+        item for item in conversations
+        if not _is_blocked(db, current_user.id, item.user2_id if item.user1_id == current_user.id else item.user1_id)
+    ]
     if not conversations:
         return []
 
@@ -172,6 +191,7 @@ def start_conversation(
     recipient = db.query(models.User).options(joinedload(models.User.profile)).filter_by(id=data.recipient_id).first()
     if not recipient:
         raise HTTPException(status_code=404, detail="Không tìm thấy người nhận")
+    _ensure_chat_allowed(db, current_user.id, recipient.id)
 
     conversation = db.query(models.Conversation).filter(
         or_(
@@ -322,6 +342,15 @@ def search_chat_users(
         func.coalesce(models.User.status, "active") == "active",
         or_(models.UserProfile.full_name.ilike(pattern), models.User.email.ilike(pattern)),
     ).order_by(models.UserProfile.full_name.asc(), models.User.id.asc()).limit(limit).all()
+    if not users:
+        return []
+    blocked_ids = {
+        item.blocked_id if item.blocker_id == current_user.id else item.blocker_id
+        for item in db.query(models.UserBlock).filter(
+            or_(models.UserBlock.blocker_id == current_user.id, models.UserBlock.blocked_id == current_user.id),
+        ).all()
+    }
+    users = [person for person in users if person.id not in blocked_ids]
     if not users:
         return []
     user_ids = [person.id for person in users]

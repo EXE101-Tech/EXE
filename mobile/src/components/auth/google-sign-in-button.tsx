@@ -25,13 +25,14 @@ let configured = false;
 interface GoogleSignInButtonProps {
   label?: string;
   onError?: (message: string) => void;
+  acceptedTerms?: boolean;
 }
 
 /**
  * Native Google Sign-In. The SDK returns an ID token whose audience is the *web* client ID; the backend
  * (`/auth/google/mobile`) verifies it and returns our own access token.
  */
-export function GoogleSignInButton({ label = 'Google', onError }: GoogleSignInButtonProps) {
+export function GoogleSignInButton({ label = 'Google', onError, acceptedTerms = false }: GoogleSignInButtonProps) {
   const loginWithGoogle = useAuthStore((s) => s.loginWithGoogle);
   const [busy, setBusy] = useState(false);
 
@@ -62,7 +63,7 @@ export function GoogleSignInButton({ label = 'Google', onError }: GoogleSignInBu
 
       const idToken = response.data.idToken;
       if (!idToken) throw new Error('Google không trả về thông tin đăng nhập. Vui lòng thử lại.');
-      await loginWithGoogle(idToken);
+      await loginWithGoogle(idToken, acceptedTerms);
       // Navigation happens in the auth layout once the store flips to authenticated.
     } catch (error) {
       if (isErrorWithCode(error)) {

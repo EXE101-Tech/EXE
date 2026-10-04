@@ -13,6 +13,8 @@ import PublicLayout from '../shared/layouts/PublicLayout.jsx';
 import NavbarLayout from '../shared/layouts/NavbarLayout.jsx';
 import PremiumPage from '../features/premium/PremiumPage.jsx';
 import AdminDashboard from '../features/admin/AdminDashboard.jsx';
+import PrivacyPolicyPage from '../features/legal/PrivacyPolicyPage.jsx';
+import AccountDeletionPage from '../features/legal/AccountDeletionPage.jsx';
 import { SportFilterProvider } from '../shared/context/SportFilterContext.jsx';
 
 function GlobalWrapper({ children }) {
@@ -67,6 +69,8 @@ function AppRoutes() {
                                 <Route path="/login" element={<Login />} />
                                 <Route path="/register" element={<Login defaultIsRegister={true} />} />
                                 <Route path="/" element={<LandingPage />} />
+                                <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+                                <Route path="/account-deletion" element={<AccountDeletionPage />} />
                             </Route>
                             <Route path="/admin" element={<ProtectedRoute><AdminRoute><AdminDashboard /></AdminRoute></ProtectedRoute>} />
                             <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
