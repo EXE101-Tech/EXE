@@ -42,7 +42,8 @@ apiClient.interceptors.response.use(
     }
     const message =
       formatErrorDetail(error.response?.data?.detail) || error.response?.data?.message || 'Đã có lỗi xảy ra';
-    return Promise.reject(new Error(message));
+    // Keep the HTTP status so callers can react to specific cases (e.g. 428 = community rules not accepted yet).
+    return Promise.reject(Object.assign(new Error(message), { status: error.response?.status }));
   },
 );
 
