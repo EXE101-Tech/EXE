@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 
+import { CommunityRulesModal } from '@/components/moderation/community-rules-modal';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { env } from '@/lib/env';
 import { useAuthStore } from '@/stores/auth-store';
+import { showAlert } from '@/stores/dialog-store';
 
 type GoogleSigninLib = typeof import('@react-native-google-signin/google-signin');
 
@@ -35,6 +37,19 @@ interface GoogleSignInButtonProps {
 export function GoogleSignInButton({ label = 'Google', onError, acceptedTerms = false }: GoogleSignInButtonProps) {
   const loginWithGoogle = useAuthStore((s) => s.loginWithGoogle);
   const [busy, setBusy] = useState(false);
+  const [rulesOpen, setRulesOpen] = useState(false);
+
+  /** Second attempt for a brand-new Google account, once the user has agreed to the community rules. */
+  const retryWithTerms = async (idToken: string) => {
+    setBusy(true);
+    try {
+      await loginWithGoogle(idToken, true);
+    } catch (error) {
+      onError?.(error instanceof Error ? error.message : 'Không thể đăng nhập bằng Google.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const handlePress = async () => {
     if (busy) return;
@@ -48,6 +63,7 @@ export function GoogleSignInButton({ label = 'Google', onError, acceptedTerms = 
     }
 
     const { GoogleSignin, statusCodes, isErrorWithCode } = googleLib;
+    let idToken: string | null | undefined;
     setBusy(true);
     try {
       if (!configured) {
@@ -61,11 +77,22 @@ export function GoogleSignInButton({ label = 'Google', onError, acceptedTerms = 
       const response = await GoogleSignin.signIn();
       if (response.type !== 'success') return; // user dismissed the account picker
 
-      const idToken = response.data.idToken;
+      idToken = response.data.idToken;
       if (!idToken) throw new Error('Google không trả về thông tin đăng nhập. Vui lòng thử lại.');
       await loginWithGoogle(idToken, acceptedTerms);
       // Navigation happens in the auth layout once the store flips to authenticated.
     } catch (error) {
+      // A first-time Google account is only created after the rules are accepted (the login screen has no
+      // checkbox, the sign-up screen does), so ask here instead of showing a dead-end error.
+      if (idToken && !acceptedTerms && (error as { status?: number }).status === 428) {
+        const token = idToken;
+        showAlert('Quy tắc cộng đồng', 'Để tạo tài khoản SportGo bằng Google, bạn cần đồng ý tuân thủ quy tắc cộng đồng.', [
+          { text: 'Xem quy tắc', onPress: () => setRulesOpen(true) },
+          { text: 'Hủy', style: 'cancel' },
+          { text: 'Đồng ý và tiếp tục', onPress: () => retryWithTerms(token) },
+        ]);
+        return;
+      }
       if (isErrorWithCode(error)) {
         if (error.code === statusCodes.SIGN_IN_CANCELLED || error.code === statusCodes.IN_PROGRESS) return;
         if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
@@ -89,6 +116,7 @@ export function GoogleSignInButton({ label = 'Google', onError, acceptedTerms = 
       <Button variant="outline" onPress={handlePress} loading={busy}>
         <Text className="text-base font-bold text-slate-900 dark:text-white">{label}</Text>
       </Button>
+      <CommunityRulesModal visible={rulesOpen} onClose={() => setRulesOpen(false)} />
     </View>
   );
 }
