@@ -6,11 +6,13 @@ const QUICK_TAGS = [
   'Bầu không khí vui vẻ', 'Đúng giờ', 'Sân sạch sẽ', 'Giá hợp lý', 'Tổ chức tốt',
 ];
 
-export default function ReviewTeamModal({ teamId, isOpen, onClose }) {
+export default function ReviewTeamModal({ teamId, isOpen, onClose, onSubmit }) {
   const [rating, setRating] = useState(0);
   const [hoveredStar, setHoveredStar] = useState(0);
   const [comment, setComment] = useState('');
   const [selectedTags, setSelectedTags] = useState([]);
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
@@ -20,17 +22,24 @@ export default function ReviewTeamModal({ teamId, isOpen, onClose }) {
     );
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!rating) {
-      alert('Vui lòng chọn số sao đánh giá!');
+      setError('Vui lòng chọn số sao đánh giá.');
       return;
     }
-    alert(`🎉 Cảm ơn bạn đã đánh giá ${rating} sao! Đánh giá của bạn giúp cộng đồng chọn CLB phù hợp.`);
-    onClose();
-    setRating(0);
-    setComment('');
-    setSelectedTags([]);
+    setIsSubmitting(true);
+    setError('');
+    try {
+      await onSubmit?.({ rating, comment: comment.trim() || null, tags: selectedTags });
+      setRating(0);
+      setComment('');
+      setSelectedTags([]);
+    } catch (err) {
+      setError(err.message || 'Không gửi được đánh giá.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const getRatingLabel = (stars) => {
@@ -72,6 +81,8 @@ export default function ReviewTeamModal({ teamId, isOpen, onClose }) {
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
           <div className="p-6 space-y-5 overflow-y-auto flex-1">
+
+          {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-700 dark:bg-red-950/30 dark:text-red-300">{error}</p>}
 
           {/* Star Rating */}
           <div className="text-center">
@@ -151,10 +162,11 @@ export default function ReviewTeamModal({ teamId, isOpen, onClose }) {
             </button>
             <button
               type="submit"
+              disabled={isSubmitting}
               className="px-6 py-2.5 rounded-2xl font-bold text-xs sm:text-sm bg-gradient-to-r from-amber-400 to-yellow-500 hover:opacity-95 text-white shadow-md hover:shadow-lg flex items-center gap-2 transition-all duration-200 active:scale-95"
             >
               <CheckCircle2 className="w-4 h-4" />
-              <span>Gửi đánh giá</span>
+              <span>{isSubmitting ? 'Đang gửi…' : 'Gửi đánh giá'}</span>
             </button>
           </div>
         </form>

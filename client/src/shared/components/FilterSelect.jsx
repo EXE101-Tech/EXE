@@ -55,7 +55,7 @@ export default function FilterSelect({
       <select
         value={value}
         onChange={onChange}
-        className={`w-full h-full min-w-0 col-start-1 row-start-1 bg-white dark:bg-[#001F3F]/80 border border-slate-200 dark:border-white/15 rounded-2xl pl-9 pr-7 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none focus:border-[#589470] dark:focus:border-[#74C365] shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all ${selectClassName}`}
+        className={`member-filter-control w-full h-full min-w-0 col-start-1 row-start-1 rounded-2xl border pl-9 pr-7 py-2 text-xs font-semibold focus:outline-none sm:py-2.5 sm:text-sm appearance-none cursor-pointer ${selectClassName}`}
       >
         {children ||
           options.map((opt) => (

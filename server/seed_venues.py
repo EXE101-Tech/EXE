@@ -1,94 +1,119 @@
-import sys
+import json
 import os
-import random
+import sys
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from app.database import SessionLocal
-from app.models import Venue, Court, Sport
+from app.models import Court, Sport, Venue
+
+SPORT_NAME_MAP = {
+    "badminton": "Badminton",
+    "football": "Football",
+    "pickleball": "Pickleball",
+    "tennis": "Tennis",
+}
+
+DEFAULT_PRICES = {
+    "badminton": 120000,
+    "football": 350000,
+    "pickleball": 150000,
+    "tennis": 200000,
+}
+
+PRICE_LABELS = {
+    "badminton": "100.000đ - 150.000đ/h",
+    "football": "300.000đ - 450.000đ/h",
+    "pickleball": "120.000đ - 180.000đ/h",
+    "tennis": "180.000đ - 250.000đ/h",
+}
+
 
 def seed_venues():
     db = SessionLocal()
 
-    # District 9 center approx
-    BASE_LAT = 10.8427
-    BASE_LNG = 106.8041
+    json_path = os.path.join(os.path.dirname(__file__), "venues_seed_data.json")
+    if not os.path.exists(json_path):
+        print(f"Error: {json_path} does not exist.")
+        db.close()
+        return
 
-    sports_map = {
-        "Badminton": [
-            {"name": "Sân cầu lông Trúc Long Badminton", "address": "75 Hoàng Hữu Nam, Phường Tăng Nhơn Phú, Quận 9"},
-            {"name": "Sân Cầu Lông Tăng Nhơn Phú (Badminton Passion Hub)", "address": "591C Đường Lê Văn Việt, Phường Tăng Nhơn Phú, Quận 9"},
-            {"name": "Sân Cầu Lông Trạm Cầu Lông", "address": "135/34 Đình Phong Phú, Phường Tăng Nhơn Phú, Quận 9"},
-            {"name": "Sân cầu lông Trường Viện Kiểm Sát", "address": "11, Hẻm C24 Đường 449, Phường Tăng Nhơn Phú, Quận 9"},
-            {"name": "Sân Cầu Lông An Bình (An Binh Badminton)", "address": "86/2 Đình Phong Phú, Phường Tăng Nhơn Phú, Quận 9"}
-        ],
-        "Football": [
-            {"name": "Sân Bóng Đá 197 Arena", "address": "80c Đường số 197, Phường Tăng Nhơn Phú, Quận 9"},
-            {"name": "Sân bóng đá mini Long Trường Quận 9", "address": "Số 45 Bùi Xương Trạch, Phường Long Trường, Quận 9"},
-            {"name": "Sân bóng đá Võ Văn Hát", "address": "Đối diện hẻm 225/124 Đường Võ Văn Hát, Phường Long Trường, Quận 9"},
-            {"name": "Sân banh 185", "address": "RQFH+GJ8, Đường số 185 (giao đường 339), Phường Phước Long, Quận 9"},
-            {"name": "Sân bóng - Trung tâm thể thao Tiến Minh", "address": "Khu tiểu đoàn 41, Hẻm 141 Đường 339, Phường Phước Long, Quận 9"}
-        ],
-        "Pickleball": [
-            {"name": "Pickleball Song Phát Quận 9", "address": "175/13 Nguyễn Văn Tăng, Phường Long Bình, Quận 9"},
-            {"name": "Prime Pickleball Quận 9", "address": "12 Đường số 23, Phường Long Bình, Quận 9"},
-            {"name": "PPS Pickleball Phong Phú Sport", "address": "261/9 Đình Phong Phú, Khu Phố 3, Phường Tăng Nhơn Phú, Quận 9"},
-            {"name": "Kenik Pickleball - Vinhomes Grand Park", "address": "581/10 Nguyễn Xiển, Phường Long Bình, Quận 9"}
-        ],
-        "Tennis": [
-            {"name": "Sân Tennis TT TDTT Q9", "address": "RQWQ+95Q, Phường Tăng Nhơn Phú, Quận 9"},
-            {"name": "Sân Tennis Công An Q9", "address": "RQXG+Q85, Tân Lập 1, Phường Tăng Nhơn Phú, Quận 9"},
-            {"name": "CLB Sân Tennis 99", "address": "99 Man Thiện, Phường Tăng Nhơn Phú, Quận 9"}
-        ]
-    }
-    
-    price_map = {
-        "Badminton": 120000,
-        "Football": 350000,
-        "Pickleball": 150000,
-        "Tennis": 200000
-    }
+    with open(json_path, "r", encoding="utf-8") as f:
+        venues_data = json.load(f)
 
-    print("Starting seed...")
+    print(f"Loaded {len(venues_data)} venues from {json_path}")
 
-    for sport_name, locations in sports_map.items():
-        sport = db.query(Sport).filter_by(name=sport_name).first()
-        if not sport:
-            print(f"Warning: Sport {sport_name} not found in DB. Skipping.")
-            continue
-            
-        for loc in locations:
-            venue = db.query(Venue).filter_by(name=loc['name']).first()
+    # Cache sports by name
+    sports = {s.name.lower(): s for s in db.query(Sport).all()}
+
+    venues_created = 0
+    venues_updated = 0
+    courts_created = 0
+
+    try:
+        for item in venues_data:
+            sport_key = item.get("sport", "badminton").lower()
+            mapped_sport_name = SPORT_NAME_MAP.get(sport_key, "Badminton")
+            sport_obj = sports.get(mapped_sport_name.lower())
+
+            if not sport_obj:
+                print(f"Warning: Sport '{mapped_sport_name}' not found in database. Skipping.")
+                continue
+
+            venue = db.query(Venue).filter_by(name=item["name"]).first()
             if not venue:
-                lat = BASE_LAT + random.uniform(-0.015, 0.015)
-                lng = BASE_LNG + random.uniform(-0.015, 0.015)
-                
                 venue = Venue(
-                    name=loc['name'],
-                    address=loc['address'],
-                    latitude=lat,
-                    longitude=lng,
-                    description=f"{sport_name} court in District 9"
+                    name=item["name"],
+                    address=item["address"],
+                    latitude=item["lat"],
+                    longitude=item["lng"],
+                    sport_key=sport_key,
+                    price_label=PRICE_LABELS.get(sport_key, "100.000đ - 200.000đ/h"),
+                    court_count=4,
+                    description=f"Sân thể thao {mapped_sport_name} uy tín, chất lượng tại TP.HCM.",
+                    is_active=True,
                 )
                 db.add(venue)
-                db.commit()
-                db.refresh(venue)
-                print(f"Created Venue")
-            
-            court = db.query(Court).filter_by(venue_id=venue.id, sport_id=sport.id).first()
-            if not court:
-                court = Court(
-                    venue_id=venue.id,
-                    name=f"Sân {sport_name} 1",
-                    sport_id=sport.id,
-                    price_per_hour=price_map.get(sport_name, 100000)
-                )
-                db.add(court)
-                db.commit()
-                print(f"Created Court")
-                
-    print("Seed complete.")
-    db.close()
+                db.flush()
+                venues_created += 1
+            else:
+                # Update with exact coordinates and verified address
+                venue.latitude = item["lat"]
+                venue.longitude = item["lng"]
+                venue.address = item["address"]
+                venue.sport_key = sport_key
+                if not venue.price_label:
+                    venue.price_label = PRICE_LABELS.get(sport_key, "100.000đ - 200.000đ/h")
+                venue.is_active = True
+                venues_updated += 1
+
+            # Ensure at least 1-2 courts exist for this venue
+            existing_courts = db.query(Court).filter_by(venue_id=venue.id).all()
+            if not existing_courts:
+                for i in range(1, 3):
+                    court = Court(
+                        venue_id=venue.id,
+                        name=f"Sân {mapped_sport_name} {i}",
+                        sport_id=sport_obj.id,
+                        price_per_hour=DEFAULT_PRICES.get(sport_key, 120000),
+                        is_active=True,
+                    )
+                    db.add(court)
+                    courts_created += 1
+
+        db.commit()
+        print(f"Seed complete:")
+        print(f"- Venues created: {venues_created}")
+        print(f"- Venues updated: {venues_updated}")
+        print(f"- Courts created: {courts_created}")
+        print(f"- Total active venues in DB: {db.query(Venue).filter_by(is_active=True).count()}")
+    except Exception as e:
+        db.rollback()
+        print(f"Error during seeding: {e}")
+        raise
+    finally:
+        db.close()
+
 
 if __name__ == "__main__":
     seed_venues()

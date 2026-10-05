@@ -1,58 +1,27 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '../shared/context/AuthContext';
 import Login from '../features/auth/Login.jsx';
+import OnboardingPage from '../features/auth/OnboardingPage.jsx';
 import Home from '../features/home/Home.jsx';
-import Tournament from '../features/tournament/Tournament.jsx';
+import SocialFeed from '../features/tournament/SocialFeed.jsx';
 import GameRoom from '../features/gameroom/GameRoom.jsx';
-import Bookings from '../features/bookings/Bookings.jsx';
-import MapPage from '../features/map/Map.jsx';
 import Team from '../features/team/Team.jsx';
-import CourtDetailPage from '../features/courts/pages/CourtDetailPage.jsx';
-import Sidebar from '../shared/components/Sidebar.jsx';
-import TopNavbar from '../shared/components/TopNavbar.jsx';
-import ChatPanel from '../shared/components/ChatPanel.jsx';
-import { ChatProvider, useChat } from '../shared/context/ChatContext.jsx';
+import TeamDetailPage from '../features/team/TeamDetailPage.jsx';
+import { ChatProvider } from '../shared/context/ChatContext.jsx';
 import LandingPage from '../features/landing/Landing.jsx';
 import PublicLayout from '../shared/layouts/PublicLayout.jsx';
 import NavbarLayout from '../shared/layouts/NavbarLayout.jsx';
-import Particles from '../features/landing/components/Particles.jsx';
-import { useTheme } from '../shared/context/ThemeContext.jsx';
+import PremiumPage from '../features/premium/PremiumPage.jsx';
+import AdminDashboard from '../features/admin/AdminDashboard.jsx';
+import PrivacyPolicyPage from '../features/legal/PrivacyPolicyPage.jsx';
+import AccountDeletionPage from '../features/legal/AccountDeletionPage.jsx';
 import { SportFilterProvider } from '../shared/context/SportFilterContext.jsx';
 
 function GlobalWrapper({ children }) {
-    const { toggleTheme } = useTheme();
     return (
         <div className="min-h-screen text-slate-900 dark:text-white overflow-x-clip selection:bg-brand-primary/30 font-sans relative theme-transition">
-            <div className="fixed inset-0 z-0 pointer-events-none">
-                <Particles />
-            </div>
-            
             <div className="relative z-10 h-full w-full">
                 {children}
-            </div>
-        </div>
-    );
-}
-
-function MainLayout({ children }) {
-    const { isChatOpen } = useChat();
-    return (
-        <div className="flex h-screen overflow-hidden bg-transparent page-fade-in">
-            {/* Sidebar (Desktop) */}
-            <Sidebar />
-
-            {/* Nội dung chính — margin left để tránh Sidebar */}
-            <div
-                className="flex-1 flex flex-col min-w-0 transition-[margin] duration-300 ease-in-out ml-[292px] relative"
-                style={{ marginRight: isChatOpen ? '388px' : '0px' }}
-            >
-                <TopNavbar />
-                
-                <main className="flex-1 p-6 overflow-y-auto overflow-x-hidden">
-                    {children}
-                </main>
-
-                <ChatPanel />
             </div>
         </div>
     );
@@ -76,6 +45,19 @@ function ProtectedRoute({ children }) {
     return children;
 }
 
+function MemberLayout() {
+    const { user } = useAuth();
+    if (user?.isAdmin) return <Navigate to="/admin" replace />;
+    if (user && localStorage.getItem('sportgo-onboarding-pending') === String(user.id)) return <Navigate to="/onboarding" replace />;
+    return <NavbarLayout />;
+}
+
+function AdminRoute({ children }) {
+    const { user } = useAuth();
+    if (!user?.isAdmin) return <Navigate to="/home" replace />;
+    return children;
+}
+
 function AppRoutes() {
     return (
         <BrowserRouter>
@@ -87,16 +69,24 @@ function AppRoutes() {
                                 <Route path="/login" element={<Login />} />
                                 <Route path="/register" element={<Login defaultIsRegister={true} />} />
                                 <Route path="/" element={<LandingPage />} />
+                                <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+                                <Route path="/account-deletion" element={<AccountDeletionPage />} />
                             </Route>
-                            <Route element={<ProtectedRoute><NavbarLayout /></ProtectedRoute>}>
+                            <Route path="/admin" element={<ProtectedRoute><AdminRoute><AdminDashboard /></AdminRoute></ProtectedRoute>} />
+                            <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
+                            <Route element={<ProtectedRoute><MemberLayout /></ProtectedRoute>}>
                                 <Route path="/home" element={<Home />} />
-                                <Route path="/tournaments" element={<Tournament />} />
+                                <Route path="/tournaments" element={<SocialFeed />} />
                                 <Route path="/matches" element={<GameRoom />} />
-                                <Route path="/bookings" element={<Bookings />} />
                                 <Route path="/team" element={<Team />} />
-                                <Route path="/courts/:id" element={<CourtDetailPage />} />
+                                <Route path="/team/:id" element={<TeamDetailPage />} />
+                                <Route path="/premium" element={<PremiumPage />} />
+                                <Route path="/bookings" element={<Navigate to="/home" replace />} />
+                                <Route path="/bookings/*" element={<Navigate to="/home" replace />} />
+                                <Route path="/my-bookings" element={<Navigate to="/home" replace />} />
+                                <Route path="/courts/:id" element={<Navigate to="/home" replace />} />
                             </Route>
-                            <Route path="/map" element={<ProtectedRoute><MainLayout><MapPage /></MainLayout></ProtectedRoute>} />
+                            <Route path="/map" element={<Navigate to="/home" replace />} />
                             <Route path="*" element={<Navigate to="/home" replace />} />
                         </Routes>
                     </GlobalWrapper>

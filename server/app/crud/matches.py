@@ -1,5 +1,16 @@
-from sqlalchemy.orm import Session
+from datetime import datetime, timezone
+
+from sqlalchemy.orm import Session, joinedload, selectinload
 from app import models, schemas
+
+def _match_eager_options():
+    return [
+        joinedload(models.Match.host).joinedload(models.User.profile),
+        joinedload(models.Match.sport),
+        joinedload(models.Match.court).joinedload(models.Court.venue),
+        joinedload(models.Match.court).joinedload(models.Court.sport),
+        selectinload(models.Match.participants).joinedload(models.MatchParticipant.user).joinedload(models.User.profile),
+    ]
 
 def create_match(db: Session, host_id: int, match: schemas.MatchCreate):
     db_match = models.Match(
@@ -8,6 +19,8 @@ def create_match(db: Session, host_id: int, match: schemas.MatchCreate):
         court_id=match.court_id,
         title=match.title,
         description=match.description,
+        location=match.location,
+        price_info=match.price_info,
         required_level=match.required_level,
         start_time=match.start_time,
         end_time=match.end_time,
@@ -30,30 +43,80 @@ def create_match(db: Session, host_id: int, match: schemas.MatchCreate):
     db.refresh(db_match)
     return db_match
 
-def get_matches(db: Session, sport_id: int = None, status: str = None):
-    query = db.query(models.Match)
+def close_expired_matches(db: Session):
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    updated = db.query(models.Match).filter(
+        models.Match.end_time <= now,
+        models.Match.status.notin_(["CLOSED", "CANCELLED", "FINISHED"]),
+    ).update({models.Match.status: "CLOSED"}, synchronize_session=False)
+    if updated:
+        db.commit()
+    return updated
+
+
+def get_matches(db: Session, sport_id: int = None, status: str = None, host_id: int = None):
+    query = db.query(models.Match).options(*_match_eager_options())
+    if host_id is not None:
+        query = query.filter(models.Match.host_id == host_id)
+    else:
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        query = query.filter(
+            models.Match.status.notin_(["CLOSED", "CANCELLED", "FINISHED"]),
+            models.Match.end_time > now,
+        )
     if sport_id:
         query = query.filter(models.Match.sport_id == sport_id)
     if status:
         query = query.filter(models.Match.status == status)
-    return query.all()
+    return query.order_by(models.Match.created_at.desc()).all()
+
+
+def update_match(db: Session, match_id: int, data: schemas.MatchCreate):
+    match = db.query(models.Match).filter(models.Match.id == match_id).first()
+    if not match:
+        return None
+    for field in (
+        "title", "description", "location", "price_info", "sport_id", "court_id",
+        "required_level", "start_time", "end_time", "max_players",
+    ):
+        setattr(match, field, getattr(data, field))
+    approved_count = db.query(models.MatchParticipant).filter(
+        models.MatchParticipant.match_id == match_id,
+        models.MatchParticipant.status == "APPROVED",
+    ).count()
+    match.status = "FULL" if approved_count >= match.max_players else "OPEN"
+    db.commit()
+    return get_match_by_id(db, match_id)
 
 def get_match_by_id(db: Session, match_id: int):
-    return db.query(models.Match).filter(models.Match.id == match_id).first()
+    return db.query(models.Match).options(*_match_eager_options()).filter(models.Match.id == match_id).first()
 
-def join_match(db: Session, match_id: int, user_id: int):
+def join_match(db: Session, match_id: int, user_id: int, note: str = None):
     exists = db.query(models.MatchParticipant).filter(
         models.MatchParticipant.match_id == match_id,
         models.MatchParticipant.user_id == user_id
     ).first()
     if exists:
+        if exists.status == "REJECTED":
+            exists.status = "PENDING"
+            exists.role = "PLAYER"
+            exists.note = note
+            # A manual re-join starts a regular host approval request rather
+            # than reviving the previous automatic invitation cycle.
+            exists.invite_source = None
+            exists.invited_at = None
+            exists.invite_round = None
+            exists.joined_at = models.utc_now_naive()
+            db.commit()
+            db.refresh(exists)
         return exists
         
     db_participant = models.MatchParticipant(
         match_id=match_id,
         user_id=user_id,
         role="PLAYER",
-        status="PENDING"  # Default status is PENDING to support approval flow
+        status="PENDING",  # Default status is PENDING to support approval flow
+        note=note,
     )
     db.add(db_participant)
     db.commit()

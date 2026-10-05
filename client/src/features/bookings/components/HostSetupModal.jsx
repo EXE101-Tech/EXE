@@ -1,19 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, ShieldCheck, DollarSign, Layers, MapPin, Wifi, Car, Droplets, Coffee, Package, Sparkles, Building2 } from 'lucide-react';
-import badmintonImg from '../../../assets/sports/badminton.avif';
-import footballImg from '../../../assets/sports/foodball.avif';
-import pickleballImg from '../../../assets/sports/pickleball.jpg';
-import tennisImg from '../../../assets/sports/tennis.jpg';
-import basketballImg from '../../../assets/sports/bong_ro.jpg';
-import volleyballImg from '../../../assets/sports/volleyball.jpg';
 
 const SPORTS = [
-  { id: 'badminton', name: 'Cầu lông', emoji: '🏸', defaultImg: badmintonImg },
-  { id: 'football', name: 'Bóng đá', emoji: '⚽', defaultImg: footballImg },
-  { id: 'pickleball', name: 'Pickleball', emoji: '🏓', defaultImg: pickleballImg },
-  { id: 'tennis', name: 'Tennis', emoji: '🎾', defaultImg: tennisImg },
-  { id: 'basketball', name: 'Bóng rổ', emoji: '🏀', defaultImg: basketballImg },
-  { id: 'volleyball', name: 'Bóng chuyền', emoji: '🏐', defaultImg: volleyballImg },
+  { id: 'badminton', name: 'Cầu lông', emoji: '🏸' },
+  { id: 'football', name: 'Bóng đá', emoji: '⚽' },
+  { id: 'pickleball', name: 'Pickleball', emoji: '🏓' },
+  { id: 'tennis', name: 'Tennis', emoji: '🎾' },
+  { id: 'basketball', name: 'Bóng rổ', emoji: '🏀' },
+  { id: 'volleyball', name: 'Bóng chuyền', emoji: '🏐' },
 ];
 
 const FACILITY_OPTIONS = [
@@ -24,10 +18,11 @@ const FACILITY_OPTIONS = [
   { key: 'rental', label: 'Thuê vợt, giày & bóng', icon: Package },
 ];
 
-export default function HostSetupModal({ isOpen, onClose, onSave }) {
+export default function HostSetupModal({ isOpen, onClose, onSave, initialVenue = null }) {
   const [sportId, setSportId] = useState('badminton');
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
+  const [description, setDescription] = useState('');
   const [price, setPrice] = useState('50.000đ');
   const [courtCount, setCourtCount] = useState(4);
   const [facilities, setFacilities] = useState({
@@ -37,6 +32,19 @@ export default function HostSetupModal({ isOpen, onClose, onSave }) {
     canteen: true,
     rental: true,
   });
+  const [error, setError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen || !initialVenue) return;
+    setSportId(initialVenue.sport || 'badminton');
+    setName(initialVenue.name || '');
+    setAddress(initialVenue.address || '');
+    setDescription(initialVenue.description || '');
+    setPrice(initialVenue.price || '50.000đ');
+    setCourtCount(initialVenue.courtCount || 1);
+    setFacilities(initialVenue.facilities || {});
+  }, [isOpen, initialVenue]);
 
   if (!isOpen) return null;
 
@@ -44,35 +52,34 @@ export default function HostSetupModal({ isOpen, onClose, onSave }) {
     setFacilities(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!name.trim() || !address.trim()) return;
 
-    const selectedSportObj = SPORTS.find(s => s.id === sportId) || SPORTS[0];
-
-    const newVenue = {
-      id: Date.now(),
+    const normalizedCourtCount = Math.min(50, Math.max(1, Number(courtCount) || 1));
+    const venueData = {
       name: name.trim(),
-      sport: selectedSportObj.id,
-      sportName: selectedSportObj.name,
-      sportEmoji: selectedSportObj.emoji,
       address: address.trim(),
-      distance: '0.8 km',
-      rating: 5.0,
-      reviewCount: 1,
-      price: price.trim() || '50.000đ',
-      courtCount: Number(courtCount) || 4,
-      image: selectedSportObj.defaultImg,
-      hostName: 'Bạn (Chủ sân / Host)',
+      sport_id: sportId,
+      price_label: price.trim() || '50.000đ',
+      court_count: normalizedCourtCount,
       facilities,
-      description: `Khu sân ${selectedSportObj.name} tiêu chuẩn thi đấu, trang thiết bị hiện đại do ${name.trim()} quản lý.`,
+      description: description.trim() || null,
     };
 
-    onSave(newVenue);
-    onClose();
-    // Reset form
-    setName('');
-    setAddress('');
+    setIsSaving(true);
+    setError('');
+    try {
+      await onSave(venueData);
+      setName('');
+      setAddress('');
+      setDescription('');
+      onClose();
+    } catch (err) {
+      setError(err.message || 'Không lưu được thông tin sân');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -88,8 +95,8 @@ export default function HostSetupModal({ isOpen, onClose, onSave }) {
               <Building2 className="w-6 h-6 stroke-[2.5]" />
             </div>
             <div>
-              <h3 className="text-xl font-black">⚙️ Setup Sân & Khung Giờ (Dành Cho Chủ Sân)</h3>
-              <p className="text-xs opacity-90">Cấu hình giá bán 30 phút, số lượng sân con và dịch vụ đi kèm</p>
+              <h3 className="text-xl font-black">⚙️ {initialVenue ? 'Chỉnh sửa sân' : 'Setup Sân & Khung Giờ'}</h3>
+              <p className="text-xs opacity-90">Cấu hình giá bán, số lượng sân con và dịch vụ đi kèm</p>
             </div>
           </div>
           <button 
@@ -104,6 +111,7 @@ export default function HostSetupModal({ isOpen, onClose, onSave }) {
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
           <div className="p-6 space-y-5 overflow-y-auto flex-1">
+            {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-700 dark:bg-red-950/30 dark:text-red-300">{error}</p>}
             
             {/* Môn thể thao */}
             <div>
@@ -127,6 +135,11 @@ export default function HostSetupModal({ isOpen, onClose, onSave }) {
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Mô tả sân</label>
+              <textarea rows={3} maxLength={4000} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Mô tả tiện ích, khung giờ hoặc lưu ý cho người đặt sân" className="w-full resize-y rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-[#589470] dark:border-white/10 dark:bg-white/5 dark:text-white" />
             </div>
 
             {/* Tên sân & Địa chỉ */}
@@ -185,17 +198,15 @@ export default function HostSetupModal({ isOpen, onClose, onSave }) {
                   <Layers className="w-4 h-4" />
                   <span>5. Số lượng sân con sở hữu *</span>
                 </label>
-                <select
+                <input
+                  type="number"
+                  min="1"
+                  max="50"
+                  step="1"
                   value={courtCount}
-                  onChange={(e) => setCourtCount(Number(e.target.value))}
+                  onChange={(e) => setCourtCount(e.target.value)}
                   className="w-full bg-white dark:bg-black/20 border border-slate-200 dark:border-white/15 rounded-xl px-3.5 py-2 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:border-[#589470] transition-colors"
-                >
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15].map((num) => (
-                    <option key={num} value={num} className="bg-white dark:bg-[#001F3F] text-slate-900 dark:text-white">
-                      Sở hữu {num} sân (Sân 1 đến Sân {num})
-                    </option>
-                  ))}
-                </select>
+                />
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
                   💡 Hệ thống sẽ tự động tạo {courtCount} hàng sân trong bảng đặt lịch.
                 </p>
@@ -247,10 +258,11 @@ export default function HostSetupModal({ isOpen, onClose, onSave }) {
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 rounded-2xl font-bold text-sm bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-95 text-white shadow-lg shadow-[#589470]/30 flex items-center gap-2 transition-transform active:scale-95"
+              disabled={isSaving}
+              className="px-6 py-2.5 rounded-2xl font-bold text-sm bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-95 text-white shadow-lg shadow-[#589470]/30 flex items-center gap-2 transition-transform active:scale-95 disabled:opacity-50"
             >
               <Sparkles className="w-4 h-4" />
-              <span>💾 Lưu & Kích hoạt sân ngay</span>
+              <span>{isSaving ? 'Đang lưu…' : initialVenue ? 'Lưu thay đổi' : 'Lưu & kích hoạt sân'}</span>
             </button>
           </div>
         </form>

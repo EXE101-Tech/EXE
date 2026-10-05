@@ -28,10 +28,10 @@ def add_user_sport(db: Session, user_id: int, user_sport: schemas.UserSportCreat
     return db_user_sport
 
 def get_venues(db: Session):
-    return db.query(models.Venue).all()
+    return db.query(models.Venue).filter(models.Venue.is_active.is_(True)).all()
 
 def get_venue_by_id(db: Session, venue_id: int):
-    return db.query(models.Venue).filter(models.Venue.id == venue_id).first()
+    return db.query(models.Venue).filter(models.Venue.id == venue_id, models.Venue.is_active.is_(True)).first()
 
 def create_venue(db: Session, venue: schemas.VenueCreate, owner_id: int = None):
     latitude = venue.latitude
@@ -61,10 +61,12 @@ def create_venue(db: Session, venue: schemas.VenueCreate, owner_id: int = None):
     return db_venue
 
 def get_court_by_id(db: Session, court_id: int):
-    return db.query(models.Court).filter(models.Court.id == court_id).first()
+    return db.query(models.Court).filter(models.Court.id == court_id, models.Court.is_active.is_(True)).first()
 
 def get_courts(db: Session, venue_id: int = None, sport_id: int = None):
-    query = db.query(models.Court)
+    query = db.query(models.Court).join(models.Venue).filter(
+        models.Court.is_active.is_(True), models.Venue.is_active.is_(True)
+    )
     if venue_id:
         query = query.filter(models.Court.venue_id == venue_id)
     if sport_id:
@@ -91,6 +93,7 @@ def get_nearby_venues(db: Session, lat: float, lng: float, radius: float):
     lng_delta = radius * lng_deg_per_km
     
     venues = db.query(models.Venue).filter(
+        models.Venue.is_active.is_(True),
         models.Venue.latitude.between(lat - lat_delta, lat + lat_delta),
         models.Venue.longitude.between(lng - lng_delta, lng + lng_delta)
     ).all()

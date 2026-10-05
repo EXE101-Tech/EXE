@@ -7,8 +7,41 @@ const apiClient = axios.create({
   },
 });
 
+const getResponseCache = new Map();
+const pendingGetRequests = new Map();
+const GET_CACHE_TTL_MS = 15_000;
+let getCacheVersion = 0;
+
+function getCached(url, config = {}) {
+  const params = config.params || {};
+  const paramsKey = Object.keys(params).sort()
+    .map((key) => `${encodeURIComponent(key)}=${encodeURIComponent(JSON.stringify(params[key]))}`)
+    .join('&');
+  const token = localStorage.getItem('token') || '';
+  const version = getCacheVersion;
+  const key = `${version}:${token}:${url}?${paramsKey}`;
+  const cached = getResponseCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return Promise.resolve(cached.data);
+
+  const pending = pendingGetRequests.get(key);
+  if (pending) return pending;
+
+  const request = apiClient.get(url, config).then((data) => {
+    if (version === getCacheVersion) {
+      getResponseCache.set(key, { data, expiresAt: Date.now() + GET_CACHE_TTL_MS });
+    }
+    return data;
+  }).finally(() => pendingGetRequests.delete(key));
+  pendingGetRequests.set(key, request);
+  return request;
+}
+
 apiClient.interceptors.request.use(
   (config) => {
+    if (config.method && config.method.toLowerCase() !== 'get') {
+      getCacheVersion += 1;
+      getResponseCache.clear();
+    }
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -29,10 +62,77 @@ apiClient.interceptors.response.use(
 
 export const authService = {
   login: (data) => apiClient.post('/auth/login', data),
+  loginWithGoogle: (code, acceptedTerms = false) => apiClient.post('/auth/google', { code, accepted_terms: acceptedTerms }, {
+    headers: { 'X-Requested-With': 'XmlHttpRequest' },
+  }),
   register: (data) => apiClient.post('/auth/register', data),
-  logout: () => apiClient.post('/auth/logout'),
+  logout: (token) => apiClient.post('/auth/logout', null, { headers: { Authorization: `Bearer ${token}` } }),
   getProfile: () => apiClient.get('/auth/me'),
   updateProfile: (data) => apiClient.put('/auth/me', data),
+  getStats: () => apiClient.get('/auth/me/stats'),
+  acceptTerms: () => apiClient.post('/auth/accept-terms'),
+  deleteAccount: () => apiClient.delete('/auth/me'),
+  requestDeletion: (data) => apiClient.post('/auth/account-deletion-requests', data),
+};
+
+export const premiumService = {
+  createPaymentIntent: () => apiClient.post('/premium/payments/intents'),
+  submitPaymentProof: (id, data) => apiClient.post(`/premium/payments/${id}/submit`, data),
+  getMine: () => apiClient.get('/premium/payments/mine'),
+};
+
+export const adminService = {
+  getSummary: () => apiClient.get('/admin/summary'),
+  getPosts: () => apiClient.get('/admin/posts'),
+  getRooms: () => apiClient.get('/admin/rooms'),
+  getPayments: (status) => apiClient.get('/admin/payments', { params: status ? { status } : {} }),
+  getPremiumAccounts: () => apiClient.get('/admin/premium/accounts'),
+  revokePremium: (userId) => apiClient.delete(`/admin/premium/accounts/${userId}`),
+  reviewPayment: (id, data) => apiClient.patch(`/admin/payments/${id}`, data),
+  getAccounts: () => apiClient.get('/admin/accounts'),
+  deleteAccount: (id) => apiClient.delete(`/admin/accounts/${id}`),
+  getUsers: () => apiClient.get('/admin/users'),
+  deleteUser: (id) => apiClient.delete(`/admin/users/${id}`),
+  createAccount: (data) => apiClient.post('/admin/accounts', data),
+  sendWarning: (data) => apiClient.post('/admin/warnings', data),
+  getDeletionRequests: () => apiClient.get('/moderation/admin/account-deletion-requests'),
+  completeDeletionRequest: (id) => apiClient.post(`/moderation/admin/account-deletion-requests/${id}/complete`),
+  getReports: () => apiClient.get('/moderation/admin/reports', { params: { status: 'PENDING' } }),
+  reviewReport: (id, data) => apiClient.patch(`/moderation/admin/reports/${id}`, data),
+};
+
+export const resolveMediaUrl = (path) => {
+  if (!path || /^(https?:|data:|blob:)/i.test(path)) return path || '';
+  const apiBase = new URL(apiClient.defaults.baseURL, window.location.origin);
+  return new URL(path, apiBase.origin).toString();
+};
+
+export const storageService = {
+  uploadImage: async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const result = await apiClient.post('/storage/images', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return result.url;
+  },
+  uploadMedia: async (file) => {
+    const isVideo = file.type.startsWith('video/') || /\.(mp4|webm)$/i.test(file.name);
+    const formData = new FormData();
+    formData.append('file', file);
+    const result = await apiClient.post(isVideo ? '/storage/videos' : '/storage/images', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return { url: result.url, type: isVideo ? 'video' : 'image' };
+  },
+};
+
+export const sportService = {
+  getAll: () => getCached('/courts/sports'),
+};
+
+export const searchService = {
+  search: (query) => apiClient.get('/search', { params: { q: query, limit: 6 } }),
 };
 
 export const courtService = {
@@ -40,20 +140,118 @@ export const courtService = {
   getById: (id) => apiClient.get(`/courts/${id}`),
   getNearby: (lat, lng, radius) =>
     apiClient.get('/courts/nearby', { params: { lat, lng, radius } }),
+  getVenues: () => getCached('/courts/venues'),
+  getVenueById: (id) => apiClient.get(`/courts/venues/${id}`),
+};
+
+export const ownerService = {
+  getStatus: () => apiClient.get('/courts/owner/status'),
+  register: () => apiClient.post('/courts/owner/register', { accepted_terms: true }),
+  cancelRegistration: () => apiClient.delete('/courts/owner/registration'),
+  getVenues: () => apiClient.get('/courts/owner/venues'),
+  createVenue: (data) => apiClient.post('/courts/owner/venues', data),
+    updateVenue: (id, data) => apiClient.put(`/courts/owner/venues/${id}`, data),
+    removeVenue: (id) => apiClient.delete(`/courts/owner/venues/${id}`),
+    getSchedule: (id, date) => apiClient.get(`/courts/owner/venues/${id}/schedule`, { params: { date } }),
+    createExternalBlock: (id, data) => apiClient.post(`/courts/owner/venues/${id}/schedule/blocks`, data),
+    removeExternalBlock: (id, blockId) => apiClient.delete(`/courts/owner/venues/${id}/schedule/blocks/${blockId}`),
 };
 
 export const gameRoomService = {
-  getAll: (filters = {}) => apiClient.get('/gamerooms', { params: filters }),
+  getAll: (filters = {}) => getCached('/gamerooms', { params: filters }),
+  getMine: () => apiClient.get('/gamerooms/mine'),
   getById: (id) => apiClient.get(`/gamerooms/${id}`),
-  join: (roomId) => apiClient.post(`/gamerooms/${roomId}/join`),
+  join: (roomId, note = '') => apiClient.post(`/gamerooms/${roomId}/join`, { note }),
+  respondInvite: (roomId, action) => apiClient.post(`/gamerooms/${roomId}/invite-response`, { action }),
   leave: (roomId) => apiClient.post(`/gamerooms/${roomId}/leave`),
   create: (data) => apiClient.post('/gamerooms', data),
+  update: (roomId, data) => apiClient.put(`/gamerooms/${roomId}`, data),
+  remove: (roomId) => apiClient.delete(`/gamerooms/${roomId}`),
   approveParticipant: (roomId, userId, status) => 
     apiClient.patch(`/gamerooms/${roomId}/participants/${userId}/status`, { status }),
+  updateAttendance: (roomId, userId, attendance_status) =>
+    apiClient.patch(`/gamerooms/${roomId}/participants/${userId}/attendance`, { attendance_status }),
+};
+
+export const autoRoomSearchService = {
+  get: () => apiClient.get('/gamerooms/auto-search'),
+  save: (data) => apiClient.put('/gamerooms/auto-search', data),
+  remove: () => apiClient.delete('/gamerooms/auto-search'),
+};
+
+export const teamService = {
+  getAll: (filters = {}) => apiClient.get('/teams', { params: filters }),
+  getById: (id) => apiClient.get(`/teams/${id}`),
+  create: (data) => apiClient.post('/teams', data),
+  update: (id, data) => apiClient.patch(`/teams/${id}`, data),
+  updatePremiumSettings: (id, data) => apiClient.patch(`/teams/${id}/premium-settings`, data),
+  remove: (id) => apiClient.delete(`/teams/${id}`),
+  join: (id) => apiClient.post(`/teams/${id}/join`),
+  leave: (id) => apiClient.delete(`/teams/${id}/membership`),
+  getMembers: (id, status) => apiClient.get(`/teams/${id}/members`, { params: status ? { status } : {} }),
+  setMemberStatus: (id, userId, status) => apiClient.patch(`/teams/${id}/members/${userId}`, { status }),
+  removeMember: (id, userId) => apiClient.delete(`/teams/${id}/members/${userId}`),
+  getReviews: (id) => apiClient.get(`/teams/${id}/reviews`),
+  review: (id, data) => apiClient.post(`/teams/${id}/reviews`, data),
+};
+
+export const lfgService = {
+  getAll: (filters = {}) => getCached('/lfg/posts', { params: filters }),
+  create: (data) => apiClient.post('/lfg/posts', data),
+  update: (id, data) => apiClient.put(`/lfg/posts/${id}`, data),
+  join: (id) => apiClient.post(`/lfg/posts/${id}/join`),
+  leave: (id) => apiClient.delete(`/lfg/posts/${id}/membership`),
+  cancel: (id) => apiClient.delete(`/lfg/posts/${id}`),
+  getParticipants: (id, status = 'PENDING') => apiClient.get(`/lfg/posts/${id}/participants`, { params: { status } }),
+  setParticipantStatus: (id, userId, status) => apiClient.patch(`/lfg/posts/${id}/participants/${userId}`, { status }),
+};
+
+export const socialPostService = {
+  getFeed: (params = {}) => getCached('/social/posts', { params }),
+  getMine: (params = {}) => getCached('/social/posts/mine', { params }),
+  create: (data) => apiClient.post('/social/posts', data),
+  update: (id, data) => apiClient.put(`/social/posts/${id}`, data),
+  remove: (id) => apiClient.delete(`/social/posts/${id}`),
+  like: (id) => apiClient.put(`/social/posts/${id}/like`),
+  unlike: (id) => apiClient.delete(`/social/posts/${id}/like`),
+  getComments: (id) => apiClient.get(`/social/posts/${id}/comments`),
+  addComment: (id, content, parentId = null) => apiClient.post(`/social/posts/${id}/comments`, { content, parent_id: parentId }),
+  updateComment: (postId, commentId, content) => apiClient.put(`/social/posts/${postId}/comments/${commentId}`, { content }),
+  removeComment: (postId, commentId) => apiClient.delete(`/social/posts/${postId}/comments/${commentId}`),
+  setCommentReaction: (postId, commentId, reaction) => apiClient.put(`/social/posts/${postId}/comments/${commentId}/reaction`, { reaction }),
+  removeCommentReaction: (postId, commentId) => apiClient.delete(`/social/posts/${postId}/comments/${commentId}/reaction`),
+};
+
+export const chatService = {
+  getConversations: () => apiClient.get('/chat/conversations'),
+  getUnreadCount: () => apiClient.get('/chat/unread-count'),
+  startConversation: (recipientId) => apiClient.post('/chat/conversations', { recipient_id: recipientId }),
+  getMessages: (conversationId, params = {}) => apiClient.get(`/chat/conversations/${conversationId}/messages`, { params }),
+  sendMessage: (conversationId, text) => apiClient.post(`/chat/conversations/${conversationId}/messages`, { text }),
+  searchUsers: (query) => apiClient.get('/chat/users', { params: { q: query, limit: 30 } }),
+  getFriends: () => apiClient.get('/chat/friends'),
+  getFriendRequests: () => apiClient.get('/chat/friends/requests'),
+  sendFriendRequest: (userId) => apiClient.post('/chat/friends/requests', { recipient_id: userId }),
+  acceptFriendRequest: (friendshipId) => apiClient.post(`/chat/friends/requests/${friendshipId}/accept`),
+  removeFriendship: (friendshipId) => apiClient.delete(`/chat/friends/${friendshipId}`),
+};
+
+export const moderationService = {
+  report: (data) => apiClient.post('/moderation/reports', data),
+  block: (userId) => apiClient.post(`/moderation/blocks/${userId}`),
+  unblock: (userId) => apiClient.delete(`/moderation/blocks/${userId}`),
+};
+
+export const notificationService = {
+  getAll: (limit = 20) => apiClient.get('/notifications', { params: { limit } }),
+  markRead: (id) => apiClient.patch(`/notifications/${id}/read`),
+  markAllRead: () => apiClient.post('/notifications/read-all'),
 };
 
 export const bookingService = {
-  create: (data) => apiClient.post('/bookings', data),
+    getAvailability: (venueId, date) => apiClient.get('/bookings/availability', { params: { venue_id: venueId, date } }),
+    create: (data) => apiClient.post('/bookings', data),
+    createBatch: (bookings) => apiClient.post('/bookings/batch', { bookings }),
   getAll: () => apiClient.get('/bookings'),
   getById: (id) => apiClient.get(`/bookings/${id}`),
   cancel: (id) => apiClient.patch(`/bookings/${id}/cancel`),

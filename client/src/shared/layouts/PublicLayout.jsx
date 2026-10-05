@@ -1,38 +1,30 @@
 import { Outlet } from 'react-router-dom';
 import { Sun, Moon } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useLayoutEffect } from 'react';
+import Particles from '../../features/landing/components/Particles.jsx';
 
 export default function PublicLayout() {
-  const [isDark, setIsDark] = useState(false);
+  const [isDark, setIsDark] = useState(() => localStorage.getItem('publicTheme') === 'dark');
 
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-      setIsDark(true);
-    } else {
-      document.documentElement.classList.remove('dark');
-      setIsDark(false);
-    }
-  }, []);
+  useLayoutEffect(() => {
+    document.documentElement.classList.toggle('dark', isDark);
+  }, [isDark]);
 
   const toggleTheme = () => {
-    setIsDark(prev => {
-      const newDark = !prev;
-      if (newDark) {
-        document.documentElement.classList.add('dark');
-        localStorage.setItem('theme', 'dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-        localStorage.setItem('theme', 'light');
-      }
-      return newDark;
-    });
+    const newDark = !isDark;
+    document.documentElement.classList.toggle('dark', newDark);
+    localStorage.setItem('publicTheme', newDark ? 'dark' : 'light');
+    setIsDark(newDark);
   };
 
   return (
-    <>
-      <Outlet />
+    <div className="sg-public">
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <Particles />
+      </div>
+      <div className="relative z-10 h-full w-full">
+        <Outlet />
+      </div>
       
       {/* Floating Theme Toggle for Public Pages */}
       <button 
@@ -46,6 +38,6 @@ export default function PublicLayout() {
           <Moon className="w-5 h-5 group-hover:text-brand-primary transition-colors" />
         )}
       </button>
-    </>
+    </div>
   );
 }

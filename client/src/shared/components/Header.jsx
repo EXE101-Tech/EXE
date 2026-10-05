@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogIn, LogOut, Moon, Sun, Sparkles, Map as MapIcon } from 'lucide-react';
+import { LogOut, Moon, Sun, Sparkles, Map as MapIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import EditProfileModal from '../../features/profile/EditProfileModal';
@@ -179,6 +179,18 @@ function Header({
                       >
                         <LogOut className="w-4 h-4" />
                         {t('header.logout')}
+                      </button>
+                      <button
+                        onClick={() => { setIsProfileOpen(false); navigate('/privacy-policy'); }}
+                        className="w-full rounded-xl py-2 text-center text-xs font-bold text-gray-500 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-white/5"
+                      >
+                        Chính sách quyền riêng tư
+                      </button>
+                      <button
+                        onClick={() => { setIsProfileOpen(false); navigate('/account-deletion'); }}
+                        className="w-full rounded-xl py-2 text-center text-xs font-bold text-gray-500 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-white/5"
+                      >
+                        Yêu cầu xoá tài khoản
                       </button>
                     </div>
                   </div>

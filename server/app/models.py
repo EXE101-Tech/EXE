@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, Table
+from sqlalchemy import CheckConstraint, Column, Integer, String, Float, DateTime, ForeignKey, Text, Table, Boolean, JSON, Index, UniqueConstraint
 from sqlalchemy.orm import relationship
 from .database import Base
 
@@ -13,8 +13,18 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=False)
     status = Column(String, default="active")  # active, banned
+    owner_status = Column(String, default="none", nullable=False)  # none, registered
+    # Moderators are separate from club/court ownership.  Keep this flag server-side
+    # so the UI cannot grant itself moderation permissions.
+    is_admin = Column(Boolean, nullable=False, default=False, server_default="false", index=True)
+    premium_until = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=utc_now_naive)
     updated_at = Column(DateTime, default=utc_now_naive, onupdate=utc_now_naive)
+
+    @property
+    def is_premium(self):
+        """Whether the account currently has an active Premium entitlement."""
+        return bool(self.premium_until and self.premium_until > utc_now_naive())
 
     # Relationships
     profile = relationship("UserProfile", uselist=False, back_populates="user", cascade="all, delete-orphan")
@@ -22,6 +32,56 @@ class User(Base):
     bookings = relationship("Booking", back_populates="user")
     hosted_matches = relationship("Match", back_populates="host")
     participations = relationship("MatchParticipant", back_populates="user")
+    owned_teams = relationship("Team", back_populates="owner")
+    team_memberships = relationship("TeamMembership", back_populates="user", cascade="all, delete-orphan")
+    team_reviews = relationship("TeamReview", back_populates="user", cascade="all, delete-orphan")
+    lfg_posts = relationship("LfgPost", back_populates="author")
+    lfg_participations = relationship("LfgPostParticipant", back_populates="user", cascade="all, delete-orphan")
+    social_posts = relationship("SocialPost", back_populates="author", cascade="all, delete-orphan")
+    social_post_likes = relationship("SocialPostLike", back_populates="user", cascade="all, delete-orphan")
+    social_post_comments = relationship("SocialPostComment", back_populates="author", cascade="all, delete-orphan")
+    conversations_as_user1 = relationship("Conversation", foreign_keys="Conversation.user1_id", back_populates="user1")
+    conversations_as_user2 = relationship("Conversation", foreign_keys="Conversation.user2_id", back_populates="user2")
+    sent_messages = relationship("Message", back_populates="sender")
+    premium_payments = relationship(
+        "PremiumPayment",
+        foreign_keys="PremiumPayment.user_id",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    room_search_preference = relationship(
+        "RoomSearchPreference",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+    policy_acceptance = relationship(
+        "UserPolicyAcceptance",
+        uselist=False,
+        cascade="all, delete-orphan",
+        back_populates="user",
+    )
+
+    @property
+    def community_guidelines_accepted(self):
+        return bool(self.policy_acceptance)
+
+
+class OAuthIdentity(Base):
+    __tablename__ = "oauth_identities"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    provider = Column(String(32), nullable=False)
+    subject = Column(String(255), nullable=False)
+    created_at = Column(DateTime, default=utc_now_naive, nullable=False)
+
+    user = relationship("User")
+
+    __table_args__ = (
+        UniqueConstraint("provider", "subject", name="uq_oauth_identities_provider_subject"),
+        UniqueConstraint("user_id", "provider", name="uq_oauth_identities_user_provider"),
+    )
 
 class UserProfile(Base):
     __tablename__ = "user_profiles"
@@ -29,6 +89,7 @@ class UserProfile(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
     full_name = Column(String, nullable=True)
     avatar_url = Column(String, nullable=True)
+    cover_url = Column(Text, nullable=True)
     gender = Column(String, nullable=True)  # Male, Female, Other
     birth_date = Column(String, nullable=True)
     bio = Column(Text, nullable=True)
@@ -76,6 +137,12 @@ class Venue(Base):
     longitude = Column(Float, nullable=True)
     description = Column(Text, nullable=True)
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    sport_key = Column(String(40), nullable=True)
+    price_label = Column(String(100), nullable=True)
+    court_count = Column(Integer, nullable=False, default=1)
+    facilities = Column(JSON, nullable=False, default=dict)
+    image_url = Column(Text, nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True)
 
     # Relationships
     courts = relationship("Court", back_populates="venue", cascade="all, delete-orphan")
@@ -88,6 +155,7 @@ class Court(Base):
     name = Column(String, nullable=False)
     sport_id = Column(Integer, ForeignKey("sports.id", ondelete="CASCADE"), nullable=False)
     price_per_hour = Column(Integer, default=120000)
+    is_active = Column(Boolean, nullable=False, default=True)
 
     # Relationships
     venue = relationship("Venue", back_populates="courts")
@@ -111,6 +179,20 @@ class Booking(Base):
     court = relationship("Court", back_populates="bookings")
     user = relationship("User", back_populates="bookings")
 
+
+class VenueReservationBlock(Base):
+    """An owner-entered reservation made outside SportGo; blocks online booking."""
+    __tablename__ = "venue_reservation_blocks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    venue_id = Column(Integer, ForeignKey("venues.id", ondelete="CASCADE"), nullable=False, index=True)
+    court_id = Column(Integer, ForeignKey("courts.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    start_time = Column(DateTime, nullable=False)
+    end_time = Column(DateTime, nullable=False)
+    note = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=utc_now_naive, nullable=False)
+
 class Match(Base):
     __tablename__ = "matches"
 
@@ -120,6 +202,8 @@ class Match(Base):
     court_id = Column(Integer, ForeignKey("courts.id", ondelete="SET NULL"), nullable=True)
     title = Column(String, nullable=False)
     description = Column(Text, nullable=True)
+    location = Column(String(255), nullable=True)
+    price_info = Column(String(120), nullable=True)
     required_level = Column(String, default="Intermediate")
     start_time = Column(DateTime, nullable=False)
     end_time = Column(DateTime, nullable=False)
@@ -133,6 +217,18 @@ class Match(Base):
     court = relationship("Court", back_populates="matches")
     participants = relationship("MatchParticipant", back_populates="match", cascade="all, delete-orphan")
 
+    @property
+    def is_priority(self):
+        """Whether this Premium-hosted room should be boosted while filling."""
+        if not self.host or not self.host.is_premium or self.status != "OPEN":
+            return False
+        now = utc_now_naive()
+        remaining = self.start_time - now
+        if remaining.total_seconds() <= 0 or remaining.total_seconds() >= 4 * 60 * 60:
+            return False
+        approved_count = sum(1 for participant in (self.participants or []) if participant.status == "APPROVED")
+        return approved_count < (self.max_players or 0)
+
 class MatchParticipant(Base):
     __tablename__ = "match_participants"
 
@@ -141,11 +237,44 @@ class MatchParticipant(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     role = Column(String, default="PLAYER")  # HOST, PLAYER
     status = Column(String, default="APPROVED")  # PENDING, APPROVED, REJECTED
+    attendance_status = Column(String(16), nullable=True)  # ATTENDED, ABSENT; set by host after match ends
+    note = Column(Text, nullable=True)
+    invite_source = Column(String(20), nullable=True)  # AUTO for Premium automatic invitations
+    invited_at = Column(DateTime, nullable=True)
+    invite_round = Column(Integer, nullable=True)
     joined_at = Column(DateTime, default=utc_now_naive)
+
+    __table_args__ = (
+        Index("ix_match_participants_user_attendance", "user_id", "attendance_status"),
+        Index("ix_match_participants_invite_source", "invite_source"),
+        Index("ix_match_participants_invited_at", "invited_at"),
+    )
 
     # Relationships
     match = relationship("Match", back_populates="participants")
     user = relationship("User", back_populates="participations")
+
+
+class RoomSearchPreference(Base):
+    """Premium user's saved criteria for automatic game-room matching."""
+    __tablename__ = "room_search_preferences"
+    __table_args__ = (
+        UniqueConstraint("user_id", name="uq_room_search_preferences_user_id"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    sport_id = Column(Integer, ForeignKey("sports.id", ondelete="SET NULL"), nullable=True, index=True)
+    required_level = Column(String(20), nullable=True)
+    max_price = Column(Integer, nullable=True)
+    location = Column(String(255), nullable=True)
+    time_slots = Column(JSON, nullable=False, default=list)
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
+    created_at = Column(DateTime, nullable=False, default=utc_now_naive)
+    updated_at = Column(DateTime, nullable=False, default=utc_now_naive, onupdate=utc_now_naive)
+
+    user = relationship("User", back_populates="room_search_preference")
+    sport = relationship("Sport")
 
 class BlacklistedToken(Base):
     __tablename__ = "blacklisted_tokens"
@@ -160,3 +289,333 @@ class LoginAttempt(Base):
     id = Column(Integer, primary_key=True, index=True)
     ip = Column(String, index=True, nullable=False)
     attempted_at = Column(DateTime, default=utc_now_naive)
+
+
+class UserPolicyAcceptance(Base):
+    """Records the user's explicit acceptance of the community rules before creating UGC."""
+    __tablename__ = "user_policy_acceptances"
+
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    policy_version = Column(String(32), nullable=False, default="2026-10")
+    accepted_at = Column(DateTime, nullable=False, default=utc_now_naive)
+
+    user = relationship("User", back_populates="policy_acceptance")
+
+
+class UserBlock(Base):
+    """A user-controlled block for direct communication and social discovery."""
+    __tablename__ = "user_blocks"
+    __table_args__ = (UniqueConstraint("blocker_id", "blocked_id", name="uq_user_blocks_pair"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    blocker_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    blocked_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at = Column(DateTime, nullable=False, default=utc_now_naive)
+
+
+class ContentReport(Base):
+    """A report submitted by a member for admin review."""
+    __tablename__ = "content_reports"
+
+    id = Column(Integer, primary_key=True, index=True)
+    reporter_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    target_type = Column(String(20), nullable=False, index=True)  # post, comment, user, message
+    target_id = Column(Integer, nullable=False, index=True)
+    reason = Column(String(80), nullable=False)
+    details = Column(Text, nullable=True)
+    status = Column(String(20), nullable=False, default="PENDING", index=True)
+    reviewed_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    reviewed_at = Column(DateTime, nullable=True)
+    action = Column(String(40), nullable=True)
+
+
+class AccountDeletionRequest(Base):
+    """Public deletion requests made from the website without exposing account existence."""
+    __tablename__ = "account_deletion_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String(255), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    reason = Column(Text, nullable=True)
+    status = Column(String(20), nullable=False, default="PENDING", index=True)
+    created_at = Column(DateTime, nullable=False, default=utc_now_naive)
+    processed_at = Column(DateTime, nullable=True)
+    processed_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+
+class Team(Base):
+    __tablename__ = "teams"
+
+    id = Column(Integer, primary_key=True, index=True)
+    owner_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    name = Column(String(160), nullable=False)
+    sport_id = Column(Integer, ForeignKey("sports.id"), nullable=False, index=True)
+    sport_key = Column(String(40), nullable=True, index=True)
+    sport_name = Column(String(80), nullable=True)
+    description = Column(Text, nullable=True)
+    location = Column(String(255), nullable=True)
+    total_slots = Column(Integer, nullable=False, default=15)
+    image_url = Column(Text, nullable=True)
+    tags = Column(JSON, nullable=False, default=list)
+    fee_reminder_day = Column(Integer, nullable=True)  # Monday=0 … Sunday=6
+    fee_reminder_frequency = Column(String(16), nullable=True)  # WEEKLY or MONTHLY
+    fee_reminder_last_sent_at = Column(DateTime, nullable=True)
+    activity_schedule = Column(JSON, nullable=False, default=list)
+    rating = Column(Float, nullable=True, default=0.0)
+    rating_count = Column(Integer, nullable=False, default=0)
+    avatar_badge = Column(String, nullable=True)
+    bg_gradient = Column(String, nullable=True)
+    created_at = Column(DateTime, default=utc_now_naive, nullable=False)
+
+    owner = relationship("User", back_populates="owned_teams")
+    memberships = relationship("TeamMembership", back_populates="team", cascade="all, delete-orphan")
+    reviews = relationship("TeamReview", back_populates="team", cascade="all, delete-orphan")
+
+
+class TeamMembership(Base):
+    __tablename__ = "team_memberships"
+    __table_args__ = (UniqueConstraint("team_id", "user_id", name="uq_team_membership"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    status = Column(String(20), nullable=False, default="PENDING")  # PENDING, APPROVED, REJECTED
+    joined_at = Column(DateTime, default=utc_now_naive, nullable=False)
+
+    team = relationship("Team", back_populates="memberships")
+    user = relationship("User", back_populates="team_memberships")
+
+
+class TeamReview(Base):
+    __tablename__ = "team_reviews"
+    __table_args__ = (UniqueConstraint("team_id", "user_id", name="uq_team_review"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    rating = Column(Integer, nullable=False)
+    comment = Column(Text, nullable=True)
+    tags = Column(JSON, nullable=False, default=list)
+    created_at = Column(DateTime, default=utc_now_naive, nullable=False)
+
+    team = relationship("Team", back_populates="reviews")
+    user = relationship("User", back_populates="team_reviews")
+
+
+class LfgPost(Base):
+    __tablename__ = "lfg_posts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    author_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    sport_id = Column(String(40), nullable=False, index=True)
+    sport_name = Column(String(80), nullable=False)
+    title = Column(String(200), nullable=False)
+    description = Column(Text, nullable=True)
+    location = Column(String(255), nullable=False)
+    time_slot = Column(String(100), nullable=False)
+    date_label = Column(String(100), nullable=False)
+    current_members = Column(Integer, nullable=False, default=1)
+    total_members = Column(Integer, nullable=False, default=4)
+    price = Column(String(120), nullable=True)
+    skill_level = Column(String(80), nullable=False)
+    image_url = Column(Text, nullable=True)
+    status = Column(String(20), nullable=False, default="OPEN")  # OPEN, FULL, CANCELLED
+    created_at = Column(DateTime, default=utc_now_naive, nullable=False)
+
+    author = relationship("User", back_populates="lfg_posts")
+    participants = relationship("LfgPostParticipant", back_populates="post", cascade="all, delete-orphan")
+
+
+class LfgPostParticipant(Base):
+    __tablename__ = "lfg_post_participants"
+    __table_args__ = (UniqueConstraint("post_id", "user_id", name="uq_lfg_post_participant"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    post_id = Column(Integer, ForeignKey("lfg_posts.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    status = Column(String(20), nullable=False, default="PENDING", index=True)  # PENDING, APPROVED, REJECTED
+    joined_at = Column(DateTime, default=utc_now_naive, nullable=False)
+
+    post = relationship("LfgPost", back_populates="participants")
+    user = relationship("User", back_populates="lfg_participations")
+
+
+class SocialPost(Base):
+    __tablename__ = "social_posts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    author_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    content = Column(Text, nullable=True)
+    media_url = Column(Text, nullable=True)
+    media_type = Column(String(10), nullable=True)
+    created_at = Column(DateTime, nullable=False, default=utc_now_naive, index=True)
+    updated_at = Column(DateTime, nullable=False, default=utc_now_naive, onupdate=utc_now_naive)
+
+    author = relationship("User", back_populates="social_posts")
+    likes = relationship("SocialPostLike", back_populates="post", cascade="all, delete-orphan")
+    comments = relationship("SocialPostComment", back_populates="post", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        CheckConstraint("media_type IS NULL OR media_type IN ('image', 'video')", name="ck_social_posts_media_type"),
+    )
+
+
+class SocialPostLike(Base):
+    __tablename__ = "social_post_likes"
+    __table_args__ = (UniqueConstraint("post_id", "user_id", name="uq_social_post_like"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    post_id = Column(Integer, ForeignKey("social_posts.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at = Column(DateTime, nullable=False, default=utc_now_naive)
+
+    post = relationship("SocialPost", back_populates="likes")
+    user = relationship("User", back_populates="social_post_likes")
+
+
+class SocialPostComment(Base):
+    __tablename__ = "social_post_comments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    post_id = Column(Integer, ForeignKey("social_posts.id", ondelete="CASCADE"), nullable=False, index=True)
+    author_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    parent_id = Column(Integer, ForeignKey("social_post_comments.id", ondelete="CASCADE"), nullable=True, index=True)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=utc_now_naive, index=True)
+
+    post = relationship("SocialPost", back_populates="comments")
+    author = relationship("User", back_populates="social_post_comments")
+    parent = relationship("SocialPostComment", remote_side=[id], back_populates="replies")
+    replies = relationship("SocialPostComment", back_populates="parent", cascade="all, delete-orphan")
+    reactions = relationship("SocialPostCommentReaction", back_populates="comment", cascade="all, delete-orphan")
+
+
+class SocialPostCommentReaction(Base):
+    __tablename__ = "social_post_comment_reactions"
+    __table_args__ = (
+        UniqueConstraint("comment_id", "user_id", name="uq_social_post_comment_reaction"),
+        CheckConstraint(
+            "reaction IN ('like', 'love', 'laugh', 'wow', 'sad', 'angry')",
+            name="ck_social_post_comment_reaction_type",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    comment_id = Column(Integer, ForeignKey("social_post_comments.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    reaction = Column(String(16), nullable=False)
+    created_at = Column(DateTime, nullable=False, default=utc_now_naive)
+
+    comment = relationship("SocialPostComment", back_populates="reactions")
+    user = relationship("User")
+
+
+class PremiumPayment(Base):
+    """Manual Premium payment submitted with a QR transfer proof."""
+    __tablename__ = "premium_payments"
+    __table_args__ = (
+        UniqueConstraint("payment_code", name="uq_premium_payments_payment_code"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    payment_code = Column(String(32), nullable=False, index=True)
+    amount = Column(Integer, nullable=False, default=30000)
+    proof_url = Column(Text, nullable=True)
+    status = Column(String(20), nullable=False, default="PENDING", index=True)  # PENDING, APPROVED, REJECTED
+    submitted_at = Column(DateTime, nullable=False, default=utc_now_naive, index=True)
+    reviewed_at = Column(DateTime, nullable=True)
+    reviewed_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    review_note = Column(Text, nullable=True)
+
+    user = relationship("User", foreign_keys=[user_id], back_populates="premium_payments")
+    reviewer = relationship("User", foreign_keys=[reviewed_by])
+
+
+class ModerationWarning(Base):
+    """A warning issued by an admin to a team owner or game-room host."""
+    __tablename__ = "moderation_warnings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    admin_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    recipient_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    target_type = Column(String(20), nullable=False)  # team, game_room
+    target_id = Column(Integer, nullable=False, index=True)
+    message = Column(Text, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=utc_now_naive, index=True)
+
+    admin = relationship("User", foreign_keys=[admin_id])
+    recipient = relationship("User", foreign_keys=[recipient_id])
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    recipient_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    actor_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    type = Column(String(40), nullable=False, index=True)
+    title = Column(String(160), nullable=False)
+    body = Column(Text, nullable=False)
+    target_url = Column(Text, nullable=True)
+    entity_type = Column(String(40), nullable=True)
+    entity_id = Column(Integer, nullable=True)
+    is_read = Column(Boolean, nullable=False, default=False, index=True)
+    created_at = Column(DateTime, nullable=False, default=utc_now_naive, index=True)
+
+    actor = relationship("User", foreign_keys=[actor_id])
+
+
+class Conversation(Base):
+    __tablename__ = "conversations"
+    __table_args__ = (UniqueConstraint("user1_id", "user2_id", name="uq_direct_conversation_pair"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    user1_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user2_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    last_message = Column(String, nullable=True)
+    updated_at = Column(DateTime, default=utc_now_naive, onupdate=utc_now_naive)
+
+    user1 = relationship("User", foreign_keys=[user1_id], back_populates="conversations_as_user1")
+    user2 = relationship("User", foreign_keys=[user2_id], back_populates="conversations_as_user2")
+    messages = relationship(
+        "Message",
+        back_populates="conversation",
+        cascade="all, delete-orphan",
+        order_by="Message.created_at",
+    )
+
+
+class Message(Base):
+    __tablename__ = "messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    conversation_id = Column(Integer, ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False, index=True)
+    sender_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    text = Column(String, nullable=False)
+    created_at = Column(DateTime, default=utc_now_naive)
+    is_read = Column(Integer, default=0)
+
+    conversation = relationship("Conversation", back_populates="messages")
+    sender = relationship("User", back_populates="sent_messages")
+
+
+class Friendship(Base):
+    __tablename__ = "friendships"
+    __table_args__ = (
+        UniqueConstraint("user_low_id", "user_high_id", name="uq_friendship_pair"),
+        CheckConstraint("user_low_id < user_high_id", name="ck_friendship_ordered_users"),
+        CheckConstraint("requester_id IN (user_low_id, user_high_id)", name="ck_friendship_requester_member"),
+        CheckConstraint("status IN ('pending', 'accepted')", name="ck_friendship_status"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_low_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_high_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    requester_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    status = Column(String(20), nullable=False, default="pending")
+    created_at = Column(DateTime, default=utc_now_naive, nullable=False)
+    updated_at = Column(DateTime, default=utc_now_naive, onupdate=utc_now_naive, nullable=False)
+
+    user_low = relationship("User", foreign_keys=[user_low_id])
+    user_high = relationship("User", foreign_keys=[user_high_id])

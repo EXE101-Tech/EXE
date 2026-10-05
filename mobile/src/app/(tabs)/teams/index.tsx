@@ -1,0 +1,186 @@
+import { Text } from '@/components/ui/text';
+import { router } from 'expo-router';
+import { CirclePlus, Crown, Trophy, UserCheck, Users } from 'lucide-react-native';
+import { useMemo, useState } from 'react';
+import { FlatList } from 'react-native';
+import { EmptyState } from '@/components/brand/empty-state';
+import { LoadingState } from '@/components/brand/loading-state';
+import { ScreenContainer } from '@/components/brand/screen-container';
+import { TopNavbar } from '@/components/navigation/top-navbar';
+import { CreateTeamModal } from '@/components/teams/create-team-modal';
+import { ReviewTeamModal } from '@/components/teams/review-team-modal';
+import { TeamCard } from '@/components/teams/team-card';
+import { TeamMembersModal } from '@/components/teams/team-members-modal';
+import { TeamPremiumSettingsModal } from '@/components/teams/team-premium-settings-modal';
+import { FilterActionButton, FilterBar } from '@/components/ui/filter-bar';
+import type { SelectOption } from '@/components/ui/select-dropdown';
+import { useStartConversationMutation } from '@/hooks/queries/use-chat';
+import { useJoinTeamMutation, useLeaveTeamMutation, useTeamsQuery } from '@/hooks/queries/use-teams';
+import { isActiveSportName, SPORTS } from '@/lib/constants';
+import { createSportExperienceMap, sortBySportExperience } from '@/lib/sport-experience';
+import { useAuthStore } from '@/stores/auth-store';
+import { showToast } from '@/stores/toast-store';
+import type { TeamResponse } from '@/schemas/teams';
+import { showAlert } from '@/stores/dialog-store';
+
+const SPORT_OPTIONS: SelectOption[] = [
+  { value: 'all', label: 'Tất cả môn' },
+  ...SPORTS.map((sport) => ({ value: sport.key, label: sport.name, emoji: sport.emoji })),
+];
+
+type Scope = 'captain' | 'member' | 'discover';
+
+const SCOPE_TABS: { value: Scope; label: string; icon: typeof Crown }[] = [
+  { value: 'captain', label: 'CLB tôi làm chủ', icon: Crown },
+  { value: 'member', label: 'CLB tôi tham gia', icon: UserCheck },
+  { value: 'discover', label: 'Khám phá CLB', icon: Users },
+];
+
+const SCOPE_OPTIONS: SelectOption[] = SCOPE_TABS.map(({ value, label }) => ({ value, label }));
+
+export default function TeamsScreen() {
+  const userSports = useAuthStore((s) => s.user?.sports);
+  const { data: teams, isLoading, isError, refetch, isRefetching } = useTeamsQuery();
+  const joinTeam = useJoinTeamMutation();
+  const leaveTeam = useLeaveTeamMutation();
+  const startConversation = useStartConversationMutation();
+
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingTeam, setEditingTeam] = useState<TeamResponse | null>(null);
+  const [reviewingTeamId, setReviewingTeamId] = useState<number | null>(null);
+  const [managingTeam, setManagingTeam] = useState<TeamResponse | null>(null);
+  const [premiumTeamId, setPremiumTeamId] = useState<number | null>(null);
+
+  const [sportFilter, setSportFilter] = useState('all');
+  const [scope, setScope] = useState<Scope>('captain');
+
+  const filteredTeams = useMemo(() => {
+    const visibleTeams = (teams ?? []).filter((team) => {
+      if (!isActiveSportName(team.sport_name)) return false;
+      if (sportFilter !== 'all' && team.sport_id !== sportFilter) return false;
+      if (scope === 'captain') return team.is_captain;
+      if (scope === 'member') return team.is_member && !team.is_captain;
+      return !team.is_captain && !team.is_member;
+    });
+    // Only the discover tab is ranked: clubs in sports the viewer plays at a higher level come first.
+    return scope === 'discover'
+      ? sortBySportExperience(visibleTeams, createSportExperienceMap(userSports), (team) => team.sport_id)
+      : visibleTeams;
+  }, [teams, sportFilter, scope, userSports]);
+
+  const premiumTeam = premiumTeamId != null ? (teams ?? []).find((team) => team.id === premiumTeamId) : undefined;
+
+  const handleChat = async (ownerId: number | null | undefined) => {
+    if (!ownerId || !Number.isInteger(ownerId) || ownerId <= 0) {
+      showAlert('Không thể mở chat', 'CLB này không còn tài khoản người mở để nhắn tin.');
+      return;
+    }
+    try {
+      const conversation = await startConversation.mutateAsync(ownerId);
+      router.push({ pathname: '/chat/[id]', params: { id: String(conversation.id) } });
+    } catch (error) {
+      showAlert('Lỗi', error instanceof Error ? error.message : 'Không mở được cuộc trò chuyện');
+    }
+  };
+
+  return (
+    <ScreenContainer scroll={false} className="px-4">
+      <TopNavbar />
+
+      <Text className="mb-3 text-xl font-black text-slate-900 dark:text-white">Đội / Club</Text>
+
+      <FilterBar
+        activeCount={(sportFilter !== 'all' ? 1 : 0) + (scope !== 'captain' ? 1 : 0)}
+        actions={<FilterActionButton label="Thành lập CLB" icon={CirclePlus} onPress={() => setIsCreateOpen(true)} />}
+        items={[
+          { icon: Trophy, iconColor: '#F59E0B', value: sportFilter, options: SPORT_OPTIONS, onChange: setSportFilter },
+          {
+            icon: SCOPE_TABS.find((tab) => tab.value === scope)?.icon ?? Users,
+            iconColor: '#8B5CF6',
+            value: scope,
+            options: SCOPE_OPTIONS,
+            onChange: (value) => setScope(value as Scope),
+          },
+        ]}
+      />
+
+      {isLoading ? (
+        <LoadingState label="Đang tải danh sách CLB…" />
+      ) : isError ? (
+        <EmptyState icon={Users} title="Không tải được danh sách CLB" description="Kéo để tải lại." />
+      ) : (
+        <FlatList
+          className="flex-1"
+          data={filteredTeams}
+          keyExtractor={(item) => String(item.id)}
+          contentContainerClassName="gap-3 pb-8"
+          onRefresh={refetch}
+          refreshing={isRefetching}
+          renderItem={({ item }) => (
+            <TeamCard
+              team={item}
+              isJoining={joinTeam.isPending && joinTeam.variables === item.id}
+              isLeaving={leaveTeam.isPending && leaveTeam.variables === item.id}
+              onJoin={() =>
+                joinTeam.mutate(item.id, {
+                  onSuccess: () => showToast('Đã gửi yêu cầu tham gia CLB.'),
+                  onError: (e) => showAlert('Lỗi', e.message),
+                })
+              }
+              onLeave={() => leaveTeam.mutate(item.id, { onError: (e) => showAlert('Lỗi', e.message) })}
+              onManage={() => setManagingTeam(item)}
+              onEdit={() => setEditingTeam(item)}
+              onReview={() => setReviewingTeamId(item.id)}
+              onOpen={() => router.push({ pathname: '/teams/[id]', params: { id: String(item.id) } })}
+              onPremium={() => setPremiumTeamId(item.id)}
+              onChat={() => handleChat(item.owner_id)}
+            />
+          )}
+          ListEmptyComponent={
+            <EmptyState
+              icon={scope === 'captain' ? Crown : scope === 'member' ? UserCheck : Users}
+              title={
+                scope === 'captain'
+                  ? 'Bạn chưa sở hữu CLB nào'
+                  : scope === 'member'
+                    ? 'Bạn chưa tham gia CLB nào'
+                    : 'Không tìm thấy CLB nào'
+              }
+              description={
+                scope === 'captain'
+                  ? 'Hãy thành lập CLB mới để bắt đầu xây dựng cộng đồng của bạn.'
+                  : scope === 'member'
+                    ? 'Hãy khám phá và tham gia các CLB ở tab "Khám phá CLB".'
+                    : 'Thử đổi bộ lọc môn thể thao hoặc thành lập CLB mới.'
+              }
+            />
+          }
+        />
+      )}
+
+      <CreateTeamModal visible={isCreateOpen} onClose={() => setIsCreateOpen(false)} />
+      {editingTeam ? (
+        <CreateTeamModal key={editingTeam.id} visible team={editingTeam} onClose={() => setEditingTeam(null)} />
+      ) : null}
+      {managingTeam ? (
+        <TeamMembersModal
+          visible
+          teamId={managingTeam.id}
+          canManage={managingTeam.is_captain}
+          onClose={() => setManagingTeam(null)}
+        />
+      ) : null}
+      {premiumTeam ? (
+        <TeamPremiumSettingsModal
+          visible
+          team={premiumTeam}
+          canEdit={premiumTeam.is_captain}
+          onClose={() => setPremiumTeamId(null)}
+        />
+      ) : null}
+      {reviewingTeamId != null ? (
+        <ReviewTeamModal visible teamId={reviewingTeamId} onClose={() => setReviewingTeamId(null)} />
+      ) : null}
+    </ScreenContainer>
+  );
+}

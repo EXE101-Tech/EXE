@@ -1,14 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, Gamepad2, Trophy, MapPin, Calendar, Clock, Users, DollarSign, AlignLeft, Sparkles, AlertCircle } from 'lucide-react';
+import { sportService } from '../../../shared/services/api';
+import { parseCostInputToVnd, storedCostToInput } from '../../../shared/utils/price';
+import { isActiveSport } from '../../../shared/constants/sports';
+import LocationPicker from '../../../shared/components/LocationPicker';
 
-const SPORTS_LIST = [
-  { id: 1, name: 'Cầu lông', emoji: '🏸' },
-  { id: 2, name: 'Bóng đá', emoji: '⚽' },
-  { id: 3, name: 'Pickleball', emoji: '🏓' },
-  { id: 4, name: 'Tennis', emoji: '🎾' },
-  { id: 5, name: 'Bóng rổ', emoji: '🏀' },
-  { id: 6, name: 'Bóng bàn', emoji: '🏓' },
-];
+const SPORT_EMOJI = { badminton: '🏸', football: '⚽', pickleball: '🏓' };
 
 const LEVELS = [
   { value: 'Beginner', label: 'Mới tập / Vui là chính' },
@@ -17,22 +14,75 @@ const LEVELS = [
   { value: 'Expert', label: 'Chuyên nghiệp (Thi đấu giải)' },
 ];
 
-function CreateRoomModal({ isOpen, onClose, onSubmit, isLoading = false }) {
-  const [formData, setFormData] = useState({
+const localDateString = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getTimeParts = (value) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return { date: localDateString(new Date()), time: '19:00' };
+  return {
+    date: localDateString(date),
+    time: `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`,
+  };
+};
+
+const defaultFormData = () => ({
     title: '',
     sportName: 'Cầu lông',
-    sport_id: 1,
+    sport_id: '',
     required_level: 'Intermediate',
     location: '',
-    date: new Date().toISOString().split('T')[0],
+    date: localDateString(new Date()),
     start_time: '19:00',
     end_time: '21:00',
     max_players: 6,
-    price_info: '~50.000đ / người (Chia đều)',
+    price_info: '',
     description: '',
-  });
+});
+
+function CreateRoomModal({ isOpen, onClose, onSubmit, initialRoom = null, isLoading = false }) {
+  const [formData, setFormData] = useState(defaultFormData);
 
   const [error, setError] = useState('');
+  const [sports, setSports] = useState([]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setError('');
+    if (initialRoom) {
+      const start = getTimeParts(initialRoom.start_time);
+      const end = getTimeParts(initialRoom.end_time);
+      setFormData({
+        title: initialRoom.title || '',
+        sportName: initialRoom.sportName || initialRoom.sport?.name || 'Cầu lông',
+        sport_id: Number(initialRoom.sport_id) || '',
+        required_level: initialRoom.required_level || 'Intermediate',
+        location: initialRoom.location || '',
+        date: start.date,
+        start_time: start.time,
+        end_time: end.time,
+        max_players: Number(initialRoom.max_players) || 2,
+        price_info: storedCostToInput(initialRoom.price_info),
+        description: initialRoom.description || '',
+        court_id: initialRoom.court_id || '',
+      });
+    } else {
+      setFormData(defaultFormData());
+    }
+    sportService.getAll().then((items) => {
+      const available = items.filter((item) => item.id != null && isActiveSport(item));
+      setSports(available);
+      setFormData((current) => {
+        if (available.some((item) => item.id === Number(current.sport_id))) return current;
+        const first = available[0];
+        return first ? { ...current, sport_id: first.id, sportName: first.name } : current;
+      });
+    }).catch((err) => setError(err.message || 'Không tải được danh sách môn thể thao'));
+  }, [isOpen, initialRoom]);
 
   if (!isOpen) return null;
 
@@ -46,7 +96,7 @@ function CreateRoomModal({ isOpen, onClose, onSubmit, isLoading = false }) {
     setFormData((prev) => ({
       ...prev,
       sportName: sport.name,
-      sport_id: sport.id,
+      sport_id: Number(sport.id),
       max_players: sport.name === 'Bóng đá' ? 14 : sport.name === 'Cầu lông' ? 6 : 4,
     }));
   };
@@ -61,56 +111,61 @@ function CreateRoomModal({ isOpen, onClose, onSubmit, isLoading = false }) {
       setError('Vui lòng nhập tên sân hoặc địa điểm thi đấu');
       return;
     }
+    const priceVnd = parseCostInputToVnd(formData.price_info);
+    if (priceVnd === null) {
+      setError('Chi phí là bắt buộc. Nhập số nguyên theo nghìn đồng, ví dụ 50 hoặc 50.000; không nhập số thập phân.');
+      return;
+    }
 
     // Prepare ISO datetimes for start and end
     try {
       const startIso = new Date(`${formData.date}T${formData.start_time}:00`).toISOString();
       const endIso = new Date(`${formData.date}T${formData.end_time}:00`).toISOString();
+      if (new Date(endIso) <= new Date(startIso)) {
+        setError('Giờ kết thúc phải sau giờ bắt đầu');
+        return;
+      }
       
       onSubmit({
         ...formData,
         start_time: startIso,
         end_time: endIso,
         max_players: Number(formData.max_players),
+        price_info: String(priceVnd / 1000),
       });
     } catch (err) {
-      onSubmit({
-        ...formData,
-        start_time: new Date().toISOString(),
-        end_time: new Date(Date.now() + 2 * 3600 * 1000).toISOString(),
-        max_players: Number(formData.max_players),
-      });
+      setError('Ngày hoặc giờ không hợp lệ, vui lòng kiểm tra lại');
     }
   };
 
   return (
-    <div className="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+    <div className="sg-modal-backdrop fixed inset-0 z-[1050] flex items-center justify-center p-4 animate-in fade-in duration-200 overflow-y-auto">
       <div 
-        className="relative w-full max-w-2xl bg-white dark:bg-[#001F3F] border border-gray-200 dark:border-white/10 rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-8 flex flex-col max-h-[88vh]"
+        className="sg-modal-card relative my-8 flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="relative bg-gradient-to-r from-[#74C365] to-[#589470] p-6 text-white flex items-center justify-between shrink-0">
+        <div className="sg-modal-header relative flex items-center justify-between p-6 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shadow-sm">
+            <div className="sg-modal-header-icon flex h-11 w-11 items-center justify-center rounded-2xl shadow-sm">
               <Gamepad2 className="w-6 h-6 stroke-[2.5]" />
             </div>
             <div>
-              <h3 className="text-xl font-black">Mở Phòng Chờ Thi Đấu</h3>
-              <p className="text-xs opacity-90">Tạo sảnh chờ tìm bạn chơi phù hợp theo trình độ và thời gian</p>
+              <h3 className="text-xl font-black">{initialRoom ? 'Chỉnh sửa phòng chờ' : 'Mở Phòng Chờ Thi Đấu'}</h3>
+              <p className="text-xs opacity-90">{initialRoom ? 'Cập nhật thông tin phòng chơi của bạn' : 'Tạo sảnh chờ tìm bạn chơi phù hợp theo trình độ và thời gian'}</p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-full bg-black/10 hover:bg-black/20 text-white transition-colors"
+            className="sg-modal-close rounded-full p-2 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Form Content (Scrollable) */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto custom-scrollbar flex-1 text-slate-900 dark:text-white">
+        <form onSubmit={handleSubmit} className="sg-modal-body flex-1 space-y-5 overflow-y-auto p-6 custom-scrollbar">
           {error && (
             <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -124,7 +179,7 @@ function CreateRoomModal({ isOpen, onClose, onSubmit, isLoading = false }) {
               Chọn môn thể thao <span className="text-rose-500">*</span>
             </label>
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-              {SPORTS_LIST.map((sport) => {
+              {sports.map((sport) => {
                 const isSelected = formData.sportName === sport.name;
                 return (
                   <button
@@ -137,7 +192,7 @@ function CreateRoomModal({ isOpen, onClose, onSubmit, isLoading = false }) {
                         : 'border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 font-medium'
                     }`}
                   >
-                    <span className="text-xl">{sport.emoji}</span>
+                    <span className="text-xl">{SPORT_EMOJI[sport.key] || '🏅'}</span>
                     <span className="text-[11px] truncate w-full">{sport.name}</span>
                   </button>
                 );
@@ -185,13 +240,10 @@ function CreateRoomModal({ isOpen, onClose, onSubmit, isLoading = false }) {
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
               <MapPin className="w-3.5 h-3.5 text-rose-500" /> Địa điểm / Sân thi đấu <span className="text-rose-500">*</span>
             </label>
-            <input
-              type="text"
-              name="location"
+            <LocationPicker
               value={formData.location}
               onChange={handleChange}
-              placeholder="VD: Sân cầu lông Viettel, Số 1 Đào Duy Anh, Phú Nhuận..."
-              className="w-full px-4 py-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:border-[#589470] dark:focus:border-[#DBE64C] focus:outline-none text-sm font-medium text-slate-900 dark:text-white transition-all"
+              placeholder="Nhập tên sân, địa chỉ hoặc bấm 'Map' để chọn trên bản đồ..."
               required
             />
           </div>
@@ -259,16 +311,22 @@ function CreateRoomModal({ isOpen, onClose, onSubmit, isLoading = false }) {
 
             <div className="flex flex-col justify-end">
               <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5 min-h-[36px]">
-                <DollarSign className="w-3.5 h-3.5 text-emerald-500" /> Chi phí dự kiến
+                <DollarSign className="w-3.5 h-3.5 text-emerald-500" /> Chi phí/người (nghìn đồng) <span className="text-rose-500">*</span>
               </label>
               <input
                 type="text"
                 name="price_info"
+                required
+                maxLength={20}
+                inputMode="numeric"
+                pattern="[0-9]+|[0-9]{1,3}([.][0-9]{3})+"
                 value={formData.price_info}
                 onChange={handleChange}
-                placeholder="VD: ~50k/người, Chia đều theo giờ..."
+                placeholder="VD: 50 hoặc 50.000"
+                aria-describedby="gameroom-price-hint"
                 className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-sm font-medium text-slate-900 dark:text-white focus:outline-none"
               />
+              <p id="gameroom-price-hint" className="mt-1 text-xs text-slate-500">Nhập 50 = 50.000đ; có thể nhập 50.000. Không nhập số thập phân.</p>
             </div>
           </div>
 
@@ -288,21 +346,21 @@ function CreateRoomModal({ isOpen, onClose, onSubmit, isLoading = false }) {
           </div>
 
           {/* Submit Footer */}
-          <div className="p-6 pt-3 bg-gray-50 dark:bg-[#001F3F]/50 border-t border-slate-100 dark:border-white/10 flex items-center justify-end gap-3 shrink-0">
+          <div className="sg-modal-footer flex items-center justify-end gap-3 p-6 pt-3 shrink-0">
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 rounded-2xl font-bold text-sm text-slate-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
+              className="sg-modal-secondary rounded-2xl px-5 py-2.5 text-sm font-bold transition-colors"
             >
               Hủy
             </button>
             <button
               type="submit"
               disabled={isLoading}
-              className="px-6 py-2.5 rounded-2xl font-bold text-sm bg-gradient-to-r from-[#74C365] to-[#589470] hover:opacity-95 text-white shadow-lg shadow-[#589470]/30 flex items-center gap-2 transition-transform active:scale-95 disabled:opacity-50"
+              className="sg-modal-primary flex items-center gap-2 rounded-2xl px-6 py-2.5 text-sm font-bold shadow-lg transition-transform active:scale-95 disabled:opacity-50"
             >
               <Sparkles className="w-4 h-4" />
-              <span>{isLoading ? 'Đang tạo phòng...' : 'Tạo Phòng Ngay'}</span>
+              <span>{isLoading ? (initialRoom ? 'Đang lưu...' : 'Đang tạo phòng...') : (initialRoom ? 'Lưu thay đổi' : 'Tạo Phòng Ngay')}</span>
             </button>
           </div>
         </form>
