@@ -7,6 +7,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 import uvicorn
 
 from app.database import engine, Base, SessionLocal
@@ -54,6 +55,9 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+# Automatically compress response payloads larger than 1KB with Gzip
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # Configure CORS so our React Frontend can fetch APIs from localhost
 app.add_middleware(

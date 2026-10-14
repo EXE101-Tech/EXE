@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app import auth_utils, database, models, schemas
 from app.geocoding import geocode_address
 from app.sport_catalog import resolve_sport
+from app.cache import memory_cache
 
 router = APIRouter(prefix="/courts/owner", tags=["Court owner"])
 
@@ -165,6 +166,7 @@ def create_my_venue(
     _update_courts(db, venue, sport, data.court_count, _price_per_hour(data.price_label))
     db.commit()
     db.refresh(venue)
+    memory_cache.delete_prefix("venues:")
     return _venue_payload(venue)
 
 
@@ -194,6 +196,7 @@ def update_my_venue(
     _update_courts(db, venue, sport, count, _price_per_hour(price_label))
     db.commit()
     db.refresh(venue)
+    memory_cache.delete_prefix("venues:")
     return _venue_payload(venue)
 
 
@@ -223,6 +226,7 @@ def remove_my_venue(
         court.is_active = False
     db.commit()
     db.refresh(venue)
+    memory_cache.delete_prefix("venues:")
     return _venue_payload(venue)
 
 

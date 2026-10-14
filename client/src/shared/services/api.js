@@ -180,6 +180,7 @@ export const autoRoomSearchService = {
 };
 
 export const teamService = {
+  // Team list responses contain membership-dependent fields and must not be cached.
   getAll: (filters = {}) => apiClient.get('/teams', { params: filters }),
   getById: (id) => apiClient.get(`/teams/${id}`),
   create: (data) => apiClient.post('/teams', data),
@@ -229,7 +230,7 @@ export const chatService = {
   getMessages: (conversationId, params = {}) => apiClient.get(`/chat/conversations/${conversationId}/messages`, { params }),
   sendMessage: (conversationId, text) => apiClient.post(`/chat/conversations/${conversationId}/messages`, { text }),
   searchUsers: (query) => apiClient.get('/chat/users', { params: { q: query, limit: 30 } }),
-  getFriends: () => apiClient.get('/chat/friends'),
+  getFriends: () => getCached('/chat/friends'),
   getFriendRequests: () => apiClient.get('/chat/friends/requests'),
   sendFriendRequest: (userId) => apiClient.post('/chat/friends/requests', { recipient_id: userId }),
   acceptFriendRequest: (friendshipId) => apiClient.post(`/chat/friends/requests/${friendshipId}/accept`),

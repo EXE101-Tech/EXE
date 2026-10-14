@@ -1,3 +1,4 @@
+import time
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
@@ -6,11 +7,28 @@ from app import database, schemas, crud, auth_utils, models
 from app.notification_utils import create_notification, display_name
 from app.auto_room_search import notify_matching_users_for_match, notify_matches_for_preference
 from app.auto_room_invites import process_auto_room_invite_for_match
+from app.cache import memory_cache
 
 router = APIRouter(
     prefix="/gamerooms",
     tags=["Game Rooms"]
 )
+
+_last_closed_matches_time = 0.0
+
+def _close_expired_matches(db: Session):
+    updated = crud.close_expired_matches(db)
+    if updated:
+        memory_cache.delete_prefix("gamerooms:list:")
+    return updated
+
+
+def throttled_close_expired_matches(db: Session, interval: int = 60):
+    global _last_closed_matches_time
+    now = time.time()
+    if now - _last_closed_matches_time >= interval:
+        _close_expired_matches(db)
+        _last_closed_matches_time = now
 
 
 def _require_premium(current_user):
@@ -76,15 +94,21 @@ def get_all_matches(
     status: Optional[str] = Query(None),
     db: Session = Depends(database.get_db)
 ):
-    crud.close_expired_matches(db)
-    return crud.get_matches(db, sport_id=sport_id, status=status)
+    throttled_close_expired_matches(db)
+    cache_key = f"gamerooms:list:{sport_id}:{status}"
+    cached = memory_cache.get(cache_key)
+    if cached is not None:
+        return cached
+    data = crud.get_matches(db, sport_id=sport_id, status=status)
+    memory_cache.set(cache_key, data, ttl=10)
+    return data
 
 @router.get("/mine", response_model=List[schemas.MatchResponse])
 def get_my_matches(
     current_user = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db),
 ):
-    crud.close_expired_matches(db)
+    throttled_close_expired_matches(db)
     return crud.get_matches(db, host_id=current_user.id)
 
 @router.post("", response_model=schemas.MatchResponse, status_code=status.HTTP_201_CREATED)
@@ -108,6 +132,7 @@ def create_new_match(
     notify_matching_users_for_match(db, match, actor=current_user)
     process_auto_room_invite_for_match(db, match)
     db.commit()
+    memory_cache.delete_prefix("gamerooms:list:")
     return match
 
 @router.get("/{id}", response_model=schemas.MatchResponse)
@@ -118,7 +143,7 @@ def get_match_by_id(
 ):
     if current_user.is_admin:
         raise HTTPException(status_code=403, detail="Tài khoản quản trị chỉ dùng để kiểm duyệt")
-    crud.close_expired_matches(db)
+    _close_expired_matches(db)
     match = crud.get_match_by_id(db, match_id=id)
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
@@ -135,7 +160,7 @@ def update_existing_match(
 ):
     if current_user.is_admin:
         raise HTTPException(status_code=403, detail="Tài khoản quản trị chỉ dùng để kiểm duyệt")
-    crud.close_expired_matches(db)
+    _close_expired_matches(db)
     match = crud.get_match_by_id(db, match_id=id)
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
@@ -158,6 +183,7 @@ def update_existing_match(
     notify_matching_users_for_match(db, updated_match, actor=current_user)
     process_auto_room_invite_for_match(db, updated_match)
     db.commit()
+    memory_cache.delete_prefix("gamerooms:list:")
     return updated_match
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -191,6 +217,7 @@ def delete_existing_match(
         )
     db.delete(match)
     db.commit()
+    memory_cache.delete_prefix("gamerooms:list:")
     return None
 
 @router.post("/{id}/join", response_model=schemas.MatchParticipantResponse)
@@ -202,7 +229,7 @@ def join_existing_match(
 ):
     if current_user.is_admin:
         raise HTTPException(status_code=403, detail="Tài khoản quản trị chỉ dùng để kiểm duyệt")
-    crud.close_expired_matches(db)
+    _close_expired_matches(db)
     # Check if match exists
     match = crud.get_match_by_id(db, match_id=id)
     if not match:
@@ -242,6 +269,7 @@ def join_existing_match(
             )
             db.commit()
             db.refresh(existing)
+            memory_cache.delete_prefix("gamerooms:list:")
             return existing
         raise HTTPException(status_code=409, detail="Yêu cầu tham gia của bạn đang chờ duyệt")
 
@@ -259,6 +287,7 @@ def join_existing_match(
     )
     db.commit()
     db.refresh(participant)
+    memory_cache.delete_prefix("gamerooms:list:")
     return participant
 
 @router.post("/{id}/leave")
@@ -269,7 +298,7 @@ def leave_existing_match(
 ):
     if current_user.is_admin:
         raise HTTPException(status_code=403, detail="Tài khoản quản trị chỉ dùng để kiểm duyệt")
-    crud.close_expired_matches(db)
+    _close_expired_matches(db)
     # Check if match exists
     match = crud.get_match_by_id(db, match_id=id)
     if not match:
@@ -278,7 +307,7 @@ def leave_existing_match(
     success = crud.leave_match(db, match_id=id, user_id=current_user.id)
     if not success:
         raise HTTPException(status_code=400, detail="You are not a participant in this match")
-        
+    memory_cache.delete_prefix("gamerooms:list:")
     return {"message": "Successfully left the match"}
 
 @router.patch("/{id}/participants/{user_id}/status", response_model=schemas.MatchParticipantResponse)
@@ -289,7 +318,7 @@ def update_participant_status(
     current_user = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db)
 ):
-    crud.close_expired_matches(db)
+    _close_expired_matches(db)
     # Verify match exists
     match = crud.get_match_by_id(db, match_id=id)
     if not match:
@@ -339,6 +368,7 @@ def update_participant_status(
             entity_id=match.id,
         )
         db.commit()
+        memory_cache.delete_prefix("gamerooms:list:")
     return participant
 
 
@@ -350,7 +380,7 @@ def update_participant_attendance(
     current_user = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db),
 ):
-    crud.close_expired_matches(db)
+    _close_expired_matches(db)
     match = crud.get_match_by_id(db, match_id=id)
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
@@ -373,6 +403,7 @@ def update_participant_attendance(
     participant.attendance_status = attendance_data.attendance_status
     db.commit()
     db.refresh(participant)
+    memory_cache.delete_prefix("gamerooms:list:")
     return participant
 
 
@@ -411,6 +442,7 @@ def respond_to_auto_invite(
         )
         db.commit()
         db.refresh(participant)
+        memory_cache.delete_prefix("gamerooms:list:")
         return participant
 
     if match.status in ["FULL", "CLOSED", "FINISHED", "CANCELLED"]:
@@ -439,5 +471,6 @@ def respond_to_auto_invite(
     )
     db.commit()
     db.refresh(participant)
+    memory_cache.delete_prefix("gamerooms:list:")
     return participant
 

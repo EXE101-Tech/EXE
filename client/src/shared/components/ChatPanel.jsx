@@ -267,19 +267,49 @@ function ChatPanel() {
     event.preventDefault();
     const text = message.trim();
     if (!text || !selected?.conversationId || isSending) return;
-    setIsSending(true);
+
+    const conversationId = selected.conversationId;
+    const contact = selected;
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+    setMessage('');
     setError('');
+    setIsSending(true);
+    const optimisticMsg = {
+      id: tempId,
+      conversation_id: conversationId,
+      sender_id: user?.id,
+      text,
+      created_at: new Date().toISOString(),
+      is_read: false,
+      isPending: true,
+    };
+
+    setMessages((current) => [...current, optimisticMsg]);
+
     try {
-      const sent = await chatService.sendMessage(selected.conversationId, text);
-      setMessages((current) => [...current, sent]);
-      messageCursorRef.current.latestId = Math.max(messageCursorRef.current.latestId, Number(sent.id) || 0);
-      setConversations((current) => {
-        const contact = { ...selected, last_message: sent.text, updated_at: sent.created_at };
-        return [contact, ...current.filter((item) => item.conversationId !== selected.conversationId)];
+      const sent = await chatService.sendMessage(conversationId, text);
+      setMessages((current) => {
+        const alreadyFetched = current.some(
+          (item) => item.id !== tempId && String(item.id) === String(sent.id),
+        );
+        return alreadyFetched
+          ? current.filter((item) => item.id !== tempId)
+          : current.map((item) => (item.id === tempId ? sent : item));
       });
-      setMessage('');
+      if (messageCursorRef.current.conversationId === conversationId) {
+        messageCursorRef.current.latestId = Math.max(messageCursorRef.current.latestId, Number(sent.id) || 0);
+      }
+      setConversations((current) => {
+        const updatedContact = { ...contact, last_message: sent.text, updated_at: sent.created_at };
+        return [updatedContact, ...current.filter((item) => item.conversationId !== conversationId)];
+      });
     } catch (err) {
-      setError(err.message || 'Không gửi được tin nhắn');
+      setMessages((current) => current.filter((item) => item.id !== tempId));
+      if (messageCursorRef.current.conversationId === conversationId) {
+        setMessage(text);
+        setError(err.message || 'Không gửi được tin nhắn');
+      }
     } finally {
       setIsSending(false);
     }
@@ -443,9 +473,11 @@ function ChatPanel() {
             {messages.map((item) => {
               const own = Number(item.sender_id) === Number(user?.id);
               return <div key={item.id} className={`flex ${own ? 'justify-end' : 'justify-start'}`}>
-                <div className={`sg-chat-bubble max-w-[85%] rounded-2xl px-3.5 py-2.5 shadow-sm ${own ? 'is-own rounded-br-sm' : 'is-other rounded-bl-sm'}`}>
+                <div className={`sg-chat-bubble max-w-[85%] rounded-2xl px-3.5 py-2.5 shadow-sm ${own ? 'is-own rounded-br-sm' : 'is-other rounded-bl-sm'} ${item.isPending ? 'opacity-70' : ''}`}>
                   <p className="text-sm whitespace-pre-wrap break-words">{item.text}</p>
-                  <p className="sg-chat-message-time text-[10px] mt-1 text-right">{formatMessageTime(item.created_at)}</p>
+                  <p className="sg-chat-message-time text-[10px] mt-1 text-right">
+                    {item.isPending ? 'Đang gửi…' : formatMessageTime(item.created_at)}
+                  </p>
                 </div>
               </div>;
             })}
