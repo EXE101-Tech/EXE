@@ -11,6 +11,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 import uvicorn
 
 from app.database import engine, Base, SessionLocal
+from app.social_realtime import close_clients
 from app.admin_seed import bootstrap_admins
 from app.routers import auth, courts, gamerooms, bookings, teams, lfg, owner, chat, search, storage, notifications, social, admin, moderation
 from app.auto_room_invites import process_auto_room_invites
@@ -47,6 +48,7 @@ async def lifespan(_app: FastAPI):
             await worker
         except asyncio.CancelledError:
             pass
+        await close_clients()
 
 
 app = FastAPI(

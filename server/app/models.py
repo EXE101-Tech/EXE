@@ -475,6 +475,9 @@ class SocialPostLike(Base):
 
 class SocialPostComment(Base):
     __tablename__ = "social_post_comments"
+    __table_args__ = (
+        Index("ix_social_post_comments_post_parent_id_id", "post_id", "parent_id", "id"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     post_id = Column(Integer, ForeignKey("social_posts.id", ondelete="CASCADE"), nullable=False, index=True)

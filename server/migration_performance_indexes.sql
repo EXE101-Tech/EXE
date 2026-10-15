@@ -20,3 +20,7 @@ CREATE INDEX IF NOT EXISTS idx_venues_active ON venues(is_active);
 
 -- 6. Friendships pair index
 CREATE INDEX IF NOT EXISTS idx_friendships_users ON friendships(user_low_id, user_high_id);
+
+-- 7. Social comment thread pagination and reply lookup
+CREATE INDEX IF NOT EXISTS ix_social_post_comments_post_parent_id_id
+    ON social_post_comments(post_id, parent_id, id);

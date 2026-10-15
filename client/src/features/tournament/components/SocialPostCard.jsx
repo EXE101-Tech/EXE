@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Ban, Flag, Heart, LoaderCircle, MessageCircle, Pencil, Send, Trash2, UserPlus, UserRoundCheck, X } from 'lucide-react';
 import { chatService, moderationService, resolveMediaUrl, socialPostService } from '../../../shared/services/api';
 
@@ -33,6 +33,28 @@ const COMMENT_REACTIONS = [
   { key: 'angry', emoji: '😡', label: 'Phẫn nộ' },
 ];
 
+const sortComments = (items) => [...items].sort((first, second) => (
+  new Date(first.created_at).getTime() - new Date(second.created_at).getTime()
+  || String(first.id).localeCompare(String(second.id), undefined, { numeric: true })
+));
+
+function mergeRecentCommentPage(current, incoming, oldestRootId) {
+  const pending = current.filter((item) => item.isPending);
+  const older = oldestRootId == null
+    ? []
+    : current.filter((item) => Number(item.parent_id ?? item.id) < Number(oldestRootId));
+  const byId = new Map();
+  [...older, ...incoming, ...pending].forEach((item) => byId.set(String(item.id), item));
+  return sortComments([...byId.values()]);
+}
+
+function upsertComment(current, comment, replaceId = null) {
+  const filtered = current.filter((item) => (
+    item.id !== replaceId && String(item.id) !== String(comment.id)
+  ));
+  return sortComments([...filtered, comment]);
+}
+
 function Avatar({ src, name, className = 'h-10 w-10' }) {
   return (
     <div className={`${className} flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 font-black text-white`}>
@@ -41,13 +63,14 @@ function Avatar({ src, name, className = 'h-10 w-10' }) {
   );
 }
 
-export default function SocialPostCard({ post, user, canManage = false, onEdit, onDelete, onRefresh, onMessage, onAcceptTerms }) {
-  const [liked, setLiked] = useState(Boolean(post.liked_by_me));
-  const [likeCount, setLikeCount] = useState(post.like_count || 0);
+export default function SocialPostCard({ post, user, canManage = false, onEdit, onDelete, onRefresh, onMessage, onAcceptTerms, onMetricsChange }) {
   const [isLiking, setIsLiking] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [comments, setComments] = useState([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
+  const [realtimeConnected, setRealtimeConnected] = useState(false);
+  const [hasMoreComments, setHasMoreComments] = useState(false);
+  const [isLoadingOlderComments, setIsLoadingOlderComments] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [commentError, setCommentError] = useState('');
   const [editingCommentId, setEditingCommentId] = useState(null);
@@ -63,10 +86,77 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
   const [friendError, setFriendError] = useState('');
   const [friendBusy, setFriendBusy] = useState(false);
   const [acceptedGuidelines, setAcceptedGuidelines] = useState(Boolean(user?.community_guidelines_accepted));
-  const [commentCount, setCommentCount] = useState(post.comment_count || 0);
+  const liked = Boolean(post.liked_by_me);
+  const likeCount = post.like_count || 0;
+  const commentCount = post.comment_count || 0;
   const commentMutationVersionRef = useRef(0);
+  const hasLoadedOlderCommentsRef = useRef(false);
 
   const isMine = Number(post.author_id) === Number(user?.id);
+
+  const updatePostMetrics = useCallback((metrics) => onMetricsChange?.(post.id, metrics), [onMetricsChange, post.id]);
+
+  const syncCommentCount = useCallback((count) => {
+    const nextCount = Math.max(0, Number(count) || 0);
+    updatePostMetrics({ comment_count: nextCount });
+  }, [updatePostMetrics]);
+
+  useEffect(() => {
+    const handleConnectionStatus = (event) => setRealtimeConnected(Boolean(event.detail?.connected));
+    window.addEventListener('sportgo:social-realtime-status', handleConnectionStatus);
+    return () => window.removeEventListener('sportgo:social-realtime-status', handleConnectionStatus);
+  }, []);
+
+  useEffect(() => {
+    const handleRealtimeEvent = (message) => {
+      const event = message.detail;
+      if (Number(event?.post_id) !== Number(post.id)) return;
+
+      if (event.type === 'like_changed') {
+        updatePostMetrics({
+          like_count: event.like_count,
+          ...(Number(event.actor_id) === Number(user?.id) ? { liked_by_me: event.liked } : {}),
+        });
+      } else if (event.type === 'comment_created') {
+        if (commentsOpen && event.comment) {
+          const incomingComment = {
+            ...event.comment,
+            my_reaction: Number(event.actor_id) === Number(user?.id) ? event.comment.my_reaction : null,
+          };
+          setComments((current) => {
+            const ownPending = current.find((item) => (
+              item.isPending
+              && Number(item.author_id) === Number(incomingComment.author_id)
+              && item.content === incomingComment.content
+            ));
+            return upsertComment(current, incomingComment, ownPending?.id ?? null);
+          });
+        }
+        syncCommentCount(event.comment_count);
+      } else if (event.type === 'comment_updated' && event.comment) {
+        setComments((current) => current.map((item) => item.id === event.comment.id
+          ? {
+            ...event.comment,
+            my_reaction: Number(event.actor_id) === Number(user?.id) ? event.comment.my_reaction : item.my_reaction,
+          }
+          : item));
+      } else if (event.type === 'comment_deleted') {
+        const deletedIds = new Set(event.comment_ids || []);
+        setComments((current) => current.filter((item) => !deletedIds.has(item.id)));
+        syncCommentCount(event.comment_count);
+      } else if (event.type === 'comment_reaction_changed') {
+        setComments((current) => current.map((item) => item.id === event.comment_id
+          ? {
+            ...item,
+            reaction_counts: event.reaction_counts || {},
+            my_reaction: Number(event.actor_id) === Number(user?.id) ? event.my_reaction : item.my_reaction,
+          }
+          : item));
+      }
+    };
+    window.addEventListener('sportgo:social-realtime', handleRealtimeEvent);
+    return () => window.removeEventListener('sportgo:social-realtime', handleRealtimeEvent);
+  }, [commentsOpen, post.id, syncCommentCount, updatePostMetrics, user?.id]);
 
   const report = async (targetType, targetId) => {
     const reason = window.prompt('Lý do báo cáo:', 'Nội dung không phù hợp');
@@ -93,19 +183,19 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
       const mutationVersion = commentMutationVersionRef.current;
       if (initial) setCommentsLoading(true);
       try {
-        const items = await socialPostService.getComments(post.id);
+        const page = await socialPostService.getCommentPage(post.id, { limit: 20 });
         if (!active || mutationVersion !== commentMutationVersionRef.current) return;
-        setComments((current) => {
-          const unchanged = current.length === items.length && current.every((item, index) => (
-            item.id === items[index]?.id
-            && item.content === items[index]?.content
-            && item.reply_count === items[index]?.reply_count
-            && item.my_reaction === items[index]?.my_reaction
-            && JSON.stringify(item.reaction_counts || {}) === JSON.stringify(items[index]?.reaction_counts || {})
-          ));
-          return unchanged ? current : items;
-        });
-        setCommentCount(items.length);
+        setComments((current) => initial && current.length === 0
+          ? page.items
+          : mergeRecentCommentPage(current, page.items, page.oldest_root_id));
+        syncCommentCount(page.total_count);
+        if (!hasLoadedOlderCommentsRef.current && initial) setHasMoreComments(page.has_more);
+        if (!isLiking) {
+          updatePostMetrics({
+            like_count: page.like_count,
+            liked_by_me: page.liked_by_me,
+          });
+        }
         setCommentError('');
       } catch (error) {
         if (active) setCommentError(error.message || 'Không tải được bình luận.');
@@ -115,7 +205,8 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
       }
     };
     const initialTimer = window.setTimeout(() => refreshComments(true), 0);
-    const pollTimer = window.setInterval(() => refreshComments(), 1000);
+    // Redis Pub/Sub is ephemeral; reconcile occasionally even while the socket is healthy.
+    const pollTimer = window.setInterval(() => refreshComments(), realtimeConnected ? 60000 : 8000);
     const refreshWhenVisible = () => {
       if (document.visibilityState === 'visible') refreshComments();
     };
@@ -128,17 +219,45 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
       document.removeEventListener('visibilitychange', refreshWhenVisible);
       window.removeEventListener('focus', refreshWhenVisible);
     };
-  }, [commentsOpen, post.id]);
+  }, [commentsOpen, post.id, isLiking, realtimeConnected, syncCommentCount, updatePostMetrics]);
+
+  const loadOlderComments = async () => {
+    if (isLoadingOlderComments) return;
+    const oldestRoot = comments
+      .filter((item) => item.parent_id == null && Number.isFinite(Number(item.id)))
+      .reduce((oldest, item) => (!oldest || Number(item.id) < Number(oldest.id) ? item : oldest), null);
+    if (!oldestRoot) return;
+    setIsLoadingOlderComments(true);
+    try {
+      const page = await socialPostService.getCommentPage(post.id, { before_id: oldestRoot.id, limit: 20 });
+      setComments((current) => {
+        const byId = new Map(current.map((item) => [String(item.id), item]));
+        page.items.forEach((item) => byId.set(String(item.id), item));
+        return sortComments([...byId.values()]);
+      });
+      setHasMoreComments(page.has_more);
+      hasLoadedOlderCommentsRef.current = true;
+    } catch (error) {
+      setCommentError(error.message || 'Không tải được bình luận cũ hơn.');
+    } finally {
+      setIsLoadingOlderComments(false);
+    }
+  };
 
   const toggleLike = async () => {
     if (isLiking) return;
+    const previousLiked = liked;
+    const previousCount = likeCount;
+    const nextLiked = !liked;
+    const nextCount = Math.max(0, likeCount + (nextLiked ? 1 : -1));
+    updatePostMetrics({ liked_by_me: nextLiked, like_count: nextCount });
     setIsLiking(true);
     setActionError('');
     try {
-      const result = liked ? await socialPostService.unlike(post.id) : await socialPostService.like(post.id);
-      setLiked(result.liked);
-      setLikeCount(result.like_count);
+      const result = nextLiked ? await socialPostService.like(post.id) : await socialPostService.unlike(post.id);
+      updatePostMetrics({ liked_by_me: result.liked, like_count: result.like_count });
     } catch (error) {
+      updatePostMetrics({ liked_by_me: previousLiked, like_count: previousCount });
       setActionError(error.message || 'Không thể cập nhật lượt thích.');
     } finally {
       setIsLiking(false);
@@ -147,7 +266,7 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
 
   const sendComment = async (event) => {
     event.preventDefault();
-    if (!commentText.trim() || isCommenting) return;
+    if (!commentText.trim() || isCommenting || isReplying) return;
     if (!user?.community_guidelines_accepted && !acceptedGuidelines) {
       setCommentError('Vui lòng xác nhận bạn đồng ý tuân thủ quy tắc cộng đồng trước khi bình luận.');
       return;
@@ -155,13 +274,36 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
     setIsCommenting(true);
     setCommentError('');
     commentMutationVersionRef.current += 1;
+    const content = commentText.trim();
+    const previousCount = commentCount;
+    let optimisticComment = null;
     try {
       if (!user?.community_guidelines_accepted) await onAcceptTerms?.();
-      const comment = await socialPostService.addComment(post.id, commentText.trim());
-      setComments((current) => [...current, comment]);
+      optimisticComment = {
+        id: `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        post_id: post.id,
+        author_id: user?.id,
+        parent_id: null,
+        author_name: user?.profile?.full_name || user?.name || user?.email || 'Bạn',
+        author_avatar_url: user?.profile?.avatar_url || user?.avatar || null,
+        content,
+        created_at: new Date().toISOString(),
+        reply_count: 0,
+        reaction_counts: {},
+        my_reaction: null,
+        isPending: true,
+      };
+      setComments((current) => upsertComment(current, optimisticComment));
       setCommentText('');
-      setCommentCount((count) => count + 1);
+      syncCommentCount(previousCount + 1);
+      const comment = await socialPostService.addComment(post.id, content);
+      setComments((current) => upsertComment(current, comment, optimisticComment.id));
     } catch (error) {
+      if (optimisticComment) {
+        setComments((current) => current.filter((item) => item.id !== optimisticComment.id));
+        syncCommentCount(previousCount);
+        setCommentText(content);
+      }
       setCommentError(error.message || 'Không thể gửi bình luận.');
     } finally {
       setIsCommenting(false);
@@ -169,18 +311,22 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
   };
 
   const removeComment = async (comment) => {
+    const previousComments = comments;
+    const previousCount = commentCount;
+    const removedIds = new Set([comment.id]);
+    comments.forEach((item) => {
+      if (Number(item.parent_id) === Number(comment.id)) removedIds.add(item.id);
+    });
+    setComments((current) => current.filter((item) => !removedIds.has(item.id)));
+    syncCommentCount(previousCount - removedIds.size);
+    commentMutationVersionRef.current += 1;
     try {
-      commentMutationVersionRef.current += 1;
       await socialPostService.removeComment(post.id, comment.id);
-      const removedIds = new Set([comment.id]);
-      comments.forEach((item) => {
-        if (Number(item.parent_id) === Number(comment.id)) removedIds.add(item.id);
-      });
-      setComments((current) => current.filter((item) => !removedIds.has(item.id)));
-      setCommentCount((count) => Math.max(0, count - removedIds.size));
       if (editingCommentId === comment.id) setEditingCommentId(null);
       if (replyingToId === comment.id) setReplyingToId(null);
     } catch (error) {
+      setComments(previousComments);
+      syncCommentCount(previousCount);
       setCommentError(error.message || 'Không thể xóa bình luận.');
     }
   };
@@ -198,12 +344,17 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
     setIsUpdatingComment(true);
     setCommentError('');
     commentMutationVersionRef.current += 1;
+    const previousContent = comment.content;
+    setComments((current) => current.map((item) => item.id === comment.id ? { ...item, content } : item));
+    setEditingCommentId(null);
+    setEditingCommentText('');
     try {
       const updated = await socialPostService.updateComment(post.id, comment.id, content);
       setComments((current) => current.map((item) => item.id === comment.id ? updated : item));
-      setEditingCommentId(null);
-      setEditingCommentText('');
     } catch (error) {
+      setComments((current) => current.map((item) => item.id === comment.id ? { ...item, content: previousContent } : item));
+      setEditingCommentId(comment.id);
+      setEditingCommentText(content);
       setCommentError(error.message || 'Không thể chỉnh sửa bình luận.');
     } finally {
       setIsUpdatingComment(false);
@@ -213,7 +364,7 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
   const sendReply = async (event, parentComment) => {
     event.preventDefault();
     const content = replyText.trim();
-    if (!content || isReplying) return;
+    if (!content || isReplying || isCommenting) return;
     if (!user?.community_guidelines_accepted && !acceptedGuidelines) {
       setCommentError('Vui lòng xác nhận bạn đồng ý tuân thủ quy tắc cộng đồng trước khi trả lời.');
       return;
@@ -221,14 +372,36 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
     setIsReplying(true);
     setCommentError('');
     commentMutationVersionRef.current += 1;
+    const previousCount = commentCount;
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    let optimisticReply = null;
     try {
       if (!user?.community_guidelines_accepted) await onAcceptTerms?.();
+      optimisticReply = {
+        id: tempId,
+        post_id: post.id,
+        author_id: user?.id,
+        parent_id: parentComment.parent_id ?? parentComment.id,
+        author_name: user?.profile?.full_name || user?.name || user?.email || 'Bạn',
+        author_avatar_url: user?.profile?.avatar_url || user?.avatar || null,
+        content,
+        created_at: new Date().toISOString(),
+        reply_count: 0,
+        reaction_counts: {},
+        my_reaction: null,
+        isPending: true,
+      };
+      setComments((current) => upsertComment(current, optimisticReply));
+      syncCommentCount(previousCount + 1);
       const reply = await socialPostService.addComment(post.id, content, parentComment.id);
-      setComments((current) => [...current, reply]);
-      setCommentCount((count) => count + 1);
+      setComments((current) => upsertComment(current, reply, tempId));
       setReplyText('');
       setReplyingToId(null);
     } catch (error) {
+      if (optimisticReply) {
+        setComments((current) => current.filter((item) => item.id !== tempId));
+        syncCommentCount(previousCount);
+      }
       setCommentError(error.message || 'Không thể gửi trả lời.');
     } finally {
       setIsReplying(false);
@@ -237,6 +410,18 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
 
   const setCommentReaction = async (comment, reactionKey) => {
     if (reactionBusyId === comment.id) return;
+    const previousReaction = comment.my_reaction;
+    const nextReaction = previousReaction === reactionKey ? null : reactionKey;
+    const nextCounts = { ...(comment.reaction_counts || {}) };
+    if (previousReaction) {
+      nextCounts[previousReaction] = Math.max(0, (nextCounts[previousReaction] || 0) - 1);
+      if (!nextCounts[previousReaction]) delete nextCounts[previousReaction];
+    }
+    if (nextReaction) nextCounts[nextReaction] = (nextCounts[nextReaction] || 0) + 1;
+    const previousComment = comment;
+    setComments((current) => current.map((item) => item.id === comment.id
+      ? { ...item, my_reaction: nextReaction, reaction_counts: nextCounts }
+      : item));
     setReactionBusyId(comment.id);
     setCommentError('');
     commentMutationVersionRef.current += 1;
@@ -249,6 +434,7 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
         : item));
       setReactionPickerId(null);
     } catch (error) {
+      setComments((current) => current.map((item) => item.id === comment.id ? previousComment : item));
       setCommentError(error.message || 'Không thể cập nhật cảm xúc.');
     } finally {
       setReactionBusyId(null);
@@ -336,7 +522,7 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
 
           {replyingToId === comment.id && <form onSubmit={(event) => sendReply(event, comment)} className="mt-3 flex w-full min-w-0 items-center gap-2">
             <input autoFocus value={replyText} onChange={(event) => setReplyText(event.target.value)} maxLength={1000} placeholder={`Trả lời ${comment.author_name}…`} className="min-w-0 flex-1 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-slate-800 dark:text-white" />
-            <button type="submit" disabled={!replyText.trim() || isReplying} aria-label="Gửi trả lời" className="shrink-0 rounded-full bg-emerald-600 p-2 text-white disabled:opacity-50"><Send className="h-3.5 w-3.5" /></button>
+            <button type="submit" disabled={!replyText.trim() || isReplying || isCommenting} aria-label="Gửi trả lời" className="shrink-0 rounded-full bg-emerald-600 p-2 text-white disabled:opacity-50"><Send className="h-3.5 w-3.5" /></button>
           </form>}
         </div>
       </div>
@@ -393,6 +579,9 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
           {commentError && <p role="alert" className="mb-2 text-xs text-rose-600 dark:text-rose-300">{commentError}</p>}
           {commentsLoading ? <p className="py-3 text-center text-xs text-slate-500">Đang tải bình luận…</p> : comments.length === 0 ? <p className="py-3 text-center text-xs text-slate-500">Chưa có bình luận. Hãy bắt đầu trò chuyện nhé.</p> : (
             <div className="max-h-80 space-y-3 overflow-y-auto py-1">
+              {hasMoreComments && <button type="button" onClick={loadOlderComments} disabled={isLoadingOlderComments} className="w-full py-2 text-center text-xs font-semibold text-emerald-700 disabled:opacity-50 dark:text-emerald-300">
+                {isLoadingOlderComments ? 'Đang tải…' : 'Tải bình luận cũ hơn'}
+              </button>}
               {rootComments.map((comment) => renderComment(comment))}
             </div>
           )}
@@ -400,7 +589,7 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
           <form onSubmit={sendComment} className="mt-3 flex items-center gap-2">
             <Avatar src={user?.profile?.avatar_url || user?.avatar} name={user?.profile?.full_name || user?.email} className="h-8 w-8 text-xs" />
             <input value={commentText} onChange={(event) => setCommentText(event.target.value)} maxLength={1000} placeholder="Viết bình luận…" className="min-w-0 flex-1 rounded-full border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-slate-800 dark:text-white" />
-            <button type="submit" disabled={!commentText.trim() || isCommenting} aria-label="Gửi bình luận" className="rounded-full bg-emerald-600 p-2.5 text-white disabled:opacity-50"><Send className="h-4 w-4" /></button>
+            <button type="submit" disabled={!commentText.trim() || isCommenting || isReplying} aria-label="Gửi bình luận" className="rounded-full bg-emerald-600 p-2.5 text-white disabled:opacity-50"><Send className="h-4 w-4" /></button>
           </form>
         </section>}
       </div>
