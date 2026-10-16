@@ -29,6 +29,11 @@ export const validateEmail = (email) => {
   return null;
 };
 
+export const validateGmailEmail = (email) => {
+  if (!/^[^\s@]+@gmail\.com$/i.test(email.trim())) return 'Vui lòng sử dụng email có đuôi @gmail.com';
+  return null;
+};
+
 /**
  * Trả về chuỗi lỗi nếu không hợp lệ, hoặc null nếu hợp lệ.
  */

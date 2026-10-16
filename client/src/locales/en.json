@@ -176,17 +176,15 @@
     },
     "hero": {
       "heroTitle": "Play the right people - Match the right skill level",
-      "subtitle": "Find matching opponents, join thrilling tournaments, and book courts instantly with just a few clicks. Badminton, Football, Pickleball, Tennis, and more!",
+      "subtitle": "Find players at your level, connect with the sports community, and join exciting games. Now featuring badminton, pickleball, and football.",
       "ctaStart": "Get started",
-      "ctaDemo": "Explore Courts"
+      "ctaDemo": "Explore features"
     },
     "features": {
       "headerTitle": "All-in-One Sports Ecosystem",
       "headerSubtitle": "Everything you need to enjoy your sports passion, integrated seamlessly into one powerful platform.",
       "f1Title": "Matchmaking & Game Room",
       "f1Desc": "Create rooms or find opponents of matching skill levels from Beginner to Pro. Never worry about missing players or unbalanced games again!",
-      "f2Title": "24/7 Instant Court Booking",
-      "f2Desc": "Explore interactive venue maps, check real-time availability, and book slots instantly with exclusive prime-time Flash Deals.",
       "f3Title": "Tournaments & Team Management",
       "f3Desc": "Create sports clubs, manage team rosters, and participate in local tournaments around your area effortlessly."
     },
@@ -194,11 +192,11 @@
       "headerTitle": "Why Choose SportGo?",
       "headerSubtitle": "Modernly designed and optimized for both individual sports enthusiasts and venue owners.",
       "r1Title": "Lightning-Fast Matching",
-      "r1Desc": "Smart algorithms match you with ideal opponents and venues based on your location, schedule, and skill level.",
+      "r1Desc": "Smart recommendations help you find suitable players based on your location and skill level.",
       "r2Title": "Stunning Nebula Interface",
       "r2Desc": "State-of-the-art Nebula-inspired design, refined dark mode, and responsive performance across desktop and mobile devices.",
       "r3Title": "Vibrant Community",
-      "r3Desc": "Thousands of active players and hundreds of verified sports venues across the country waiting for you."
+      "r3Desc": "An active community is ready to connect, play, and help you find new teammates."
     },
     "testimonials": {
       "headerTitle": "Loved by the Sports Community",
