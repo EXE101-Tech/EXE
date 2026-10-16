@@ -180,6 +180,7 @@ export const autoRoomSearchService = {
 };
 
 export const teamService = {
+  // Team list responses contain membership-dependent fields and must not be cached.
   getAll: (filters = {}) => apiClient.get('/teams', { params: filters }),
   getById: (id) => apiClient.get(`/teams/${id}`),
   create: (data) => apiClient.post('/teams', data),
@@ -214,7 +215,10 @@ export const socialPostService = {
   remove: (id) => apiClient.delete(`/social/posts/${id}`),
   like: (id) => apiClient.put(`/social/posts/${id}/like`),
   unlike: (id) => apiClient.delete(`/social/posts/${id}/like`),
+  getInteractions: (ids) => apiClient.get('/social/posts/interactions', { params: { ids: ids.join(',') } }),
+  getRealtimeTicket: () => apiClient.post('/social/posts/realtime-ticket'),
   getComments: (id) => apiClient.get(`/social/posts/${id}/comments`),
+  getCommentPage: (id, params = {}) => apiClient.get(`/social/posts/${id}/comments/page`, { params }),
   addComment: (id, content, parentId = null) => apiClient.post(`/social/posts/${id}/comments`, { content, parent_id: parentId }),
   updateComment: (postId, commentId, content) => apiClient.put(`/social/posts/${postId}/comments/${commentId}`, { content }),
   removeComment: (postId, commentId) => apiClient.delete(`/social/posts/${postId}/comments/${commentId}`),
@@ -229,7 +233,7 @@ export const chatService = {
   getMessages: (conversationId, params = {}) => apiClient.get(`/chat/conversations/${conversationId}/messages`, { params }),
   sendMessage: (conversationId, text) => apiClient.post(`/chat/conversations/${conversationId}/messages`, { text }),
   searchUsers: (query) => apiClient.get('/chat/users', { params: { q: query, limit: 30 } }),
-  getFriends: () => apiClient.get('/chat/friends'),
+  getFriends: () => getCached('/chat/friends'),
   getFriendRequests: () => apiClient.get('/chat/friends/requests'),
   sendFriendRequest: (userId) => apiClient.post('/chat/friends/requests', { recipient_id: userId }),
   acceptFriendRequest: (friendshipId) => apiClient.post(`/chat/friends/requests/${friendshipId}/accept`),

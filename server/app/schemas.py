@@ -915,6 +915,13 @@ class SocialPostLikeResponse(BaseModel):
     like_count: int
 
 
+class SocialPostInteractionResponse(BaseModel):
+    post_id: int
+    like_count: int
+    comment_count: int
+    liked_by_me: bool
+
+
 class SocialPostCommentContent(BaseModel):
     content: str = Field(..., min_length=1, max_length=1000)
 
@@ -958,6 +965,16 @@ class SocialPostCommentResponse(BaseModel):
     reply_count: int = 0
     reaction_counts: Dict[str, int] = Field(default_factory=dict)
     my_reaction: Optional[str] = None
+
+
+class SocialPostCommentPageResponse(BaseModel):
+    items: list[SocialPostCommentResponse]
+    total_count: int
+    has_more: bool
+    next_before_id: Optional[int] = None
+    oldest_root_id: Optional[int] = None
+    like_count: int = 0
+    liked_by_me: bool = False
 
 
 class SocialPostCommentReactionResponse(BaseModel):

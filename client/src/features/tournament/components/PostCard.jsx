@@ -56,6 +56,8 @@ export default function PostCard({ post, onJoin, onChat, onCancel, onEdit, onMan
         <img 
           src={post.image} 
           alt={postDescription || post.sportName}
+          loading="lazy"
+          decoding="async"
           className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
@@ -92,7 +94,7 @@ export default function PostCard({ post, onJoin, onChat, onCancel, onEdit, onMan
               <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
                 <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-tr from-[#589470] to-[#74C365] p-[2px] shadow-sm shrink-0 flex items-center justify-center aspect-square overflow-hidden">
                   <div className="w-full h-full rounded-full bg-white dark:bg-[#001F3F] flex items-center justify-center font-black text-xs sm:text-sm text-[#589470] dark:text-[#74C365] overflow-hidden">
-                    {post.authorAvatar ? <img src={post.authorAvatar} alt="" className="h-full w-full object-cover" /> : post.authorName.charAt(0).toUpperCase()}
+                    {post.authorAvatar ? <img src={post.authorAvatar} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" /> : post.authorName.charAt(0).toUpperCase()}
                   </div>
                 </div>
                 <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">

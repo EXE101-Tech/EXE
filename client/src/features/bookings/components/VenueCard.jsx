@@ -24,7 +24,7 @@ export default function VenueCard({ venue, onChat, onEdit, onDelete, onSchedule 
       <div>
         {/* Thumbnail Section */}
         <div className="relative h-44 sm:h-56 w-full rounded-xl sm:rounded-2xl overflow-hidden mb-4 bg-slate-100 dark:bg-slate-800">
-          {venue.image ? <img src={venue.image} alt={venue.name} className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 brightness-105" /> : <div className="flex h-full items-center justify-center text-5xl text-slate-400">{venue.sportEmoji || '🏟️'}</div>}
+          {venue.image ? <img src={venue.image} alt={venue.name} loading="lazy" decoding="async" className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 brightness-105" /> : <div className="flex h-full items-center justify-center text-5xl text-slate-400">{venue.sportEmoji || '🏟️'}</div>}
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-80" />
 
           {/* Sport Badge */}

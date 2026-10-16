@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { LoaderCircle, Plus } from 'lucide-react';
 import { socialPostService, storageService } from '../../shared/services/api';
 import { useAuth } from '../../shared/context/AuthContext';
+import { useSocialRealtime } from '../../shared/hooks/use-social-realtime';
 import SocialPostCard from '../tournament/components/SocialPostCard';
 import SocialPostComposer from '../tournament/components/SocialPostComposer';
 
@@ -12,6 +13,8 @@ export default function MySocialPosts() {
   const [error, setError] = useState('');
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [editingPost, setEditingPost] = useState(null);
+
+  useSocialRealtime(posts.slice(0, 50).map((post) => post.id));
 
   const loadPosts = useCallback(async () => {
     setIsLoading(true);
@@ -25,10 +28,26 @@ export default function MySocialPosts() {
     }
   }, []);
 
+  const updatePostMetrics = useCallback((postId, metrics) => {
+    setPosts((current) => current.map((post) => (
+      Number(post.id) === Number(postId) ? { ...post, ...metrics } : post
+    )));
+  }, []);
+
   useEffect(() => {
     const timer = window.setTimeout(() => loadPosts(), 0);
     return () => window.clearTimeout(timer);
   }, [loadPosts]);
+
+  useEffect(() => {
+    const handlePostDeleted = (message) => {
+      if (message.detail?.type === 'post_deleted') {
+        setPosts((current) => current.filter((post) => Number(post.id) !== Number(message.detail.post_id)));
+      }
+    };
+    window.addEventListener('sportgo:social-realtime', handlePostDeleted);
+    return () => window.removeEventListener('sportgo:social-realtime', handlePostDeleted);
+  }, []);
 
   const savePost = async (data) => {
     const { media_file: mediaFile, ...payload } = data;
@@ -65,7 +84,7 @@ export default function MySocialPosts() {
       {isLoading ? <div className="flex items-center justify-center gap-2 py-10 text-sm text-slate-500"><LoaderCircle className="h-4 w-4 animate-spin" /> Đang tải bài viết…</div> : posts.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-300 py-10 text-center text-sm text-slate-500 dark:border-white/15 dark:text-slate-400">Bạn chưa đăng bài viết nào.</div>
       ) : <div className="space-y-4">
-        {posts.map((post) => <SocialPostCard key={post.id} post={post} user={user} canManage onEdit={(item) => { setEditingPost(item); setIsComposerOpen(true); }} onDelete={deletePost} onRefresh={loadPosts} />)}
+        {posts.map((post) => <SocialPostCard key={post.id} post={post} user={user} canManage onMetricsChange={updatePostMetrics} onEdit={(item) => { setEditingPost(item); setIsComposerOpen(true); }} onDelete={deletePost} onRefresh={loadPosts} />)}
       </div>}
 
       <SocialPostComposer key={`${editingPost?.id || 'new'}-${isComposerOpen ? 'open' : 'closed'}`} isOpen={isComposerOpen} initialPost={editingPost} onClose={() => { setIsComposerOpen(false); setEditingPost(null); }} onSave={savePost} />

@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { Camera, Crown, Gamepad2, Home, MapPin, UserRound, Users, X } from 'lucide-react';
 import { useAuth } from '../../shared/context/AuthContext';
 import { useChat } from '../../shared/context/ChatContext';
+import { useSocialRealtime } from '../../shared/hooks/use-social-realtime';
 import { chatService, gameRoomService, resolveMediaUrl, socialPostService, storageService, teamService } from '../../shared/services/api';
 import JoinRoomModal from '../gameroom/components/JoinRoomModal';
 import ContentPreviewModal from './components/ContentPreviewModal';
@@ -67,6 +68,12 @@ export default function SocialFeed() {
   const [isJoining, setIsJoining] = useState(false);
   const offsetRef = useRef(0);
 
+  const updatePostMetrics = useCallback((postId, metrics) => {
+    setPosts((current) => current.map((post) => (
+      Number(post.id) === Number(postId) ? { ...post, ...metrics } : post
+    )));
+  }, []);
+
   const loadFeed = useCallback(async (append = false, silent = false) => {
     if (append) setIsLoadingMore(true);
     else if (!silent) setIsLoading(true);
@@ -89,6 +96,59 @@ export default function SocialFeed() {
     const timer = window.setTimeout(() => loadFeed(), 0);
     return () => window.clearTimeout(timer);
   }, [loadFeed]);
+
+  const interactionIdsKey = posts.slice(0, 50).map((post) => post.id).join(',');
+  const realtimeConnected = useSocialRealtime(interactionIdsKey ? interactionIdsKey.split(',').map(Number) : []);
+  const syncPostInteractions = useCallback(async () => {
+    if (!interactionIdsKey || document.visibilityState === 'hidden') return;
+    try {
+      const interactions = await socialPostService.getInteractions(interactionIdsKey.split(',').map(Number));
+      const byPostId = new Map(interactions.map((item) => [Number(item.post_id), item]));
+      setPosts((current) => current.map((post) => {
+        const latest = byPostId.get(Number(post.id));
+        return latest ? { ...post, ...latest } : post;
+      }));
+    } catch {
+      // Keep the feed usable if the lightweight sync request fails.
+    }
+  }, [interactionIdsKey]);
+
+  useEffect(() => {
+    const handleRealtimeEvent = (message) => {
+      const event = message.detail;
+      if (!event?.post_id) return;
+      if (event.type === 'post_deleted') {
+        setPosts((current) => current.filter((post) => Number(post.id) !== Number(event.post_id)));
+      } else if (event.type === 'like_changed') {
+        updatePostMetrics(event.post_id, {
+          like_count: event.like_count,
+          ...(Number(event.actor_id) === Number(user?.id) ? { liked_by_me: event.liked } : {}),
+        });
+      } else if (event.type === 'comment_created' || event.type === 'comment_deleted') {
+        updatePostMetrics(event.post_id, { comment_count: event.comment_count });
+      }
+    };
+    window.addEventListener('sportgo:social-realtime', handleRealtimeEvent);
+    return () => window.removeEventListener('sportgo:social-realtime', handleRealtimeEvent);
+  }, [updatePostMetrics, user?.id]);
+
+  useEffect(() => {
+    if (!interactionIdsKey) return undefined;
+    const initialSync = window.setTimeout(syncPostInteractions, 0);
+    // Keep a low-rate reconciliation poll so clients recover missed Pub/Sub events.
+    const timer = window.setInterval(syncPostInteractions, realtimeConnected ? 60000 : 10000);
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') syncPostInteractions();
+    };
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    window.addEventListener('focus', refreshWhenVisible);
+    return () => {
+      window.clearTimeout(initialSync);
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+      window.removeEventListener('focus', refreshWhenVisible);
+    };
+  }, [interactionIdsKey, syncPostInteractions, realtimeConnected]);
 
   useEffect(() => {
     let active = true;
@@ -186,7 +246,7 @@ export default function SocialFeed() {
       {searchQuery.length >= 2 && <div className="sg-search-filter">Kết quả bài viết cho <strong>“{searchQuery}”</strong><button type="button" onClick={() => setSearchParams({})} aria-label="Xóa tìm kiếm"><X size={16} /></button></div>}
       <section className="sg-panel sg-composer" aria-label="Tạo bài viết"><div className="sg-composer-top"><Avatar src={avatar} name={name} /><button type="button" onClick={() => setIsComposerOpen(true)} className="sg-composer-prompt">Bạn muốn chia sẻ gì?</button></div></section>
       {error && <div role="alert" className="sg-notice sg-error">{error}</div>}
-      {isLoading ? <><div className="sg-skeleton sg-loading-card" /><div className="sg-skeleton sg-loading-card" /></> : visiblePosts.length === 0 ? <div className="sg-panel sg-empty"><Camera size={36} /><h2>{searchQuery ? 'Chưa tìm thấy bài viết phù hợp' : 'Câu chuyện đầu tiên đang chờ bạn'}</h2><p>{searchQuery ? 'Thử một từ khóa khác hoặc xóa tìm kiếm.' : 'Chia sẻ một khoảnh khắc tập luyện, trận đấu hoặc câu chuyện thể thao của bạn.'}</p><button type="button" className="sg-primary-button" onClick={() => searchQuery ? setSearchParams({}) : setIsComposerOpen(true)}>{searchQuery ? 'Xóa tìm kiếm' : 'Tạo bài viết'}</button></div> : <div>{visiblePosts.map((post) => <SocialPostCard key={post.id} post={post} user={user} onRefresh={() => loadFeed(false, true)} onMessage={(recipient) => openChat(recipient)} onAcceptTerms={acceptTerms} />)}{hasMore && <button type="button" className="sg-primary-button sg-more-posts" onClick={() => loadFeed(true)} disabled={isLoadingMore}>{isLoadingMore ? 'Đang tải...' : 'Xem thêm bài viết'}</button>}</div>}
+       {isLoading ? <><div className="sg-skeleton sg-loading-card" /><div className="sg-skeleton sg-loading-card" /></> : visiblePosts.length === 0 ? <div className="sg-panel sg-empty"><Camera size={36} /><h2>{searchQuery ? 'Chưa tìm thấy bài viết phù hợp' : 'Câu chuyện đầu tiên đang chờ bạn'}</h2><p>{searchQuery ? 'Thử một từ khóa khác hoặc xóa tìm kiếm.' : 'Chia sẻ một khoảnh khắc tập luyện, trận đấu hoặc câu chuyện thể thao của bạn.'}</p><button type="button" className="sg-primary-button" onClick={() => searchQuery ? setSearchParams({}) : setIsComposerOpen(true)}>{searchQuery ? 'Xóa tìm kiếm' : 'Tạo bài viết'}</button></div> : <div>{visiblePosts.map((post) => <SocialPostCard key={post.id} post={post} user={user} onMetricsChange={updatePostMetrics} onRefresh={() => loadFeed(false, true)} onMessage={(recipient) => openChat(recipient)} onAcceptTerms={acceptTerms} />)}{hasMore && <button type="button" className="sg-primary-button sg-more-posts" onClick={() => loadFeed(true)} disabled={isLoadingMore}>{isLoadingMore ? 'Đang tải...' : 'Xem thêm bài viết'}</button>}</div>}
       <SocialPostComposer key={isComposerOpen ? 'open' : 'closed'} isOpen={isComposerOpen} onClose={() => setIsComposerOpen(false)} onSave={savePost} onAcceptTerms={acceptTerms} guidelinesAccepted={Boolean(user?.community_guidelines_accepted)} />
     </main>
 

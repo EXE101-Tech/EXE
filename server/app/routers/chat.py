@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app import auth_utils, database, models, schemas
 from app.notification_utils import create_notification, display_name
+from app.cache import memory_cache
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
@@ -33,6 +34,19 @@ def _is_blocked(db: Session, first_id: int, second_id: int) -> bool:
             (models.UserBlock.blocker_id == second_id) & (models.UserBlock.blocked_id == first_id),
         )
     ).first() is not None
+
+
+def _get_blocked_user_ids(db: Session, user_id: int) -> set[int]:
+    blocks = db.query(models.UserBlock.blocker_id, models.UserBlock.blocked_id).filter(
+        or_(
+            models.UserBlock.blocker_id == user_id,
+            models.UserBlock.blocked_id == user_id,
+        )
+    ).all()
+    blocked_ids = set()
+    for blocker_id, blocked_id in blocks:
+        blocked_ids.add(blocked_id if blocker_id == user_id else blocker_id)
+    return blocked_ids
 
 
 def _ensure_chat_allowed(db: Session, first_id: int, second_id: int) -> None:
@@ -116,9 +130,10 @@ def list_conversations(
     ).filter(
         or_(models.Conversation.user1_id == current_user.id, models.Conversation.user2_id == current_user.id),
     ).order_by(models.Conversation.updated_at.desc()).all()
+    blocked_ids = _get_blocked_user_ids(db, current_user.id)
     conversations = [
         item for item in conversations
-        if not _is_blocked(db, current_user.id, item.user2_id if item.user1_id == current_user.id else item.user1_id)
+        if (item.user2_id if item.user1_id == current_user.id else item.user1_id) not in blocked_ids
     ]
     if not conversations:
         return []
@@ -170,6 +185,10 @@ def unread_message_count(
     current_user: models.User = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db),
 ):
+    cache_key = f"chat:unread:{current_user.id}"
+    cached = memory_cache.get(cache_key)
+    if cached is not None:
+        return {"unread_count": cached}
     count = db.query(func.count(models.Message.id)).join(
         models.Conversation, models.Conversation.id == models.Message.conversation_id,
     ).filter(
@@ -177,6 +196,7 @@ def unread_message_count(
         models.Message.sender_id != current_user.id,
         models.Message.is_read == 0,
     ).scalar() or 0
+    memory_cache.set(cache_key, count, ttl=5)
     return {"unread_count": count}
 
 
@@ -245,6 +265,7 @@ def get_messages(
             models.Notification.is_read.is_(False),
         ).update({models.Notification.is_read: True}, synchronize_session=False)
         db.commit()
+        memory_cache.delete(f"chat:unread:{current_user.id}")
 
     message_query = db.query(models.Message).filter_by(conversation_id=conversation.id)
     if after_id is not None:
@@ -290,15 +311,16 @@ def send_message(
     db: Session = Depends(database.get_db),
 ):
     conversation = _get_conversation(db, conversation_id, current_user.id)
+    now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
     message = models.Message(
         conversation_id=conversation.id,
         sender_id=current_user.id,
         text=data.text,
-        created_at=datetime.now(timezone.utc).replace(tzinfo=None),
+        created_at=now_utc,
         is_read=0,
     )
     conversation.last_message = data.text
-    conversation.updated_at = message.created_at
+    conversation.updated_at = now_utc
     db.add(message)
     recipient = _other_user(conversation, current_user.id)
     create_notification(
@@ -312,15 +334,17 @@ def send_message(
         entity_type="conversation",
         entity_id=conversation.id,
     )
+    db.flush()
+    msg_id = message.id
     db.commit()
-    db.refresh(message)
+    memory_cache.delete(f"chat:unread:{recipient.id}")
     return {
-        "id": message.id,
-        "conversation_id": message.conversation_id,
-        "sender_id": message.sender_id,
-        "text": message.text,
-        "created_at": message.created_at,
-        "is_read": bool(message.is_read),
+        "id": msg_id,
+        "conversation_id": conversation.id,
+        "sender_id": current_user.id,
+        "text": data.text,
+        "created_at": now_utc,
+        "is_read": False,
     }
 
 

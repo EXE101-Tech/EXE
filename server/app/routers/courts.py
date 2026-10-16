@@ -83,6 +83,9 @@ def get_all_courts(
 ):
     return crud.get_courts(db, venue_id=venue_id, sport_id=sport_id)
 
+from app.cache import memory_cache
+
+
 @router.get("/nearby", response_model=List[schemas.VenueResponse])
 def get_nearby_venues(
     lat: float = Query(..., description="Latitude of user"),
@@ -94,7 +97,12 @@ def get_nearby_venues(
 
 @router.get("/venues", response_model=List[schemas.VenueResponse])
 def get_all_venues(db: Session = Depends(database.get_db)):
-    return _venue_payloads(db, crud.get_venues(db))
+    cached = memory_cache.get("venues:all")
+    if cached is not None:
+        return cached
+    data = _venue_payloads(db, crud.get_venues(db))
+    memory_cache.set("venues:all", data, ttl=120)
+    return data
 
 
 @router.get("/venues/{venue_id}", response_model=schemas.VenueResponse)
@@ -106,7 +114,12 @@ def get_venue_details(venue_id: int, db: Session = Depends(database.get_db)):
 
 @router.get("/sports", response_model=List[schemas.SportCatalogItem])
 def get_supported_sports(db: Session = Depends(database.get_db)):
-    return sport_catalog(db)
+    cached = memory_cache.get("sports:catalog")
+    if cached is not None:
+        return cached
+    data = sport_catalog(db)
+    memory_cache.set("sports:catalog", data, ttl=600)
+    return data
 
 @router.post("/venues", response_model=schemas.VenueMinResponse)
 def create_venue(
@@ -120,7 +133,9 @@ def create_venue(
     """
     if current_user.owner_status != "registered":
         raise HTTPException(status_code=403, detail="Bạn cần đăng ký chủ sân trước")
-    return crud.create_venue(db, venue, owner_id=current_user.id)
+    created = crud.create_venue(db, venue, owner_id=current_user.id)
+    memory_cache.delete_prefix("venues:")
+    return created
 
 @router.get("/{id}", response_model=schemas.CourtResponse)
 def get_court_by_id(id: int, db: Session = Depends(database.get_db)):
