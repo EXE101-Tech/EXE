@@ -216,6 +216,16 @@ class Match(Base):
     sport = relationship("Sport", back_populates="matches")
     court = relationship("Court", back_populates="matches")
     participants = relationship("MatchParticipant", back_populates="match", cascade="all, delete-orphan")
+    trust_session = relationship("MatchTrustSession", uselist=False, back_populates="match", cascade="all, delete-orphan")
+    attendance_records = relationship("MatchAttendanceRecord", back_populates="match", cascade="all, delete-orphan")
+
+    @property
+    def verification_status(self):
+        return self.trust_session.verification_status if self.trust_session else "UNVERIFIED"
+
+    @property
+    def attendance_policy(self):
+        return self.trust_session.policy if self.trust_session else None
 
     @property
     def is_priority(self):
@@ -253,6 +263,72 @@ class MatchParticipant(Base):
     # Relationships
     match = relationship("Match", back_populates="participants")
     user = relationship("User", back_populates="participations")
+
+
+class MatchTrustSession(Base):
+    """A room's snapshotted rules and verification, independent of registration status."""
+    __tablename__ = "match_trust_sessions"
+
+    match_id = Column(Integer, ForeignKey("matches.id", ondelete="CASCADE"), primary_key=True)
+    organizer_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    cancelled_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    policy = Column(JSON, nullable=False, default=dict)
+    verification_status = Column(String(20), nullable=False, default="UNVERIFIED", index=True)
+    removed_at = Column(DateTime, nullable=True)
+    code_hash = Column(String(64), nullable=True)
+    code_salt = Column(String(64), nullable=True)
+    code_expires_at = Column(DateTime, nullable=True)
+    reviewed_status = Column(String(20), nullable=True)
+    reviewed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=utc_now_naive)
+
+    match = relationship("Match", back_populates="trust_session")
+
+
+class MatchAttendanceRecord(Base):
+    """One current outcome per player and room; earlier changes live in the event log."""
+    __tablename__ = "match_attendance_records"
+    __table_args__ = (UniqueConstraint("match_id", "user_id", name="uq_match_attendance_user"),)
+
+    id = Column(Integer, primary_key=True)
+    match_id = Column(Integer, ForeignKey("matches.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    confirmation_status = Column(String(20), nullable=False, default="UNCONFIRMED")
+    confirmed_at = Column(DateTime, nullable=True)
+    terms = Column(JSON, nullable=True)
+    cancelled_at = Column(DateTime, nullable=True)
+    cancellation_reason = Column(Text, nullable=True)
+    late_cancellation = Column(Boolean, nullable=False, default=False)
+    checked_in_at = Column(DateTime, nullable=True)
+    failed_attempts = Column(Integer, nullable=False, default=0)
+    locked_until = Column(DateTime, nullable=True)
+    host_report = Column(String(16), nullable=True)
+    host_reported_at = Column(DateTime, nullable=True)
+    self_occurred = Column(Boolean, nullable=True)
+    self_attended = Column(Boolean, nullable=True)
+    self_reported_at = Column(DateTime, nullable=True)
+    dispute_reason = Column(Text, nullable=True)
+    dispute_at = Column(DateTime, nullable=True)
+    resolved_outcome = Column(String(16), nullable=True)
+    resolution_note = Column(Text, nullable=True)
+    reviewed_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    reviewed_at = Column(DateTime, nullable=True)
+
+    match = relationship("Match", back_populates="attendance_records")
+    user = relationship("User", foreign_keys=[user_id])
+
+
+class MatchTrustEvent(Base):
+    """Append-only business audit; never stores check-in secrets."""
+    __tablename__ = "match_trust_events"
+
+    id = Column(Integer, primary_key=True)
+    match_id = Column(Integer, ForeignKey("matches.id", ondelete="CASCADE"), nullable=False, index=True)
+    actor_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    subject_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    event_type = Column(String(40), nullable=False)
+    details = Column(JSON, nullable=False, default=dict)
+    created_at = Column(DateTime, nullable=False, default=utc_now_naive, index=True)
 
 
 class RoomSearchPreference(Base):

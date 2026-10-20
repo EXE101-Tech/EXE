@@ -14,6 +14,7 @@ from app.database import engine, Base, SessionLocal
 from app.social_realtime import close_clients
 from app.admin_seed import bootstrap_admins
 from app.routers import auth, courts, gamerooms, bookings, teams, lfg, owner, chat, search, storage, notifications, social, admin, moderation
+from app.routers import attendance as attendance_router
 from app.auto_room_invites import process_auto_room_invites
 from app.team_fee_reminders import process_team_fee_reminders
 
@@ -81,6 +82,7 @@ app.add_middleware(
 # Include Routers with /api prefix to match frontend service URLs
 app.include_router(auth.router, prefix="/api")
 app.include_router(courts.router, prefix="/api")
+app.include_router(attendance_router.router, prefix="/api")
 app.include_router(gamerooms.router, prefix="/api")
 app.include_router(bookings.router, prefix="/api")
 app.include_router(teams.router, prefix="/api")

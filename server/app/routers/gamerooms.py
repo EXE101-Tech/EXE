@@ -1,9 +1,8 @@
 import time
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from app import database, schemas, crud, auth_utils, models
+from app import database, schemas, crud, auth_utils, models, attendance
 from app.notification_utils import create_notification, display_name
 from app.auto_room_search import notify_matching_users_for_match, notify_matches_for_preference
 from app.auto_room_invites import process_auto_room_invite_for_match
@@ -141,15 +140,19 @@ def get_match_by_id(
     current_user = Depends(auth_utils.get_optional_current_user),
     db: Session = Depends(database.get_db),
 ):
-    if current_user.is_admin:
+    if current_user and current_user.is_admin:
         raise HTTPException(status_code=403, detail="Tài khoản quản trị chỉ dùng để kiểm duyệt")
     _close_expired_matches(db)
     match = crud.get_match_by_id(db, match_id=id)
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
     if match.status in ["CLOSED", "CANCELLED", "FINISHED"] and match.host_id != getattr(current_user, "id", None):
-        raise HTTPException(status_code=404, detail="Match not found")
-    return match
+        membership = db.query(models.MatchParticipant.id).filter_by(
+            match_id=id, user_id=getattr(current_user, "id", None),
+        ).first()
+        if not membership:
+            raise HTTPException(status_code=404, detail="Match not found")
+    return attendance.attach_reputations(db, [match])[0]
 
 @router.put("/{id}", response_model=schemas.MatchResponse)
 def update_existing_match(
@@ -161,12 +164,12 @@ def update_existing_match(
     if current_user.is_admin:
         raise HTTPException(status_code=403, detail="Tài khoản quản trị chỉ dùng để kiểm duyệt")
     _close_expired_matches(db)
-    match = crud.get_match_by_id(db, match_id=id)
+    match = attendance.lock_room(db, id)
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
     if match.host_id != current_user.id:
         raise HTTPException(status_code=403, detail="Only the host can edit this match")
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now = attendance.now()
     if match.status in ["CLOSED", "CANCELLED", "FINISHED"] or match.end_time <= now:
         raise HTTPException(status_code=409, detail="Phòng đã đóng nên không thể chỉnh sửa")
     if match_data.end_time <= now:
@@ -192,11 +195,13 @@ def delete_existing_match(
     current_user = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db),
 ):
-    match = crud.get_match_by_id(db, match_id=id)
+    match = attendance.lock_room(db, id)
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
     if not current_user.is_admin and match.host_id != current_user.id:
         raise HTTPException(status_code=403, detail="Only the host can delete this match")
+    if match.trust_session and match.trust_session.removed_at:
+        return None
 
     approved_members = db.query(models.MatchParticipant.user_id).filter(
         models.MatchParticipant.match_id == id,
@@ -209,13 +214,14 @@ def delete_existing_match(
             recipient_id=recipient_id,
             actor=current_user,
             notification_type="gameroom_deleted",
-            title="Phòng game đã bị xóa",
-            body=f'Chủ phòng đã xóa phòng “{match.title}”.',
-            target_url="/matches",
+            title="Buổi chơi đã bị hủy" if match.end_time > attendance.now() else "Buổi chơi đã được gỡ",
+            body=(f'Chủ phòng đã hủy buổi “{match.title}”. Bạn không bị tính vắng.'
+                  if match.end_time > attendance.now() else f'Chủ phòng đã gỡ buổi “{match.title}”. Bạn vẫn có thể xem lại kết quả.'),
+            target_url=f"/matches?attendance={match.id}",
             entity_type="game_room",
             entity_id=match.id,
         )
-    db.delete(match)
+    attendance.cancel_room(db, match, current_user.id, removed=True)
     db.commit()
     memory_cache.delete_prefix("gamerooms:list:")
     return None
@@ -231,7 +237,7 @@ def join_existing_match(
         raise HTTPException(status_code=403, detail="Tài khoản quản trị chỉ dùng để kiểm duyệt")
     _close_expired_matches(db)
     # Check if match exists
-    match = crud.get_match_by_id(db, match_id=id)
+    match = attendance.lock_room(db, id)
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
     if match.status in ["FULL", "CLOSED", "FINISHED", "CANCELLED"]:
@@ -254,6 +260,8 @@ def join_existing_match(
             existing.role = "PLAYER"
             existing.note = data.note or existing.note
             existing.joined_at = models.utc_now_naive()
+            attendance.record_for(db, match, current_user.id)
+            attendance.event(db, match, current_user.id, "INVITE_ACCEPTED", current_user.id)
             if approved_count + 1 >= match.max_players:
                 match.status = "FULL"
             create_notification(
@@ -294,7 +302,8 @@ def join_existing_match(
 def leave_existing_match(
     id: int,
     current_user = Depends(auth_utils.get_current_user),
-    db: Session = Depends(database.get_db)
+    db: Session = Depends(database.get_db),
+    data: Optional[schemas.AttendanceCancellation] = None,
 ):
     if current_user.is_admin:
         raise HTTPException(status_code=403, detail="Tài khoản quản trị chỉ dùng để kiểm duyệt")
@@ -304,7 +313,8 @@ def leave_existing_match(
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
         
-    success = crud.leave_match(db, match_id=id, user_id=current_user.id)
+    success = crud.leave_match(db, match_id=id, user_id=current_user.id,
+                              reason=data.reason if data else "Người chơi rời phòng")
     if not success:
         raise HTTPException(status_code=400, detail="You are not a participant in this match")
     memory_cache.delete_prefix("gamerooms:list:")
@@ -320,7 +330,7 @@ def update_participant_status(
 ):
     _close_expired_matches(db)
     # Verify match exists
-    match = crud.get_match_by_id(db, match_id=id)
+    match = attendance.lock_room(db, id)
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
         
@@ -381,14 +391,14 @@ def update_participant_attendance(
     db: Session = Depends(database.get_db),
 ):
     _close_expired_matches(db)
-    match = crud.get_match_by_id(db, match_id=id)
+    match = attendance.lock_room(db, id)
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
     if match.host_id != current_user.id:
         raise HTTPException(status_code=403, detail="Only the host can confirm attendance")
     if match.status == "CANCELLED":
         raise HTTPException(status_code=409, detail="Phòng đã bị hủy nên không thể xác nhận tham gia")
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now = attendance.now()
     if match.end_time > now:
         raise HTTPException(status_code=409, detail="Chỉ có thể xác nhận sau khi trận đấu kết thúc")
 
@@ -400,7 +410,7 @@ def update_participant_attendance(
     if not participant:
         raise HTTPException(status_code=404, detail="Không tìm thấy thành viên đã được duyệt trong phòng")
 
-    participant.attendance_status = attendance_data.attendance_status
+    attendance.report_host(db, match, current_user, user_id, attendance_data.attendance_status)
     db.commit()
     db.refresh(participant)
     memory_cache.delete_prefix("gamerooms:list:")
@@ -416,7 +426,7 @@ def respond_to_auto_invite(
 ):
     if current_user.is_admin:
         raise HTTPException(status_code=403, detail="Tài khoản quản trị chỉ dùng để kiểm duyệt")
-    match = crud.get_match_by_id(db, match_id=id)
+    match = attendance.lock_room(db, id)
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
     participant = db.query(models.MatchParticipant).filter_by(
@@ -456,6 +466,8 @@ def respond_to_auto_invite(
     participant.status = "APPROVED"
     participant.role = "PLAYER"
     participant.joined_at = models.utc_now_naive()
+    attendance.record_for(db, match, current_user.id)
+    attendance.event(db, match, current_user.id, "INVITE_ACCEPTED", current_user.id)
     if approved_count + 1 >= match.max_players:
         match.status = "FULL"
     create_notification(

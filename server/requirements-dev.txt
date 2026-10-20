@@ -1,0 +1,5 @@
+-r requirements.txt
+# Starlette's TestClient uses httpx on older versions and httpx2 on newer versions.
+httpx>=0.28,<1
+httpx2>=2.14,<3
+playwright>=1.50,<2

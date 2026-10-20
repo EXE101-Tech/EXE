@@ -9,7 +9,7 @@ from google.oauth2 import id_token
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from app import database, schemas, crud, auth_utils, models
+from app import database, schemas, crud, auth_utils, models, attendance
 from datetime import datetime, timezone, timedelta
 from sqlalchemy import func
 
@@ -283,6 +283,20 @@ def _delete_user_data(db: Session, user_id: int) -> None:
     for existing installations whose older foreign keys do not all have ON DELETE CASCADE yet.
     """
     _delete_user_media(user_id)
+    # Attendance evidence participates in the same account erasure as other content.
+    db.query(models.MatchTrustEvent).filter(
+        (models.MatchTrustEvent.actor_id == user_id) | (models.MatchTrustEvent.subject_id == user_id)
+    ).delete(synchronize_session=False)
+    db.query(models.MatchAttendanceRecord).filter_by(user_id=user_id).delete(synchronize_session=False)
+    db.query(models.MatchAttendanceRecord).filter_by(reviewed_by=user_id).update(
+        {"reviewed_by": None}, synchronize_session=False,
+    )
+    db.query(models.MatchTrustSession).filter_by(organizer_id=user_id).update(
+        {"organizer_id": None}, synchronize_session=False,
+    )
+    db.query(models.MatchTrustSession).filter_by(cancelled_by=user_id).update(
+        {"cancelled_by": None}, synchronize_session=False,
+    )
     # Records that can reference the user in more than one role.
     db.query(models.ContentReport).filter(
         (models.ContentReport.reporter_id == user_id) | (models.ContentReport.reviewed_by == user_id)
@@ -331,6 +345,9 @@ def _delete_user_data(db: Session, user_id: int) -> None:
     db.query(models.VenueReservationBlock).filter_by(created_by=user_id).delete(synchronize_session=False)
     match_ids = [row[0] for row in db.query(models.Match.id).filter_by(host_id=user_id).all()]
     if match_ids:
+        db.query(models.MatchTrustEvent).filter(models.MatchTrustEvent.match_id.in_(match_ids)).delete(synchronize_session=False)
+        db.query(models.MatchAttendanceRecord).filter(models.MatchAttendanceRecord.match_id.in_(match_ids)).delete(synchronize_session=False)
+        db.query(models.MatchTrustSession).filter(models.MatchTrustSession.match_id.in_(match_ids)).delete(synchronize_session=False)
         db.query(models.MatchParticipant).filter(models.MatchParticipant.match_id.in_(match_ids)).delete(synchronize_session=False)
         db.query(models.Match).filter(models.Match.id.in_(match_ids)).delete(synchronize_session=False)
     db.query(models.MatchParticipant).filter_by(user_id=user_id).delete(synchronize_session=False)
@@ -391,19 +408,9 @@ def get_me(
     current_user = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db),
 ):
+    current_user.reputation = attendance.reputations(db, [current_user.id])[current_user.id]
     response = schemas.UserResponse.model_validate(current_user)
-    attendance_by_sport = db.query(
-        models.Match.sport_id,
-        func.count(models.MatchParticipant.id),
-    ).join(
-        models.MatchParticipant,
-        models.MatchParticipant.match_id == models.Match.id,
-    ).filter(
-        models.MatchParticipant.user_id == current_user.id,
-        models.MatchParticipant.status == "APPROVED",
-        models.MatchParticipant.attendance_status == "ATTENDED",
-    ).group_by(models.Match.sport_id).all()
-    confirmed_counts = {sport_id: int(count) for sport_id, count in attendance_by_sport}
+    confirmed_counts = attendance.verified_games_by_sport(db, current_user.id)
     for user_sport in response.sports:
         user_sport.games_played = int(user_sport.games_played or 0) + confirmed_counts.get(user_sport.sport_id, 0)
     return response
@@ -420,17 +427,7 @@ def get_my_stats(
     ).filter(
         models.UserSport.user_id == current_user.id,
     ).group_by(models.UserSport.sport_id).all()
-    confirmed_games_by_sport = db.query(
-        models.Match.sport_id,
-        func.count(models.MatchParticipant.id),
-    ).join(
-        models.MatchParticipant,
-        models.MatchParticipant.match_id == models.Match.id,
-    ).filter(
-        models.MatchParticipant.user_id == current_user.id,
-        models.MatchParticipant.status == "APPROVED",
-        models.MatchParticipant.attendance_status == "ATTENDED",
-    ).group_by(models.Match.sport_id).all()
+    confirmed_games_by_sport = attendance.verified_games_by_sport(db, current_user.id).items()
     games_by_sport = {sport_id: int(count) for sport_id, count in legacy_games_by_sport}
     for sport_id, count in confirmed_games_by_sport:
         games_by_sport[sport_id] = games_by_sport.get(sport_id, 0) + int(count)

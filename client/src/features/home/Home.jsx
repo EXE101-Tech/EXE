@@ -5,6 +5,7 @@ import heroBgImg from '../../assets/sports/badminton.avif';
 import EditProfileModal from '../profile/EditProfileModal';
 import { useAuth } from '../../shared/context/AuthContext';
 import MySocialPosts from '../profile/MySocialPosts';
+import ReputationPanel from '../profile/ReputationPanel';
 import { authService, storageService } from '../../shared/services/api';
 import { isActiveSport } from '../../shared/constants/sports';
 
@@ -215,6 +216,7 @@ function Home() {
             {skills.length === 0 && <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700">Bạn chưa thêm môn thể thao hoặc trình độ. Hãy cập nhật hồ sơ để lưu kỹ năng của mình.</div>}
           </div>
         </section>
+        {user?.id && <ReputationPanel userId={user.id} />}
         <MySocialPosts />
       </div>
 

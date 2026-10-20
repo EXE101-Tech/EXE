@@ -151,6 +151,9 @@ def list_all_rooms(
         joinedload(models.Match.host).joinedload(models.User.profile),
         joinedload(models.Match.sport),
         joinedload(models.Match.participants).joinedload(models.MatchParticipant.user).joinedload(models.User.profile),
+        joinedload(models.Match.trust_session),
+    ).outerjoin(models.MatchTrustSession).filter(
+        models.MatchTrustSession.removed_at.is_(None),
     ).order_by(models.Match.created_at.desc()).all()
 
 

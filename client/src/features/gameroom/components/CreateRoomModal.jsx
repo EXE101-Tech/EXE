@@ -113,7 +113,7 @@ function CreateRoomModal({ isOpen, onClose, onSubmit, initialRoom = null, isLoad
     }
     const priceVnd = parseCostInputToVnd(formData.price_info);
     if (priceVnd === null) {
-      setError('Chi phí là bắt buộc. Nhập số nguyên theo nghìn đồng, ví dụ 50 hoặc 50.000; không nhập số thập phân.');
+      setError('Nhập chi phí theo đồng, ví dụ 50.000 hoặc 50000. Có thể viết gọn 50 cho 50.000đ.');
       return;
     }
 
@@ -131,7 +131,7 @@ function CreateRoomModal({ isOpen, onClose, onSubmit, initialRoom = null, isLoad
         start_time: startIso,
         end_time: endIso,
         max_players: Number(formData.max_players),
-        price_info: String(priceVnd / 1000),
+        price_info: priceVnd.toLocaleString('vi-VN'),
       });
     } catch (err) {
       setError('Ngày hoặc giờ không hợp lệ, vui lòng kiểm tra lại');
@@ -311,7 +311,7 @@ function CreateRoomModal({ isOpen, onClose, onSubmit, initialRoom = null, isLoad
 
             <div className="flex flex-col justify-end">
               <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5 min-h-[36px]">
-                <DollarSign className="w-3.5 h-3.5 text-emerald-500" /> Chi phí/người (nghìn đồng) <span className="text-rose-500">*</span>
+                <DollarSign className="w-3.5 h-3.5 text-emerald-500" /> Chi phí/người (đồng) <span className="text-rose-500">*</span>
               </label>
               <input
                 type="text"
@@ -326,7 +326,7 @@ function CreateRoomModal({ isOpen, onClose, onSubmit, initialRoom = null, isLoad
                 aria-describedby="gameroom-price-hint"
                 className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-sm font-medium text-slate-900 dark:text-white focus:outline-none"
               />
-              <p id="gameroom-price-hint" className="mt-1 text-xs text-slate-500">Nhập 50 = 50.000đ; có thể nhập 50.000. Không nhập số thập phân.</p>
+              <p id="gameroom-price-hint" className="mt-1 text-xs text-slate-500">{formData.price_info && parseCostInputToVnd(formData.price_info) !== null ? `Mỗi người: ${parseCostInputToVnd(formData.price_info).toLocaleString('vi-VN')}đ` : 'Nhập 50, 50.000 hoặc 50000 cho 50.000đ. Nhập 0 nếu miễn phí.'}</p>
             </div>
           </div>
 

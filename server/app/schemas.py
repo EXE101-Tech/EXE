@@ -7,11 +7,12 @@ import re
 def normalize_cost_thousands(value: str) -> str:
     raw_value = str(value).strip()
     if re.fullmatch(r"\d+", raw_value):
-        amount_vnd = int(raw_value) * 1000
+        amount = int(raw_value)
+        amount_vnd = amount * 1000 if amount < 1000 else amount
     elif re.fullmatch(r"\d{1,3}(?:\.\d{3})+", raw_value):
         amount_vnd = int(raw_value.replace(".", ""))
     else:
-        raise ValueError("Chi phí phải là số nguyên theo đơn vị nghìn đồng (ví dụ: 50 hoặc 50.000)")
+        raise ValueError("Chi phí phải là số tiền nguyên (ví dụ: 50, 50.000 hoặc 50000 cho 50.000 đồng)")
 
     if amount_vnd % 1000 != 0:
         raise ValueError("Chi phí phải là bội số của 1.000 đồng, không nhập số thập phân")
@@ -136,6 +137,7 @@ class UserLogin(UserBase):
 
 class UserBasicResponse(BaseModel):
     id: int
+    reputation: Optional[dict] = None
     email: str
     status: str
     owner_status: str = "none"
@@ -465,7 +467,7 @@ class MatchCreate(BaseModel):
     title: str
     description: Optional[str] = None
     location: Optional[str] = Field(None, max_length=255)
-    price_info: str = Field(..., min_length=1, max_length=120, description="Chi phí nhập theo nghìn đồng; response được chuẩn hóa thành chuỗi số tiền VND")
+    price_info: str = Field(..., min_length=1, max_length=120, description="Chi phí bằng VND; số nhỏ hơn 1000 được hiểu là nghìn đồng. Response là chuỗi số tiền VND")
     sport_id: int
     court_id: Optional[int] = None
     required_level: str
@@ -512,6 +514,8 @@ class MatchResponse(BaseModel):
     max_players: int
     status: str
     is_priority: bool = False
+    verification_status: str = "UNVERIFIED"
+    attendance_policy: Optional[dict] = None
     created_at: datetime
     host: UserBasicResponse
     sport: SportResponse
@@ -592,6 +596,56 @@ class MatchAttendanceUpdate(BaseModel):
 
 class MatchJoinRequest(BaseModel):
     note: Optional[str] = Field(None, max_length=500)
+
+
+class AttendanceConfirmation(BaseModel):
+    accepted_policy: Literal[True]
+    terms_version: str = Field(..., pattern=r"^[a-f0-9]{64}$")
+
+
+class AttendanceCancellation(BaseModel):
+    reason: str = Field(..., min_length=3, max_length=500)
+
+    @field_validator("reason")
+    @classmethod
+    def trim_reason(cls, value):
+        value = value.strip()
+        if len(value) < 3:
+            raise ValueError("Vui lòng nhập lý do ít nhất 3 ký tự")
+        return value
+
+
+class AttendanceCheckin(BaseModel):
+    code: str = Field(..., pattern=r"^\d{6}$")
+
+
+class AttendanceSelfReport(BaseModel):
+    occurred: bool
+    attended: bool
+
+    @model_validator(mode="after")
+    def consistent_report(self):
+        if self.attended and not self.occurred:
+            raise ValueError("Không thể có mặt trong một buổi không diễn ra")
+        return self
+
+
+class AttendancePeerReport(BaseModel):
+    attended: bool
+
+
+class AttendanceReview(BaseModel):
+    outcome: Literal["ATTENDED", "NO_SHOW", "EXCUSED"]
+    session_status: Optional[Literal["OCCURRED", "CANCELLED"]] = None
+    note: str = Field(..., min_length=10, max_length=1000)
+
+    @field_validator("note")
+    @classmethod
+    def meaningful_note(cls, value):
+        value = value.strip()
+        if len(value) < 10:
+            raise ValueError("Cần giải thích quyết định ít nhất 10 ký tự")
+        return value
 
 
 class ChatConversationCreate(BaseModel):

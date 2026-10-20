@@ -55,8 +55,9 @@ apiClient.interceptors.response.use(
   (response) => response.data,
   (error) => {
     // FastAPI trả về lỗi trong trường `detail`, Node/Express thường trả về `message`
-    const message = error.response?.data?.detail || error.response?.data?.message || 'Đã có lỗi xảy ra';
-    return Promise.reject(new Error(message));
+    const detail = error.response?.data?.detail;
+    const message = (Array.isArray(detail) ? detail[0]?.msg : detail) || error.response?.data?.message || 'Đã có lỗi xảy ra';
+    return Promise.reject(Object.assign(new Error(message), { status: error.response?.status }));
   }
 );
 
@@ -160,10 +161,11 @@ export const ownerService = {
 export const gameRoomService = {
   getAll: (filters = {}) => getCached('/gamerooms', { params: filters }),
   getMine: () => apiClient.get('/gamerooms/mine'),
+  getParticipating: (params = {}) => apiClient.get('/gamerooms/participating', { params }),
   getById: (id) => apiClient.get(`/gamerooms/${id}`),
   join: (roomId, note = '') => apiClient.post(`/gamerooms/${roomId}/join`, { note }),
   respondInvite: (roomId, action) => apiClient.post(`/gamerooms/${roomId}/invite-response`, { action }),
-  leave: (roomId) => apiClient.post(`/gamerooms/${roomId}/leave`),
+  leave: (roomId, reason) => apiClient.post(`/gamerooms/${roomId}/leave`, reason ? { reason } : undefined),
   create: (data) => apiClient.post('/gamerooms', data),
   update: (roomId, data) => apiClient.put(`/gamerooms/${roomId}`, data),
   remove: (roomId) => apiClient.delete(`/gamerooms/${roomId}`),
@@ -259,6 +261,22 @@ export const bookingService = {
   getAll: () => apiClient.get('/bookings'),
   getById: (id) => apiClient.get(`/bookings/${id}`),
   cancel: (id) => apiClient.patch(`/bookings/${id}/cancel`),
+};
+
+export const attendanceService = {
+  get: (id) => apiClient.get(`/gamerooms/${id}/attendance`),
+  confirm: (id, termsVersion) => apiClient.post(`/gamerooms/${id}/attendance/confirm`, { accepted_policy: true, terms_version: termsVersion }),
+  openCode: (id) => apiClient.post(`/gamerooms/${id}/attendance/checkin-code`),
+  checkin: (id, code) => apiClient.post(`/gamerooms/${id}/attendance/checkin`, { code }),
+  report: (id, data) => apiClient.put(`/gamerooms/${id}/attendance/report`, data),
+  reportPeer: (id, userId, attended) => apiClient.put(`/gamerooms/${id}/attendance/peers/${userId}`, { attended }),
+  dispute: (id, reason) => apiClient.post(`/gamerooms/${id}/attendance/dispute`, { reason }),
+};
+
+export const reputationService = {
+  get: (userId) => apiClient.get(`/reputation/users/${userId}`),
+  getReviews: () => apiClient.get('/reputation/admin/reviews'),
+  review: (roomId, userId, data) => apiClient.post(`/reputation/admin/matches/${roomId}/participants/${userId}/review`, data),
 };
 
 export default apiClient;
