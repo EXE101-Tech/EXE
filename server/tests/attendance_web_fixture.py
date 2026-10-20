@@ -113,6 +113,73 @@ def cross_confirmation_room(missing_steps: bool = False):
         return {"room_id": room.id}
 
 
+@app.post("/test/low-attendance-room")
+def low_attendance_room(ended: bool = False):
+    with database.SessionLocal() as db:
+        original = db.get(models.Match, room_id)
+        start = clock["now"] - timedelta(minutes=16)
+        room = matches.create_match(db, identities["host"]["id"], schemas.MatchCreate(
+            title="Buổi thiếu người đã kết thúc" if ended else "Buổi chờ thêm người",
+            sport_id=original.sport_id, max_players=4, location="Sân Quận 1",
+            price_info="50000", required_level="Beginner", start_time=start,
+            end_time=start + timedelta(minutes=10) if ended else clock["now"] + timedelta(minutes=44),
+        ))
+        if not ended:
+            matches.join_match(db, room.id, identities["player"]["id"])
+            matches.update_match_participant_status(db, room.id, identities["player"]["id"], "APPROVED")
+        db.commit()
+        memory_cache.clear()
+        return {"room_id": room.id}
+
+
+@app.post("/test/required-feedback-rooms")
+def required_feedback_rooms(count: int = Query(2, ge=1, le=3), end_in_seconds: int = Query(0, ge=0, le=10), solo: bool = False):
+    with database.SessionLocal() as db:
+        original = db.get(models.Match, room_id)
+        created = []
+        for index in range(count):
+            end = clock["now"] + timedelta(seconds=end_in_seconds) if end_in_seconds else clock["now"] - timedelta(minutes=count - index)
+            room = matches.create_match(db, identities["host"]["id"], schemas.MatchCreate(
+                title=f"Buổi cần phản hồi {index + 1}", sport_id=original.sport_id, max_players=4,
+                location="Sân Thảo Điền, Quận 2", price_info="50000", required_level="Beginner",
+                start_time=end - timedelta(hours=1), end_time=end,
+            ))
+            if not solo:
+                matches.join_match(db, room.id, identities["player"]["id"])
+                if end_in_seconds:
+                    matches.update_match_participant_status(db, room.id, identities["player"]["id"], "APPROVED")
+            # Seed prior membership for ended fixtures without opening a retrospective approval path.
+            if not end_in_seconds and not solo:
+                db.query(models.MatchParticipant).filter_by(match_id=room.id, user_id=identities["player"]["id"]).one().status = "APPROVED"
+                attendance.record_for(db, room, identities["player"]["id"])
+                db.flush()
+                attendance.report_self(db, room, db.get(models.User, identities["host"]["id"]), True, True)
+            if index == 0 and not end_in_seconds and not solo:
+                db.add(models.MatchParticipant(match_id=room.id, user_id=identities["witness"]["id"], status="PENDING"))
+            created.append(room.id)
+        db.commit()
+        memory_cache.clear()
+        return {"room_ids": created}
+
+
+@app.post("/test/checkin-completion-room")
+def checkin_completion_room():
+    with database.SessionLocal() as db:
+        original = db.get(models.Match, room_id)
+        room = matches.create_match(db, identities["host"]["id"], schemas.MatchCreate(
+            title="Buổi thử hoàn tất check-in", sport_id=original.sport_id, max_players=4,
+            location="Sân Quận 1", price_info="50000", required_level="Beginner",
+            start_time=clock["now"] + timedelta(minutes=10), end_time=clock["now"] + timedelta(minutes=70),
+        ))
+        matches.join_match(db, room.id, identities["player"]["id"])
+        matches.update_match_participant_status(db, room.id, identities["player"]["id"], "APPROVED")
+        for role in ("host", "player"):
+            attendance.confirm(db, room, db.get(models.User, identities[role]["id"]))
+        db.commit()
+        memory_cache.clear()
+        return {"room_id": room.id}
+
+
 @app.post("/test/membership-history")
 def membership_history():
     with database.SessionLocal() as db:
@@ -158,7 +225,7 @@ def controls():
     <ol><li>Vào Tìm trận, xin tham gia phòng mẫu rồi dùng chủ phòng duyệt.</li>
     <li>Mỗi người chọn Tôi sẽ đến. Chủ phòng mở mã để người chơi check-in.</li>
     <li>Bấm nút dưới sau khi check-in xong, rồi tải lại web để điểm danh và gửi phản hồi.</li>
-    <li>Dùng admin để xem Điểm danh &amp; uy tín và xử lý báo cáo.</li></ol>
+    <li>Nếu phản hồi chưa khớp, người chơi sửa xác nhận và chủ phòng cập nhật điểm danh để hệ thống tự tính lại.</li></ol>
     <button id="finish" onclick="finishSession()">Kết thúc buổi chơi mẫu</button><p id="result" role="status"></p>
     <p>Dữ liệu được tạo riêng cho lượt chạy này. Nút chỉ chuyển giờ của phòng mẫu; dữ liệu được làm mới khi khởi động lại API này.</p>
     <script>

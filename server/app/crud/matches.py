@@ -49,10 +49,11 @@ def close_expired_matches(db: Session):
     updated = db.query(models.Match).filter(
         models.Match.end_time <= now,
         models.Match.status.notin_(["CLOSED", "CANCELLED", "FINISHED"]),
-    ).update({models.Match.status: "CLOSED"}, synchronize_session=False)
-    if updated:
+    ).update({models.Match.status: "CLOSED"}, synchronize_session="fetch")
+    expired_requests = attendance.expire_join_requests(db)
+    if updated or expired_requests:
         db.commit()
-    return updated
+    return updated + expired_requests
 
 
 def get_matches(db: Session, sport_id: int = None, status: str = None, host_id: int = None):

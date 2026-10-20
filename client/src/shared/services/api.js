@@ -264,19 +264,18 @@ export const bookingService = {
 };
 
 export const attendanceService = {
+  requiredFeedback: () => apiClient.get('/gamerooms/required-feedback'),
   get: (id) => apiClient.get(`/gamerooms/${id}/attendance`),
   confirm: (id, termsVersion) => apiClient.post(`/gamerooms/${id}/attendance/confirm`, { accepted_policy: true, terms_version: termsVersion }),
   openCode: (id) => apiClient.post(`/gamerooms/${id}/attendance/checkin-code`),
   checkin: (id, code) => apiClient.post(`/gamerooms/${id}/attendance/checkin`, { code }),
   report: (id, data) => apiClient.put(`/gamerooms/${id}/attendance/report`, data),
-  reportPeer: (id, userId, attended) => apiClient.put(`/gamerooms/${id}/attendance/peers/${userId}`, { attended }),
-  dispute: (id, reason) => apiClient.post(`/gamerooms/${id}/attendance/dispute`, { reason }),
+  reportPeer: (id, userId, report) => apiClient.put(`/gamerooms/${id}/attendance/peers/${userId}`, { report }),
+  decideLowAttendance: (id, action) => apiClient.post(`/gamerooms/${id}/attendance/low-attendance`, { action }),
 };
 
 export const reputationService = {
   get: (userId) => apiClient.get(`/reputation/users/${userId}`),
-  getReviews: () => apiClient.get('/reputation/admin/reviews'),
-  review: (roomId, userId, data) => apiClient.post(`/reputation/admin/matches/${roomId}/participants/${userId}/review`, data),
 };
 
 export default apiClient;

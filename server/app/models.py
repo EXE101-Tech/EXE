@@ -246,7 +246,7 @@ class MatchParticipant(Base):
     match_id = Column(Integer, ForeignKey("matches.id", ondelete="CASCADE"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     role = Column(String, default="PLAYER")  # HOST, PLAYER
-    status = Column(String, default="APPROVED")  # PENDING, APPROVED, REJECTED
+    status = Column(String, default="APPROVED")  # PENDING, APPROVED, REJECTED, EXPIRED
     attendance_status = Column(String(16), nullable=True)  # ATTENDED, ABSENT; set by host after match ends
     note = Column(Text, nullable=True)
     invite_source = Column(String(20), nullable=True)  # AUTO for Premium automatic invitations

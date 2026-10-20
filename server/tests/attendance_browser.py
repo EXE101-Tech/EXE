@@ -41,6 +41,15 @@ with sync_playwright() as playwright:
     def person_row(page, name):
         return page.locator(".sg-attendance-person").filter(has=page.locator(".sg-attendance-person-info > strong").filter(has_text=name))
 
+    def save_report(page):
+        required = page.locator(".sg-attendance-required").count() > 0
+        page.get_by_role("button", name=re.compile(r"^Gửi (?:phản hồi và tiếp tục|xác nhận sau buổi|khai báo bổ sung)$")).click()
+        if required:
+            expect(page.locator(".sg-attendance-required")).to_have_count(0)
+            expect(page.get_by_role("button", name="Sửa xác nhận của tôi", exact=True)).to_be_visible()
+        else:
+            expect(page.get_by_role("dialog").get_by_role("status")).to_contain_text("Đã lưu xác nhận")
+
     try:
         host = user_page("host")
         response = host.request.post(API + "/test/membership-history")
@@ -191,8 +200,7 @@ with sync_playwright() as playwright:
                     page.evaluate("window.dispatchEvent(new Event('focus'))")
                 expect(page.get_by_label("Buổi chơi có diễn ra không?")).to_have_value("true")
                 expect(page.get_by_label("Bạn có tham gia không?")).to_have_value("true")
-                page.get_by_role("button", name="Gửi xác nhận sau buổi", exact=True).click()
-                expect(page.get_by_role("dialog").get_by_role("status")).to_contain_text("Đã lưu xác nhận")
+                save_report(page)
                 expect(page.get_by_role("button", name="Gửi xác nhận sau buổi", exact=True)).to_have_count(0)
 
             host.reload(wait_until="networkidle")
@@ -200,23 +208,41 @@ with sync_playwright() as playwright:
             person_row(host, "Lan Người Chơi").get_by_role("button", name="Xác nhận có mặt", exact=True).click()
             expect(person_row(host, "Lan Người Chơi").get_by_role("button", name="Đã xác nhận có mặt", exact=True)).to_have_attribute("aria-pressed", "true")
             person_row(host, "Nam Người Chơi").get_by_role("button", name="Báo vắng", exact=True).click()
-            expect(person_row(host, "Nam Người Chơi").get_by_role("button", name="Báo vắng", exact=True)).to_have_attribute("aria-pressed", "true")
+            expect(person_row(host, "Nam Người Chơi").get_by_role("button", name="Bỏ báo vắng", exact=True)).to_have_attribute("aria-pressed", "true")
             expect(host.locator(".sg-attendance-status")).to_contain_text("Buổi chơi đã được xác nhận")
             host.screenshot(path=str(artifacts / "attendance-host-results.png"))
 
+            token = fixture["identities"]["witness"]["token"]
+            reputation_path = API + f'/api/reputation/users/{fixture["identities"]["witness"]["id"]}'
+            summary = host.request.get(reputation_path, headers={"Authorization": "Bearer " + token}).json()
+            assert summary["no_shows"] == 1 and "pending_reviews" not in summary, summary
+            expect(person_row(host, "Nam Người Chơi")).to_contain_text("Vắng không báo")
+
+            # Conflicting feedback and host corrections are recalculated without admin review.
+            witness = user_page("witness")
+            witness.goto(BASE + f'/matches?attendance={fixture["room_id"]}', wait_until="networkidle")
+            expect(witness.get_by_role("heading", name="Vắng không báo", exact=True)).to_be_visible()
+            expect(witness.get_by_text("Yêu cầu xem lại kết quả", exact=True)).to_have_count(0)
+            witness.get_by_label("Buổi chơi có diễn ra không?").select_option("true")
+            witness.get_by_label("Bạn có tham gia không?").select_option("true")
+            save_report(witness)
+            expect(witness.get_by_role("heading", name="Phản hồi chưa khớp", exact=True)).to_be_visible()
+            summary = witness.request.get(reputation_path, headers={"Authorization": "Bearer " + token}).json()
+            assert summary["no_shows"] == 0, summary
+            host.reload(wait_until="networkidle")
+            person_row(host, "Nam Người Chơi").get_by_role("button", name="Bỏ báo vắng", exact=True).click()
+            expect(host.get_by_role("dialog").get_by_role("status")).to_contain_text("Đã bỏ báo vắng")
+            person_row(host, "Nam Người Chơi").get_by_role("button", name="Xác nhận có mặt", exact=True).click()
+            player.reload(wait_until="networkidle")
+            person_row(player, "Nam Người Chơi").get_by_role("button", name="Xác nhận có mặt", exact=True).click()
+            witness.reload(wait_until="networkidle")
+            expect(witness.get_by_role("heading", name="Đã xác minh tham dự bổ sung", exact=True)).to_be_visible()
+            summary = witness.request.get(reputation_path, headers={"Authorization": "Bearer " + token}).json()
+            assert summary["no_shows"] == 0 and summary["verified_attended"] == 1, summary
+            witness.get_by_role("dialog").screenshot(path=str(artifacts / "attendance-automatic-correction.png"))
             admin = user_page("admin")
             admin.goto(BASE + "/admin", wait_until="networkidle")
-            admin.get_by_role("button", name="Điểm danh & uy tín", exact=True).click()
-            admin.get_by_role("button", name="Xem bằng chứng và xử lý", exact=True).click()
-            admin.get_by_label("Người cần xem xét").select_option(str(fixture["identities"]["witness"]["id"]))
-            admin.get_by_label("Kết quả của người chơi").select_option("NO_SHOW")
-            admin.get_by_label("Lý do quyết định").fill("Đã đối chiếu chủ phòng và người có mặt: không đến và không báo hủy.")
-            admin.screenshot(path=str(artifacts / "attendance-admin.png"))
-            admin.get_by_role("button", name="Lưu quyết định kiểm duyệt", exact=True).click()
-            expect(admin.get_by_role("dialog").get_by_role("status")).to_contain_text("Đã lưu quyết định")
-            token = fixture["identities"]["witness"]["token"]
-            summary = admin.request.get(API + f'/api/reputation/users/{fixture["identities"]["witness"]["id"]}', headers={"Authorization": "Bearer " + token}).json()
-            assert summary["reviewed_no_shows"] == 1 and summary["score"] is None, summary
+            expect(admin.get_by_role("button", name="Điểm danh & uy tín", exact=True)).to_have_count(0)
 
             # Three checked-in people confirm one another. One vote alone cannot verify attendance.
             peer_response = host.request.post(API + "/test/cross-confirmation-room")
@@ -226,8 +252,7 @@ with sync_playwright() as playwright:
                 page.goto(BASE + f'/matches?attendance={peer_id}', wait_until="networkidle")
                 page.get_by_label("Buổi chơi có diễn ra không?").select_option("true")
                 page.get_by_label("Bạn có tham gia không?").select_option("true")
-                page.get_by_role("button", name="Gửi xác nhận sau buổi", exact=True).click()
-                expect(page.get_by_role("dialog").get_by_role("status")).to_contain_text("Đã lưu xác nhận")
+                save_report(page)
             person_row(host, "Lan Người Chơi").get_by_role("button", name="Xác nhận có mặt", exact=True).click()
             player.reload(wait_until="networkidle")
             expect(player.get_by_role("heading", name="Đã gửi xác nhận sau buổi", exact=True)).to_be_visible()
@@ -245,6 +270,28 @@ with sync_playwright() as playwright:
             player.get_by_role("dialog").screenshot(path=str(artifacts / "cross-confirmation-mobile.png"), animations="disabled")
             host.reload(wait_until="networkidle")
             host.get_by_role("dialog").screenshot(path=str(artifacts / "cross-confirmation-desktop.png"), animations="disabled")
+            # Presence and absence are exclusive; an explicit absence opens a conflict, never an instant penalty.
+            absent_row = person_row(player, "Nam Người Chơi")
+            expect(person_row(player, "Lan Người Chơi").get_by_role("button", name="Xác nhận không tham gia", exact=True)).to_have_count(0)
+            absent_row.get_by_role("button", name="Xác nhận không tham gia", exact=True).click()
+            expect(absent_row.get_by_role("button", name="Đã xác nhận không tham gia", exact=True)).to_have_attribute("aria-pressed", "true")
+            expect(absent_row.get_by_role("button", name="Xác nhận có mặt", exact=True)).to_have_attribute("aria-pressed", "false")
+            expect(absent_row.locator(".sg-attendance-peer-absences")).to_contain_text("1 người xác nhận không tham gia")
+            expect(absent_row.locator(".sg-attendance-peer-absences")).to_contain_text("Lan Người Chơi")
+            expect(absent_row.locator(".sg-attendance-person-result")).to_have_text("Phản hồi chưa khớp")
+            absent_row.screenshot(path=str(artifacts / "peer-absence-mobile.png"), animations="disabled")
+            player.set_viewport_size({"width": 320, "height": 740})
+            assert player.get_by_role("dialog").evaluate("node => node.scrollWidth <= node.clientWidth"), "Absence actions overflow at 320px"
+            absent_row.screenshot(path=str(artifacts / "peer-absence-narrow.png"), animations="disabled")
+            player.set_viewport_size({"width": 390, "height": 844})
+            witness.reload(wait_until="networkidle")
+            expect(witness.get_by_role("heading", name="Phản hồi chưa khớp", exact=True)).to_be_visible()
+            witness.get_by_role("dialog").screenshot(path=str(artifacts / "peer-absence-conflict-desktop.png"), animations="disabled")
+            absent_row.get_by_role("button", name="Bỏ xác nhận của tôi", exact=True).click()
+            expect(absent_row.locator(".sg-attendance-peer-absences")).to_have_count(0)
+            absent_row.get_by_role("button", name="Xác nhận có mặt", exact=True).click()
+            witness.reload(wait_until="networkidle")
+            expect(witness.get_by_role("heading", name="Tham dự đã xác minh", exact=True)).to_be_visible()
             person_row(witness, "Lan Người Chơi").get_by_role("button", name="Đã xác nhận có mặt", exact=True).click()
             expect(person_row(witness, "Lan Người Chơi").get_by_role("button", name="Xác nhận có mặt", exact=True)).to_be_visible()
             player.reload(wait_until="networkidle")
@@ -255,15 +302,25 @@ with sync_playwright() as playwright:
             missing_response = host.request.post(API + "/test/cross-confirmation-room?missing_steps=true")
             assert missing_response.ok, missing_response.text()
             missing_id = missing_response.json()["room_id"]
+            host.goto(BASE + f'/matches?attendance={missing_id}', wait_until="networkidle")
+            host.get_by_label("Buổi chơi có diễn ra không?").select_option("true")
+            host.get_by_label("Bạn có tham gia không?").select_option("true")
+            save_report(host)
+            missing_row = person_row(host, "Lan Người Chơi")
+            expect(missing_row.get_by_role("button", name="Xác nhận có mặt", exact=True)).to_have_count(0)
+            missing_row.get_by_role("button", name="Xác nhận không tham gia", exact=True).click()
+            expect(missing_row.locator(".sg-attendance-peer-absences")).to_contain_text("Minh Chủ Phòng")
+            missing_row.get_by_role("button", name="Đã xác nhận không tham gia", exact=True).click()
+            expect(missing_row.locator(".sg-attendance-peer-absences")).to_have_count(0)
             for page in (host, player, witness):
                 page.goto(BASE + f'/matches?attendance={missing_id}', wait_until="networkidle")
+                if page != host:
+                    page.get_by_label("Buổi chơi có diễn ra không?").select_option("true")
+                    page.get_by_label("Bạn có tham gia không?").select_option("true")
+                    save_report(page)
                 own = page.locator(".sg-attendance-person.is-self")
                 expect(own.locator(".sg-attendance-person-you")).to_have_text("Bạn")
                 assert page.locator(".sg-attendance-person").first.evaluate("node => node.classList.contains('is-self')"), "Current user is not first"
-                page.get_by_label("Buổi chơi có diễn ra không?").select_option("true")
-                page.get_by_label("Bạn có tham gia không?").select_option("true")
-                page.get_by_role("button", name="Gửi xác nhận sau buổi" if page == host else "Gửi khai báo bổ sung", exact=True).click()
-                expect(page.get_by_role("dialog").get_by_role("status")).to_contain_text("Đã lưu xác nhận")
             for page, names in [(host, ["Lan Người Chơi", "Nam Người Chơi"]), (player, ["Minh Chủ Phòng", "Nam Người Chơi"]), (witness, ["Minh Chủ Phòng", "Lan Người Chơi"])]:
                 page.reload(wait_until="networkidle")
                 for name in names:
@@ -288,10 +345,16 @@ with sync_playwright() as playwright:
             player.goto(room_url, wait_until="networkidle")
             player.reload(wait_until="networkidle")
             expect(player.get_by_role("heading", name="Đã gửi xác nhận sau buổi", exact=True)).to_be_visible()
-            player.get_by_text("Yêu cầu xem lại kết quả", exact=True).click()
-            player.get_by_label("Nội dung cần xem lại").fill("Cần kiểm tra lại lịch sử xác nhận của tôi.")
-            player.get_by_role("button", name="Gửi yêu cầu xem lại", exact=True).click()
-            expect(player.get_by_role("heading", name="Kết quả đang được xem lại", exact=True)).to_be_visible()
+            expect(player.get_by_text("Yêu cầu xem lại kết quả", exact=True)).to_have_count(0)
+            player.get_by_role("button", name="Sửa xác nhận của tôi", exact=True).click()
+            player.get_by_label("Buổi chơi có diễn ra không?").select_option("false")
+            player.get_by_role("button", name="Gửi xác nhận sau buổi", exact=True).click()
+            expect(player.locator(".sg-attendance-status")).to_contain_text("Phản hồi về buổi chơi chưa khớp")
+            player.get_by_role("button", name="Sửa xác nhận của tôi", exact=True).click()
+            player.get_by_label("Buổi chơi có diễn ra không?").select_option("true")
+            player.get_by_label("Bạn có tham gia không?").select_option("true")
+            player.get_by_role("button", name="Gửi xác nhận sau buổi", exact=True).click()
+            expect(player.locator(".sg-attendance-status")).to_contain_text("Buổi chơi đã được xác nhận")
             player.goto(BASE + "/home", wait_until="networkidle")
             expect(player.get_by_role("heading", name="Uy tín tham gia", exact=True)).to_be_visible()
             expect(player.locator(".sg-reputation-panel")).to_contain_text("Chưa đủ dữ liệu")
@@ -331,7 +394,90 @@ with sync_playwright() as playwright:
             host.get_by_role("checkbox", name="Tôi muốn hủy buổi chơi cho tất cả thành viên.").check()
             host.get_by_role("button", name="Xác nhận hủy buổi chơi", exact=True).click()
             expect(host.locator(".sg-attendance-status")).to_contain_text("Buổi chơi đã hủy")
-            print("PASS: create, apply, approve, current roster, readable named history, automatic 60-second code rotation, expired-code rejection, mobile check-in, cross-confirmation, admin review, dispute, profile, stale terms, cancellation")
+            response = host.request.post(API + "/test/low-attendance-room")
+            assert response.ok, response.text()
+            low_id = response.json()["room_id"]
+            low_url = BASE + f"/matches?attendance={low_id}"
+            host.goto(low_url, wait_until="networkidle")
+            warning = host.get_by_role("region", name="Buổi chơi chưa đủ người", exact=True)
+            expect(warning).to_be_visible()
+            expect(warning).to_contain_text("15 phút")
+            expect(warning.get_by_role("button", name="Hủy vì thiếu người", exact=True)).to_be_disabled()
+            player.goto(low_url, wait_until="networkidle")
+            expect(player.get_by_role("region", name="Buổi chơi chưa đủ người", exact=True)).to_be_visible()
+            expect(player.get_by_role("button", name="Tiếp tục buổi chơi", exact=True)).to_have_count(0)
+            expect(player.get_by_role("button", name="Hủy vì thiếu người", exact=True)).to_have_count(0)
+            host.get_by_role("button", name="Tiếp tục buổi chơi", exact=True).click()
+            expect(warning).to_have_count(0)
+            host.reload(wait_until="networkidle")
+            expect(host.get_by_role("region", name="Buổi chơi chưa đủ người", exact=True)).to_have_count(0)
+
+            response = host.request.post(API + "/test/low-attendance-room?ended=true")
+            assert response.ok, response.text()
+            solo_id = response.json()["room_id"]
+            host.goto(BASE + f"/matches?attendance={solo_id}", wait_until="networkidle")
+            expect(host.get_by_role("region", name="Phản hồi bắt buộc", exact=True)).to_be_visible()
+            expect(host.get_by_label("Buổi chơi có diễn ra không?")).to_be_visible()
+            expect(host.locator(".sg-attendance-peer-count")).to_have_count(0)
+            expect(host.get_by_role("button", name="Tiếp tục buổi chơi", exact=True)).to_have_count(0)
+            host.set_viewport_size({"width": 390, "height": 844})
+            assert host.get_by_role("dialog").evaluate("node => node.scrollWidth <= node.clientWidth"), "Low attendance flow overflows mobile"
+            host.get_by_role("dialog").screenshot(path=str(artifacts / "low-attendance-mobile.png"))
+            host.set_viewport_size({"width": 1440, "height": 1000})
+            host.get_by_role("dialog").screenshot(path=str(artifacts / "low-attendance-desktop.png"))
+            host.get_by_role("checkbox", name="Xác nhận buổi chơi không diễn ra vì thiếu người.", exact=True).check()
+            host.get_by_role("button", name="Hủy vì thiếu người", exact=True).click()
+            expect(host.get_by_role("heading", name="Buổi chơi đã hủy vì thiếu người", exact=True)).to_be_visible()
+            expect(host.get_by_role("dialog")).to_contain_text("Buổi này không làm giảm uy tín")
+            host.get_by_text("Lịch sử hoạt động", exact=True).click()
+            expect(host.locator(".sg-attendance-history")).to_contain_text("Bạn hủy buổi chơi vì thiếu người")
+            response = host.request.post(API + "/test/checkin-completion-room")
+            assert response.ok, response.text()
+            complete_id = response.json()["room_id"]
+            host.goto(BASE + f"/matches?attendance={complete_id}", wait_until="networkidle")
+            code_requests = []
+            host.on("request", lambda request: code_requests.append(request.url)
+                    if request.method == "POST" and request.url.endswith("/attendance/checkin-code") else None)
+            host.get_by_role("button", name="Tạo mã check-in", exact=True).click()
+            code = host.get_by_label("Mã check-in của phòng").inner_text()
+            response = host.request.post(API + f"/api/gamerooms/{complete_id}/attendance/checkin",
+                                         headers=player_headers, data={"code": code})
+            assert response.ok, response.text()
+            with host.expect_response(lambda response: response.url.endswith(f"/gamerooms/{complete_id}/attendance") and response.request.method == "GET"):
+                host.evaluate("window.dispatchEvent(new Event('focus'))")
+            expect(host.get_by_role("heading", name="Mọi người đã check-in đầy đủ", exact=True)).to_be_visible()
+            expect(host.get_by_label("Mã check-in của phòng")).to_have_count(0)
+            expect(host.get_by_role("button", name="Đổi mã check-in", exact=True)).to_have_count(0)
+            expect(host.locator(".sg-attendance-roster")).to_contain_text("2/2 đã check-in")
+            before = len(code_requests)
+            response = host.request.post(API + "/test/advance?seconds=61")
+            assert response.ok, response.text()
+            with host.expect_response(lambda response: response.url.endswith(f"/gamerooms/{complete_id}/attendance") and response.request.method == "GET"):
+                host.evaluate("window.dispatchEvent(new Event('focus'))")
+            host.evaluate("() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))")
+            assert len(code_requests) == before, "Completed check-in still rotates the code"
+            host.reload(wait_until="networkidle")
+            expect(host.get_by_role("heading", name="Mọi người đã check-in đầy đủ", exact=True)).to_be_visible()
+            host.get_by_role("dialog").screenshot(path=str(artifacts / "checkin-complete-desktop.png"))
+            host.set_viewport_size({"width": 390, "height": 844})
+            assert host.get_by_role("dialog").evaluate("node => node.scrollWidth <= node.clientWidth"), "Completed check-in overflows mobile"
+            host.get_by_role("dialog").screenshot(path=str(artifacts / "checkin-complete-mobile.png"))
+            host.set_viewport_size({"width": 1440, "height": 1000})
+
+            witness_headers = {"Authorization": "Bearer " + fixture["identities"]["witness"]["token"]}
+            response = host.request.post(API + f"/api/gamerooms/{complete_id}/join", headers=witness_headers, data={})
+            assert response.ok, response.text()
+            host.reload(wait_until="networkidle")
+            expect(host.get_by_role("heading", name="Mọi người đã check-in đầy đủ", exact=True)).to_be_visible()
+            response = host.request.patch(API + f'/api/gamerooms/{complete_id}/participants/{fixture["identities"]["witness"]["id"]}/status',
+                                          headers=host_headers, data={"status": "APPROVED"})
+            assert response.ok, response.text()
+            host.reload(wait_until="networkidle")
+            expect(host.get_by_role("button", name="Tạo mã check-in", exact=True)).to_be_visible()
+            expect(host.get_by_role("heading", name="Mọi người đã check-in đầy đủ", exact=True)).to_have_count(0)
+            host.get_by_role("button", name="Tạo mã check-in", exact=True).click()
+            expect(host.get_by_label("Mã check-in của phòng")).to_have_text(re.compile(r"^\d{6}$"))
+            print("PASS: attendance flows, automatic no-show and conflict correction without admin, low-attendance decisions, close code and stop rotation when everyone checks in, reopen for newly approved members")
     except Exception:
         for index, context in enumerate(contexts):
             for page in context.pages:

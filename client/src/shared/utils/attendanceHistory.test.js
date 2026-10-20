@@ -4,10 +4,25 @@ import { buildAttendanceHistory } from './attendanceHistory.js';
 
 const event = (id, type, details = {}, overrides = {}) => ({ id, type, details, actor_id: 1, actor_name: 'Minh', subject_id: 2, subject_name: 'Lan', created_at: `2026-10-20T02:00:${String(id).padStart(2, '0')}`, ...overrides });
 
+test('names host decisions about low attendance without presenting them as player cancellations', () => {
+  const activities = buildAttendanceHistory([
+    event(1, 'LOW_ATTENDANCE_CONTINUED'),
+    event(2, 'ROOM_CANCELLED', { reason: 'LOW_ATTENDANCE' }),
+  ]);
+  assert.equal(activities[0].title, 'Minh hủy buổi chơi vì thiếu người');
+  assert.equal(activities[1].title, 'Minh chọn tiếp tục buổi chơi dù chưa đủ người');
+});
+
 test('hides code rotations and names the actor and the person being approved', () => {
   const activities = buildAttendanceHistory([event(1, 'MEMBERSHIP_UPDATED', { status: 'APPROVED' }), event(2, 'CHECKIN_OPENED')]);
   assert.equal(activities.length, 1);
   assert.equal(activities[0].title, 'Minh duyệt Lan vào phòng');
+});
+
+test('expired join requests are not described as rejection, cancellation or absence', () => {
+  const [activity] = buildAttendanceHistory([event(1, 'JOIN_REQUEST_EXPIRED', { reason: 'ROOM_ENDED' }, { actor_id: null })], 2);
+  assert.equal(activity.title, 'Yêu cầu tham gia của bạn hết hạn khi buổi chơi kết thúc');
+  assert.equal(activity.kind, 'member');
 });
 
 test('names peer confirmations and treats withdrawing a vote separately from an absence report', () => {
@@ -25,6 +40,17 @@ test('labels supplemental attendance without presenting it as prior consent or a
     event(1, 'SELF_REPORTED', { occurred: true, attended: true, supplemental: true }, { actor_id: 2 }),
   ], 2);
   assert.equal(activities[0].title, 'Bạn khai báo có mặt bổ sung');
+});
+
+test('distinguishes explicit absence, presence and withdrawal reports', () => {
+  const activities = buildAttendanceHistory([
+    event(1, 'PEER_REPORTED', { report: 'ABSENT', attended: false }),
+    event(2, 'PEER_REPORTED', { report: 'ATTENDED' }),
+    event(3, 'PEER_REPORTED', { report: 'WITHDRAWN', attended: false }),
+  ], 2);
+  assert.equal(activities[2].title, 'Minh xác nhận bạn không tham gia');
+  assert.equal(activities[1].title, 'Minh xác nhận bạn có mặt');
+  assert.equal(activities[0].title, 'Minh bỏ xác nhận tham dự của bạn');
 });
 
 test('merges old duplicate removal records and distinguishes host removal from voluntary cancellation', () => {

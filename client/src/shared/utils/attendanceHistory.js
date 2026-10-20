@@ -1,7 +1,7 @@
 import { formatStoredCost } from './price.js';
 
 const asDate = (value) => new Date(/(?:Z|[+-]\d\d:\d\d)$/.test(value) ? value : `${value}Z`);
-const outcomes = { ATTENDED: 'Tham dự đã xác minh', NO_SHOW: 'Vắng không báo đã kiểm duyệt', EXCUSED: 'Không ảnh hưởng uy tín' };
+const outcomes = { ATTENDED: 'Tham dự đã xác minh', NO_SHOW: 'Vắng không báo', EXCUSED: 'Không ảnh hưởng uy tín' };
 const systemReasons = new Set(['Người chơi rời phòng', 'Chủ phòng từ chối hoặc gỡ thành viên']);
 
 export function buildAttendanceHistory(events, viewerId) {
@@ -43,6 +43,7 @@ export function buildAttendanceHistory(events, viewerId) {
         break;
       }
       case 'JOIN_REQUESTED': title = `${actor} gửi yêu cầu tham gia`; kind = 'member'; break;
+      case 'JOIN_REQUEST_EXPIRED': title = `Yêu cầu tham gia của ${subject} hết hạn khi buổi chơi kết thúc`; kind = 'member'; break;
       case 'INVITE_ACCEPTED': title = `${actor} nhận lời mời tham gia`; kind = 'member'; break;
       case 'MEMBERSHIP_UPDATED':
         if (details.status === 'APPROVED') title = `${actor} duyệt ${subject} vào phòng`;
@@ -64,11 +65,16 @@ export function buildAttendanceHistory(events, viewerId) {
       case 'TERMS_CHANGED': title = `${actor} thay đổi thông tin buổi chơi`; description = 'Người tham gia cần đọc thông tin mới và xác nhận lại.'; break;
       case 'CHECKED_IN': title = `${actor} đã check-in tại sân`; kind = 'checkin'; break;
       case 'HOST_REPORTED': title = `${actor} điểm danh ${subject}: ${details.attendance === 'ATTENDED' ? 'có mặt' : 'báo vắng'}`; kind = 'result'; break;
-      case 'PEER_REPORTED': title = details.attended ? `${actor} xác nhận ${subject} có mặt` : `${actor} bỏ xác nhận có mặt của ${subject}`; kind = 'result'; break;
+      case 'PEER_REPORTED':
+        title = details.report === 'ABSENT' ? `${actor} xác nhận ${subject} không tham gia`
+          : details.report === 'WITHDRAWN' ? `${actor} bỏ xác nhận tham dự của ${subject}`
+            : details.report === 'ATTENDED' || details.attended ? `${actor} xác nhận ${subject} có mặt` : `${actor} bỏ xác nhận có mặt của ${subject}`;
+        kind = 'result'; break;
       case 'SELF_REPORTED': title = `${actor} ${!details.occurred ? 'cho biết buổi chơi không diễn ra' : details.attended ? details.supplemental ? 'khai báo có mặt bổ sung' : 'xác nhận đã có mặt' : 'xác nhận không tham dự'}`; kind = 'result'; break;
       case 'DISPUTED': title = `${actor} yêu cầu xem lại kết quả`; description = details.reason || ''; kind = 'result'; break;
       case 'ADMIN_REVIEWED': title = `${actor} xử lý kết quả của ${subject}`; description = [outcomes[details.outcome], details.note].filter(Boolean).join('. '); kind = 'result'; break;
-      case 'ROOM_CANCELLED': title = `${actor} hủy buổi chơi`; break;
+      case 'LOW_ATTENDANCE_CONTINUED': title = `${actor} chọn tiếp tục buổi chơi dù chưa đủ người`; break;
+      case 'ROOM_CANCELLED': title = `${actor} hủy buổi chơi${details.reason === 'LOW_ATTENDANCE' ? ' vì thiếu người' : ''}`; break;
       case 'ROOM_REMOVED': title = `${actor} ${details.occurred_before_end ? 'hủy' : 'gỡ'} buổi chơi`; break;
       default: break;
     }

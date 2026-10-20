@@ -8,7 +8,7 @@ import secrets
 from datetime import timedelta
 
 from fastapi import HTTPException
-from sqlalchemy import or_
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import joinedload
 
 from app import models
@@ -31,10 +31,12 @@ def _setting(name, default, minimum, maximum):
 
 def default_policy():
     return {
-        "version": "attendance-v3",
+        "version": "attendance-v5",
         "late_cancel_minutes": _setting("ATTENDANCE_LATE_CANCEL_MINUTES", 120, 0, 1440),
         "confirm_after_start_minutes": _setting("ATTENDANCE_CONFIRM_AFTER_START_MINUTES", 30, 0, 120),
         "checkin_before_minutes": _setting("ATTENDANCE_CHECKIN_BEFORE_MINUTES", 30, 0, 120),
+        "low_attendance_grace_minutes": _setting("ATTENDANCE_LOW_GRACE_MINUTES", 15, 1, 120),
+        "minimum_players": 2,
         "code_ttl_minutes": CHECKIN_CODE_TTL_MINUTES,
         "required_witnesses": _setting("ATTENDANCE_REQUIRED_WITNESSES", 1, 1, 10),
         "required_peer_confirmations": 2,
@@ -42,7 +44,7 @@ def default_policy():
         "allow_supplemental_attendance": True,
         "minimum_samples": _setting("REPUTATION_MINIMUM_SAMPLES", 5, 1, 100),
         "window_days": 180,
-        "score_formula": "100 * verified_attended / (verified_attended + reviewed_no_shows)",
+        "score_formula": "100 * verified_attended / (verified_attended + no_shows)",
     }
 
 
@@ -80,6 +82,51 @@ def event(db, room, actor_id, kind, subject_id=None, **details):
         match_id=room.id, actor_id=actor_id, subject_id=subject_id,
         event_type=kind, details=details, created_at=now(),
     ))
+
+
+def expire_join_requests(db):
+    """End pending applications without turning them into rejections or no-shows."""
+    requests = db.query(models.MatchParticipant, models.Match).join(
+        models.Match, models.Match.id == models.MatchParticipant.match_id,
+    ).filter(models.MatchParticipant.status == "PENDING", models.Match.end_time <= now()).with_for_update(
+        of=models.MatchParticipant,
+    ).all()
+    for participant, room in requests:
+        participant.status = "EXPIRED"
+        event(db, room, None, "JOIN_REQUEST_EXPIRED", participant.user_id, reason="ROOM_ENDED")
+    db.flush()
+    return len(requests)
+
+
+def feedback_required(room, participant, record):
+    return bool(
+        room.end_time <= now() and room.status != "CANCELLED" and participant
+        and participant.status == "APPROVED"
+        and (not record or record.confirmation_status in ("CONFIRMED", "UNCONFIRMED"))
+        and (not record or record.self_occurred is None or record.self_attended is None)
+    )
+
+
+def required_feedback(db, user_id):
+    """Return one durable task and the next deadline; no pagination can hide an older task."""
+    record = models.MatchAttendanceRecord
+    active = db.query(models.Match).join(models.MatchParticipant).outerjoin(
+        record, and_(record.match_id == models.Match.id, record.user_id == user_id),
+    ).filter(
+        models.MatchParticipant.user_id == user_id, models.MatchParticipant.status == "APPROVED",
+        models.Match.status != "CANCELLED",
+        or_(record.id.is_(None), record.confirmation_status.in_(("CONFIRMED", "UNCONFIRMED"))),
+    )
+    current = now()
+    pending = active.filter(models.Match.end_time <= current,
+                            or_(record.self_occurred.is_(None), record.self_attended.is_(None)))
+    count = pending.count()
+    first = pending.order_by(models.Match.end_time, models.Match.id).first() if count else None
+    next_end = active.filter(models.Match.end_time > current).with_entities(func.min(models.Match.end_time)).scalar()
+    return {
+        "server_time": current, "pending_count": count, "next_end_time": next_end,
+        "room": {"match_id": first.id, "title": first.title, "end_time": first.end_time} if first else None,
+    }
 
 
 def require_participant(db, room, user_id, approved=False):
@@ -202,7 +249,7 @@ def invalidate_commitments(db, room, actor_id, recorded_update=False):
     session.reviewed_at = None
 
 
-def cancel_room(db, room, actor_id, removed=False):
+def cancel_room(db, room, actor_id, removed=False, reason=None):
     session = session_for(db, room)
     if removed and session.removed_at:
         return
@@ -216,11 +263,98 @@ def cancel_room(db, room, actor_id, removed=False):
     session.code_hash = None
     session.code_expires_at = None
     event(db, room, actor_id, "ROOM_REMOVED" if removed else "ROOM_CANCELLED",
-          occurred_before_end=now() < room.end_time)
+          occurred_before_end=now() < room.end_time, **({"reason": reason} if reason else {}))
+
+
+def low_attendance_state(db, room, session, participants, records):
+    policy = session.policy if session else default_policy()
+    grace = policy.get("low_attendance_grace_minutes", 15)
+    minimum = policy.get("minimum_players", 2)
+    decision_at = min(room.start_time + timedelta(minutes=grace), room.end_time)
+    approved = {p.user_id for p in participants if p.status == "APPROVED"}
+    current = [r for uid, r in records.items() if uid in approved
+               and r.confirmation_status in ("CONFIRMED", "UNCONFIRMED")]
+    checked_in = {r.user_id for r in current if r.checked_in_at}
+    present = checked_in | {r.user_id for r in current
+                            if r.self_occurred is True and r.self_attended is True and not is_disputed(r)}
+    last_continuation = db.query(models.MatchTrustEvent).filter_by(
+        match_id=room.id, event_type="LOW_ATTENDANCE_CONTINUED",
+    ).order_by(models.MatchTrustEvent.id.desc()).first()
+    continued = bool(last_continuation and (last_continuation.details or {}).get("room_terms") == terms_version(room, {}))
+    cancellation = db.query(models.MatchTrustEvent).filter_by(
+        match_id=room.id, event_type="ROOM_CANCELLED",
+    ).order_by(models.MatchTrustEvent.id.desc()).first() if room.status == "CANCELLED" else None
+    eligible = (now() >= decision_at and len(present) < minimum and room.status != "CANCELLED"
+                and not (session and session.removed_at)
+                and (session is None or session.verification_status == "UNVERIFIED"))
+    return {
+        "decision_at": decision_at, "grace_minutes": grace, "minimum_players": minimum,
+        "approved_count": len(approved), "checked_in_count": len(checked_in), "present_count": len(present),
+        "continued": continued,
+        "cancelled_for_low_attendance": bool(cancellation and (cancellation.details or {}).get("reason") == "LOW_ATTENDANCE"),
+        "needs_decision": bool(eligible and not (continued and now() < room.end_time)),
+        "can_continue": bool(eligible and now() < room.end_time and not continued),
+        "can_cancel": bool(eligible),
+    }
+
+
+def decide_low_attendance(db, room, user, action):
+    if room.host_id != user.id:
+        raise HTTPException(403, "Chỉ chủ phòng mới quyết định tiếp tục hoặc hủy vì thiếu người")
+    if action == "CANCEL" and room.status == "CANCELLED":
+        return
+    session = session_for(db, room)
+    _available(room, session)
+    refresh_verification(db, room)
+    participants = db.query(models.MatchParticipant).filter_by(match_id=room.id).all()
+    records = {r.user_id: r for r in db.query(models.MatchAttendanceRecord).filter_by(match_id=room.id).all()}
+    state = low_attendance_state(db, room, session, participants, records)
+    if action == "CONTINUE":
+        if state["continued"] and now() < room.end_time:
+            return
+        if not state["can_continue"]:
+            raise HTTPException(409, "Chưa đến thời điểm xử lý thiếu người hoặc buổi chơi không còn có thể tiếp tục")
+        event(db, room, user.id, "LOW_ATTENDANCE_CONTINUED",
+              room_terms=terms_version(room, {}), present_count=state["present_count"],
+              approved_count=state["approved_count"])
+        return
+    if action != "CANCEL" or not state["can_cancel"]:
+        raise HTTPException(409, "Chỉ hủy vì thiếu người sau thời gian chờ, khi buổi chưa được xác minh và chưa đủ người có mặt")
+    room.status = "CANCELLED"
+    session.verification_status = "CANCELLED"
+    session.cancelled_by = user.id
+    cancel_room(db, room, user.id, reason="LOW_ATTENDANCE")
+    for participant in participants:
+        if participant.status == "APPROVED" and participant.user_id != user.id:
+            create_notification(
+                db, recipient_id=participant.user_id, actor=user,
+                notification_type="gameroom_cancelled_low_attendance", title="Buổi chơi đã hủy vì thiếu người",
+                body=f'Chủ phòng đã hủy “{room.title}” vì chưa đủ người. Buổi này không ảnh hưởng uy tín của bạn.',
+                target_url=f"/matches?attendance={room.id}", entity_type="game_room", entity_id=room.id,
+            )
 
 
 def _in_checkin_window(room, policy):
     return room.start_time - timedelta(minutes=policy["checkin_before_minutes"]) <= now() < room.end_time
+
+
+def checkin_progress(db, room):
+    db.flush()
+    participant = models.MatchParticipant
+    record = models.MatchAttendanceRecord
+    total, checked_in = db.query(func.count(participant.id), func.count(record.checked_in_at)).outerjoin(
+        record, and_(record.match_id == participant.match_id, record.user_id == participant.user_id),
+    ).filter(participant.match_id == room.id, participant.status == "APPROVED").one()
+    return {"total": total, "checked_in": checked_in, "complete": bool(total and checked_in == total)}
+
+
+def _close_completed_checkin(db, room, session):
+    if not checkin_progress(db, room)["complete"]:
+        return False
+    session.code_hash = None
+    session.code_salt = None
+    session.code_expires_at = None
+    return True
 
 
 def open_checkin(db, room, user):
@@ -233,6 +367,11 @@ def open_checkin(db, room, user):
     record = record_for(db, room, user.id)
     if record.confirmation_status != "CONFIRMED":
         raise HTTPException(409, "Hãy xác nhận tham gia trước khi mở check-in")
+    if not record.checked_in_at:
+        record.checked_in_at = now()
+        event(db, room, user.id, "CHECKED_IN", user.id)
+    if _close_completed_checkin(db, room, session):
+        return {"complete": True, "code": None, "expires_at": None}
     while True:
         code = f"{secrets.randbelow(1_000_000):06d}"
         previous_digest = hashlib.sha256(f"{session.code_salt}:{code}".encode()).hexdigest()
@@ -242,9 +381,8 @@ def open_checkin(db, room, user):
     session.code_hash = hashlib.sha256(f"{salt}:{code}".encode()).hexdigest()
     session.code_salt = salt
     session.code_expires_at = min(now() + timedelta(minutes=CHECKIN_CODE_TTL_MINUTES), room.end_time)
-    record.checked_in_at = record.checked_in_at or now()
     event(db, room, user.id, "CHECKIN_OPENED", user.id, expires_at=session.code_expires_at.isoformat())
-    return {"code": code, "expires_at": session.code_expires_at}
+    return {"complete": False, "code": code, "expires_at": session.code_expires_at}
 
 
 def check_in(db, room, user, code):
@@ -255,6 +393,7 @@ def check_in(db, room, user, code):
     if record.confirmation_status != "CONFIRMED":
         raise HTTPException(409, "Hãy xác nhận tham gia trước khi check-in")
     if record.checked_in_at:
+        _close_completed_checkin(db, room, session)
         return record
     if record.locked_until and record.locked_until > now():
         raise HTTPException(429, "Bạn nhập sai nhiều lần. Hãy thử lại sau 5 phút")
@@ -273,6 +412,7 @@ def check_in(db, room, user, code):
     record.failed_attempts = 0
     record.locked_until = None
     event(db, room, user.id, "CHECKED_IN", user.id)
+    _close_completed_checkin(db, room, session)
     return record
 
 
@@ -286,17 +426,13 @@ def refresh_verification(db, room):
     approved_ids = {p.user_id for p in db.query(models.MatchParticipant).filter_by(match_id=room.id, status="APPROVED")}
     reports = [r for r in records if r.user_id in approved_ids and r.self_occurred is not None
                and r.confirmation_status in ("CONFIRMED", "UNCONFIRMED")]
-    if session.reviewed_status and not any(
-        r.self_reported_at and r.self_reported_at > session.reviewed_at for r in reports
-    ):
-        session.verification_status = session.reviewed_status
-        return
     values = {r.self_occurred for r in reports}
     host = next((r for r in reports if r.user_id == room.host_id), None)
     witnesses = [r for r in reports if r.user_id != room.host_id]
     peers = peer_evidence(db, [room.id])[room.id]
     def cross_confirmed(record):
-        return len(peers["confirmations"].get(record.user_id, [])) >= peers["required"]
+        return (not peer_disputed(record, peers)
+                and len(peers["confirmations"].get(record.user_id, [])) >= peers["required"])
     if len(values) > 1:
         session.verification_status = "DISPUTED"
     elif host and host.self_occurred is False and witnesses:
@@ -326,8 +462,6 @@ def report_self(db, room, user, occurred, attended):
     record = record_for(db, room, user.id)
     if record.confirmation_status not in ("CONFIRMED", "UNCONFIRMED"):
         raise HTTPException(409, "Bạn không còn tham gia phòng này")
-    if record.reviewed_at:
-        raise HTTPException(409, "Kết quả đã được kiểm duyệt. Hãy gửi phản hồi nếu cần xem lại")
     if record.self_occurred == occurred and record.self_attended == attended:
         return record
     record.self_occurred, record.self_attended = occurred, attended
@@ -347,18 +481,17 @@ def report_host(db, room, user, user_id, attendance):
     _snapshot_peer_roster(db, room)
     participant = require_participant(db, room, user_id, approved=True)
     record = record_for(db, room, user_id)
-    if record.reviewed_at:
-        raise HTTPException(409, "Kết quả đã kiểm duyệt; gửi phản hồi để được xem lại")
     if record.host_report != attendance:
         record.host_report = attendance
         record.host_reported_at = now()
-        # This legacy field remains a host report, never sufficient for reputation.
+        # A host report also requires a commitment and a verified session for a no-show.
         participant.attendance_status = attendance
         event(db, room, user.id, "HOST_REPORTED", user_id, attendance=attendance)
         create_notification(db, recipient_id=user_id, actor=user,
                             notification_type="attendance_reported", title="Chủ phòng đã ghi nhận điểm danh",
                             body=f'Kiểm tra và phản hồi kết quả của bạn tại “{room.title}”.',
                             target_url=f"/matches?attendance={room.id}", entity_type="game_room", entity_id=room.id)
+    refresh_verification(db, room)
     return participant
 
 
@@ -404,7 +537,8 @@ def peer_evidence(db, match_ids):
         models.MatchTrustSession.match_id.in_(match_ids)).all()}
     room_terms = {room.id: terms_version(room, {}) for room in db.query(models.Match).filter(
         models.Match.id.in_(match_ids)).all()}
-    result = {mid: {"members": {}, "required": 2, "confirmations": {}, "votes": {}} for mid in match_ids}
+    result = {mid: {"members": {}, "required": 2, "confirmations": {}, "absences": {}, "votes": {}, "reports": {}}
+              for mid in match_ids}
     for member in members:
         result[member.match_id]["members"][member.user_id] = display_name(member.user)
     for mid, context in result.items():
@@ -430,109 +564,80 @@ def peer_evidence(db, match_ids):
                 or details.get("subject") != _evidence_signature(subject)
                 or details.get("witness_reported_at") != (witness.self_reported_at.isoformat() if witness.self_reported_at else None)):
             continue
-        context["votes"][(vote.actor_id, vote.subject_id)] = bool(details.get("attended"))
-        if details.get("attended") and _can_witness(witness) and _can_receive_peer(subject):
-            context["confirmations"].setdefault(vote.subject_id, []).append({
+        # Older false votes only withdrew a presence confirmation; they never reported absence.
+        report = details.get("report") or ("ATTENDED" if details.get("attended") else "WITHDRAWN")
+        context["reports"][(vote.actor_id, vote.subject_id)] = report
+        context["votes"][(vote.actor_id, vote.subject_id)] = report == "ATTENDED"
+        if not _can_witness(witness) or subject.confirmation_status not in ("CONFIRMED", "UNCONFIRMED"):
+            continue
+        if report == "ABSENT" or (report == "ATTENDED" and _can_receive_peer(subject)):
+            collection = "absences" if report == "ABSENT" else "confirmations"
+            context[collection].setdefault(vote.subject_id, []).append({
                 "user_id": vote.actor_id, "name": context["members"][vote.actor_id],
             })
     return result
 
 
-def report_peer(db, room, user, user_id, attended):
+def report_peer(db, room, user, user_id, attended=None, *, report=None):
+    # Preserve the previous bool API: false means withdraw, not absent.
+    report = report or ("ATTENDED" if attended else "WITHDRAWN")
+    if report not in ("ATTENDED", "ABSENT", "WITHDRAWN"):
+        raise HTTPException(422, "Lựa chọn xác nhận không hợp lệ")
     require_participant(db, room, user.id, approved=True)
     require_participant(db, room, user_id, approved=True)
     _after_end(room)
     if room.status == "CANCELLED":
         raise HTTPException(409, "Buổi chơi đã bị hủy")
     if user.id == user_id:
-        raise HTTPException(422, "Không thể tự xác nhận có mặt cho chính mình")
+        raise HTTPException(422, "Không thể tự xác nhận người cùng chơi cho chính mình")
     witness = record_for(db, room, user.id)
     subject = record_for(db, room, user_id)
-    if not _can_witness(witness):
+    if report != "WITHDRAWN" and not _can_witness(witness):
         raise HTTPException(409, "Hãy gửi phản hồi bạn đã có mặt tại buổi chơi trước khi xác nhận người khác")
-    if not _can_receive_peer(subject):
+    if subject.confirmation_status not in ("CONFIRMED", "UNCONFIRMED"):
+        raise HTTPException(409, "Người này không còn tham gia phòng")
+    if report == "ATTENDED" and not _can_receive_peer(subject):
         raise HTTPException(409, "Người này cần khai báo đã tham gia buổi chơi trước khi được xác nhận bổ sung")
-    if subject.reviewed_at:
-        raise HTTPException(409, "Kết quả đã được kiểm duyệt. Hãy yêu cầu xem lại nếu cần thay đổi")
     _snapshot_peer_roster(db, room)
     db.flush()
     context = peer_evidence(db, [room.id])[room.id]
-    if context["votes"].get((user.id, user_id), False) == attended:
+    if context["reports"].get((user.id, user_id), "WITHDRAWN") == report:
         return subject
-    event(db, room, user.id, "PEER_REPORTED", user_id, attended=attended,
+    event(db, room, user.id, "PEER_REPORTED", user_id, report=report, attended=report == "ATTENDED",
           witness=_evidence_signature(witness), subject=_evidence_signature(subject),
-          witness_reported_at=witness.self_reported_at.isoformat(), room_terms=terms_version(room, {}))
+          witness_reported_at=witness.self_reported_at.isoformat() if witness.self_reported_at else None,
+          room_terms=terms_version(room, {}))
     refresh_verification(db, room)
     return subject
 
 
-def dispute(db, room, user, reason):
-    require_participant(db, room, user.id)
-    _after_end(room)
-    record = record_for(db, room, user.id)
-    if record.dispute_reason == reason and is_disputed(record):
-        return record
-    record.dispute_reason, record.dispute_at = reason, now()
-    event(db, room, user.id, "DISPUTED", user.id, reason=reason)
-    refresh_verification(db, room)
-    return record
-
-
 def is_disputed(record):
-    latest = max([t for t in (record.dispute_at, record.host_reported_at, record.self_reported_at) if t], default=None)
-    if record.reviewed_at and (latest is None or record.reviewed_at >= latest):
-        return False
-    return bool(record.dispute_reason or (
+    return bool(
         record.host_report is not None and record.self_attended is not None
         and (record.host_report == "ATTENDED") != record.self_attended
-    ))
+    )
+
+
+def peer_disputed(record, peers):
+    present = bool(peers.get("confirmations", {}).get(record.user_id))
+    absent = bool(peers.get("absences", {}).get(record.user_id))
+    return bool(
+        (absent and (present or record.checked_in_at or record.self_attended is True or record.host_report == "ATTENDED"))
+        or (present and (record.self_attended is False or record.host_report == "ABSENT"))
+    )
 
 
 def outcome(record, session, peers):
-    if session is None or session.verification_status != "OCCURRED" or is_disputed(record):
+    if session is None or session.verification_status != "OCCURRED" or is_disputed(record) or peer_disputed(record, peers):
         return "UNVERIFIED"
-    if record.resolved_outcome and record.reviewed_at:
-        return record.resolved_outcome
     if (record.confirmation_status in ("CONFIRMED", "UNCONFIRMED")
             and record.self_occurred is True and record.self_attended is True
             and len(peers.get("confirmations", {}).get(record.user_id, [])) >= peers.get("required", 2)):
         return "ATTENDED"
+    if (record.confirmation_status == "CONFIRMED" and record.confirmed_at
+            and record.host_report == "ABSENT" and not record.checked_in_at):
+        return "NO_SHOW"
     return "UNVERIFIED"
-
-
-def review(db, room, admin, user_id, data):
-    _after_end(room)
-    record = db.query(models.MatchAttendanceRecord).filter_by(match_id=room.id, user_id=user_id).first()
-    if not record:
-        raise HTTPException(404, "Không tìm thấy hồ sơ điểm danh")
-    session = session_for(db, room)
-    previous_status = session.verification_status
-    if data.session_status:
-        if room.status == "CANCELLED" and data.session_status == "OCCURRED":
-            raise HTTPException(409, "Không thể xác nhận diễn ra cho phòng đã hủy")
-        session.reviewed_status = data.session_status
-        session.reviewed_at = now()
-    refresh_verification(db, room)
-    if data.outcome == "NO_SHOW" and (
-        not record.confirmed_at or session.verification_status != "OCCURRED"
-        or record.confirmation_status != "CONFIRMED" or record.checked_in_at
-    ):
-        raise HTTPException(409, "Chỉ ghi nhận bùng kèo khi đã cam kết, buổi đã xác minh và không có check-in")
-    if data.outcome == "ATTENDED" and session.verification_status != "OCCURRED":
-        raise HTTPException(409, "Cần xác minh buổi chơi trước khi ghi nhận tham dự")
-    # Repeated review of an identical decision must not duplicate audit/notifications.
-    if (record.resolved_outcome == data.outcome and record.resolution_note == data.note
-            and record.reviewed_at and not is_disputed(record) and previous_status == session.verification_status):
-        return record
-    record.resolved_outcome, record.resolution_note = data.outcome, data.note
-    record.reviewed_by, record.reviewed_at = admin.id, now()
-    event(db, room, admin.id, "ADMIN_REVIEWED", user_id,
-          outcome=data.outcome, note=data.note, session_status=session.verification_status)
-    create_notification(db, recipient_id=user_id, actor=admin,
-                        notification_type="attendance_reviewed", title="Phản hồi điểm danh đã được xử lý",
-                        body=f'Kết quả tại “{room.title}” đã được kiểm duyệt. Bạn có thể xem lý do trong buổi chơi.',
-                        target_url=f"/matches?attendance={room.id}", entity_type="game_room", entity_id=room.id)
-    return record
 
 
 def reputations(db, user_ids):
@@ -551,12 +656,12 @@ def reputations(db, user_ids):
     ).all()
     summaries = {uid: {
         "score": None, "verified_attended": 0, "verified_committed_attendance": 0,
-        "supplemental_attended": 0, "reviewed_no_shows": 0,
-        "late_cancellations": 0, "early_cancellations": 0, "pending_reviews": 0,
+        "supplemental_attended": 0, "no_shows": 0, "reviewed_no_shows": 0,
+        "late_cancellations": 0, "early_cancellations": 0,
         "sample_count": 0, "eligible_commitments": 0, "verified_attendance_rate": None, "no_show_rate": None,
         "minimum_samples": policy["minimum_samples"], "window_days": policy["window_days"],
         "hosted_sessions": 0, "cancelled_hosted_sessions": 0, "games_by_sport": {}, "version": policy["version"],
-        "explanation": "Điểm = tỷ lệ tham dự đã xác minh trong các buổi tham dự hoặc bùng kèo đã kiểm duyệt, trong 180 ngày. Hủy tham gia được hiển thị riêng.",
+        "explanation": "Điểm = 100 × số buổi tham dự đã xác minh / (số buổi tham dự đã xác minh + số lần vắng không báo), trong 180 ngày. Vắng được tự tính khi đã cam kết, chủ phòng báo vắng, buổi chơi đã xác minh và không có check-in hay tranh chấp. Hủy tham gia được hiển thị riêng.",
     } for uid in user_ids}
     evidence = peer_evidence(db, {record.match_id for record in records})
     verified_commitments = {uid: 0 for uid in user_ids}
@@ -566,7 +671,7 @@ def reputations(db, user_ids):
         state = outcome(record, session, evidence[record.match_id])
         if (session and session.verification_status == "OCCURRED" and record.confirmed_at
                 and (record.confirmation_status == "CONFIRMED" or state == "ATTENDED")
-                and not is_disputed(record) and state != "EXCUSED"):
+                and not is_disputed(record) and not peer_disputed(record, evidence[record.match_id]) and state != "EXCUSED"):
             summary["eligible_commitments"] += 1
         if state == "ATTENDED":
             summary["verified_attended"] += 1
@@ -577,9 +682,7 @@ def reputations(db, user_ids):
             sport_id = record.match.sport_id
             summary["games_by_sport"][sport_id] = summary["games_by_sport"].get(sport_id, 0) + 1
         elif state == "NO_SHOW":
-            summary["reviewed_no_shows"] += 1
-        if is_disputed(record) or (record.host_report == "ABSENT" and record.confirmed_at and not record.reviewed_at):
-            summary["pending_reviews"] += 1
+            summary["no_shows"] += 1
     cancellations = db.query(models.MatchTrustEvent).join(models.Match).join(models.MatchTrustSession).filter(
         models.MatchTrustEvent.subject_id.in_(user_ids), models.MatchTrustEvent.event_type == "CANCELLED_PARTICIPATION",
         models.MatchTrustEvent.created_at >= cutoff, models.MatchTrustEvent.created_at <= now(),
@@ -594,11 +697,13 @@ def reputations(db, user_ids):
         if session.verification_status == "CANCELLED" and session.cancelled_by in summaries:
             summaries[session.cancelled_by]["cancelled_hosted_sessions"] += 1
     for uid, summary in summaries.items():
+        # Retain the original response field for older clients.
+        summary["reviewed_no_shows"] = summary["no_shows"]
         summary["verified_committed_attendance"] = verified_commitments[uid]
-        summary["sample_count"] = summary["verified_attended"] + summary["reviewed_no_shows"]
+        summary["sample_count"] = summary["verified_attended"] + summary["no_shows"]
         if summary["eligible_commitments"]:
             summary["verified_attendance_rate"] = round(100 * verified_commitments[uid] / summary["eligible_commitments"], 1)
-            summary["no_show_rate"] = round(100 * summary["reviewed_no_shows"] / summary["eligible_commitments"], 1)
+            summary["no_show_rate"] = round(100 * summary["no_shows"] / summary["eligible_commitments"], 1)
         if summary["sample_count"] >= summary["minimum_samples"]:
             summary["score"] = round(100 * summary["verified_attended"] / summary["sample_count"])
     return summaries
@@ -612,7 +717,7 @@ def attach_reputations(db, rooms):
             users[participant.user.id] = participant.user
     summaries = reputations(db, users)
     for uid, user in users.items():
-        user.reputation = {key: value for key, value in summaries[uid].items() if key != "pending_reviews"}
+        user.reputation = summaries[uid]
     return rooms
 
 
@@ -643,23 +748,22 @@ def _record_payload(record, participant, session, peers, viewer_id):
         "host_report": record.host_report if record else None,
         "self_occurred": record.self_occurred if record else None,
         "self_attended": record.self_attended if record else None,
-        "dispute_reason": record.dispute_reason if record else None,
-        "disputed": bool(record and is_disputed(record)),
-        "resolved_outcome": record.resolved_outcome if record else None,
-        "resolution_note": record.resolution_note if record else None,
+        "disputed": bool(record and (is_disputed(record) or peer_disputed(record, peers))),
         "outcome": outcome(record, session, peers) if record else "UNVERIFIED",
         "has_commitment": bool(record and record.confirmed_at),
         "peer_confirmations": peers["confirmations"].get(participant.user_id, []),
+        "peer_absences": peers["absences"].get(participant.user_id, []),
         "required_peer_confirmations": peers["required"],
         "my_peer_confirmation": peers["votes"].get((viewer_id, participant.user_id), False),
+        "my_peer_report": peers["reports"].get((viewer_id, participant.user_id)),
         "can_receive_peer_confirmation": _can_receive_peer(record),
+        "can_receive_peer_absence": not record or record.confirmation_status in ("CONFIRMED", "UNCONFIRMED"),
         "supplemental_attendance": bool(record and record.self_attended and (not record.confirmed_at or not record.checked_in_at)),
     }
 
 
 def room_state(db, room, user):
-    if not user.is_admin:
-        require_participant(db, room, user.id)
+    require_participant(db, room, user.id)
     session = db.query(models.MatchTrustSession).filter_by(match_id=room.id).first()
     policy = session.policy if session else default_policy()
     records = {r.user_id: r for r in db.query(models.MatchAttendanceRecord).filter_by(match_id=room.id).all()}
@@ -669,19 +773,24 @@ def room_state(db, room, user):
     mine_participant = next((p for p in participants if p.user_id == user.id), None)
     peers = peer_evidence(db, [room.id])[room.id]
     mine = _record_payload(records.get(user.id), mine_participant, session, peers, user.id) if mine_participant else None
-    can_manage = room.host_id == user.id or user.is_admin
+    if mine and mine["membership_status"] == "PENDING" and room.end_time <= now():
+        mine["membership_status"] = "EXPIRED"
+    can_manage = room.host_id == user.id
     can_see_peers = bool(can_manage or (mine_participant and mine_participant.status == "APPROVED" and now() >= room.end_time))
     current = [p for p in participants if p.status == "APPROVED"]
-    room_events = ("ROOM_CREATED", "ROOM_UPDATED", "HOST_TRANSFERRED", "ROOM_CANCELLED", "ROOM_REMOVED")
+    low_attendance = low_attendance_state(db, room, session, participants, records)
+    low_attendance["can_continue"] = low_attendance["can_continue"] and can_manage
+    low_attendance["can_cancel"] = low_attendance["can_cancel"] and can_manage
+    progress = checkin_progress(db, room)
+    room_events = ("ROOM_CREATED", "ROOM_UPDATED", "HOST_TRANSFERRED", "ROOM_CANCELLED", "ROOM_REMOVED", "LOW_ATTENDANCE_CONTINUED")
     event_model = models.MatchTrustEvent
     # Operational rotations must not displace meaningful activities from the latest 50.
     events = db.query(event_model).filter_by(match_id=room.id).filter(
         event_model.event_type != "CHECKIN_OPENED",
         or_(event_model.event_type != "TERMS_CHANGED", event_model.details["room_update"].as_boolean().isnot(True)),
     )
-    if not user.is_admin:
-        visible_ids = [p.user_id for p in current] if can_see_peers else [user.id]
-        events = events.filter(or_(event_model.subject_id.in_(visible_ids), event_model.event_type.in_(room_events)))
+    visible_ids = [p.user_id for p in current] if can_see_peers else [user.id]
+    events = events.filter(or_(event_model.subject_id.in_(visible_ids), event_model.event_type.in_(room_events)))
     recent_events = events.order_by(event_model.id.desc()).limit(50).all()
     user_ids = {uid for e in recent_events for uid in (e.actor_id, e.subject_id) if uid is not None}
     names = {person.id: display_name(person) for person in db.query(models.User).options(
@@ -703,14 +812,15 @@ def room_state(db, room, user):
                    "allow_supplemental_attendance": True}, "mine": mine,
         "terms_version": terms_version(room, policy),
         "confirmation_deadline": confirmation_deadline(room, policy),
-        "can_manage": can_manage, "can_review": bool(user.is_admin),
-        "can_peer_confirm": bool(not user.is_admin and mine_participant and mine_participant.status == "APPROVED"
+        "can_manage": can_manage,
+        "feedback_required": feedback_required(room, mine_participant, records.get(user.id)),
+        "low_attendance": low_attendance,
+        "checkin_progress": progress,
+        "can_peer_confirm": bool(mine_participant and mine_participant.status == "APPROVED"
                                  and now() >= room.end_time and room.status != "CANCELLED"
                                  and _can_witness(records.get(user.id))),
-        "checkin_available": _in_checkin_window(room, policy) and room.status != "CANCELLED" and not (session and session.removed_at),
-        "code_expires_at": session.code_expires_at if session else None,
+        "checkin_available": _in_checkin_window(room, policy) and room.status != "CANCELLED" and not (session and session.removed_at) and not progress["complete"],
+        "code_expires_at": session.code_expires_at if session and not progress["complete"] else None,
         "participants": [_record_payload(records.get(p.user_id), p, session, peers, user.id) for p in current] if can_see_peers else [],
-        "review_participants": [_record_payload(records.get(p.user_id), p, session, peers, user.id) for p in participants
-                                if p.user_id in records] if user.is_admin else [],
         "events": audit,
     }

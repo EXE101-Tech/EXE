@@ -3,10 +3,8 @@ import { Ban, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Clock3, Fi
 import { useAuth } from '../../shared/context/AuthContext';
 import { adminService, gameRoomService, resolveMediaUrl, socialPostService, teamService } from '../../shared/services/api';
 import MediaPreviewModal from '../../shared/components/MediaPreviewModal';
-import AttendanceReviews from './AttendanceReviews';
 
 const tabs = [
-  { id: 'attendance', label: 'Điểm danh & uy tín', icon: Shield },
   { id: 'payments', label: 'Giao dịch', icon: ClipboardList },
   { id: 'content', label: 'Kiểm duyệt nội dung', icon: Shield },
   { id: 'accounts', label: 'Tài khoản admin', icon: Users },
@@ -171,7 +169,6 @@ export default function AdminDashboard() {
     {message && <div role="status" className="mx-auto mt-4 max-w-[1500px] rounded-xl bg-indigo-500/15 px-4 py-3 text-sm text-indigo-200">{message}</div>}
     {loading ? <div className="mx-auto mt-8 max-w-[1500px] text-slate-400">Đang tải dữ liệu quản trị...</div> : <section className="mx-auto mt-6 grid max-w-[1500px] gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
       <div className="space-y-3">
-        {tab === 'attendance' && <AttendanceReviews />}
         {tab === 'reports' && <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"><h2 className="mb-4 font-black">Báo cáo đang chờ xử lý ({reports.length})</h2>{reports.length === 0 ? <Empty text="Chưa có báo cáo mới." /> : <div className="space-y-2">{reports.map((report) => <div key={report.id} className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/60 px-3 py-3"><div className="min-w-0"><p className="font-bold">{report.target_type} #{report.target_id} · {report.reason}</p><p className="mt-1 text-xs text-slate-400">{report.details || 'Không có mô tả thêm'} · {new Date(report.created_at).toLocaleString('vi-VN')}</p></div><div className="flex gap-2"><button type="button" onClick={() => reviewReport(report, 'DISMISSED')} className="rounded-lg border border-white/15 px-3 py-2 text-xs font-bold text-slate-300">Bỏ qua</button><button type="button" onClick={() => reviewReport(report, 'RESOLVED')} className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-bold text-white">Đã xử lý</button></div></div>)}</div>}</section>}
         {tab === 'deletions' && <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"><h2 className="mb-4 font-black">Yêu cầu xoá tài khoản ({deletionRequests.length})</h2>{deletionRequests.length === 0 ? <Empty text="Chưa có yêu cầu xoá đang chờ xử lý." /> : <div className="space-y-2">{deletionRequests.map((request) => <div key={request.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/60 px-3 py-3"><div className="min-w-0"><p className="font-bold">{request.email}</p><p className="mt-1 text-xs text-slate-400">{new Date(request.created_at).toLocaleString('vi-VN')}{request.reason ? ` · ${request.reason}` : ''}</p></div><button type="button" onClick={() => completeDeletion(request)} className="inline-flex items-center gap-1.5 rounded-lg border border-rose-400/40 px-3 py-2 text-xs font-bold text-rose-300 hover:bg-rose-500/10"><Trash2 className="h-3.5 w-3.5" /> Xoá sau khi xác minh</button></div>)}</div>}</section>}
         {tab === 'payments' && <div className="space-y-5">

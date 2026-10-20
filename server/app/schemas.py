@@ -631,21 +631,18 @@ class AttendanceSelfReport(BaseModel):
 
 
 class AttendancePeerReport(BaseModel):
-    attended: bool
+    report: Optional[Literal["ATTENDED", "ABSENT", "WITHDRAWN"]] = None
+    attended: Optional[bool] = None
+
+    @model_validator(mode="after")
+    def require_one_report(self):
+        if (self.report is None) == (self.attended is None):
+            raise ValueError("Gửi một lựa chọn xác nhận người cùng chơi")
+        return self
 
 
-class AttendanceReview(BaseModel):
-    outcome: Literal["ATTENDED", "NO_SHOW", "EXCUSED"]
-    session_status: Optional[Literal["OCCURRED", "CANCELLED"]] = None
-    note: str = Field(..., min_length=10, max_length=1000)
-
-    @field_validator("note")
-    @classmethod
-    def meaningful_note(cls, value):
-        value = value.strip()
-        if len(value) < 10:
-            raise ValueError("Cần giải thích quyết định ít nhất 10 ký tự")
-        return value
+class LowAttendanceDecision(BaseModel):
+    action: Literal["CONTINUE", "CANCEL"]
 
 
 class ChatConversationCreate(BaseModel):

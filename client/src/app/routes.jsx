@@ -11,6 +11,7 @@ import { ChatProvider } from '../shared/context/ChatContext.jsx';
 import LandingPage from '../features/landing/Landing.jsx';
 import PublicLayout from '../shared/layouts/PublicLayout.jsx';
 import NavbarLayout from '../shared/layouts/NavbarLayout.jsx';
+import RequiredFeedbackGate from '../features/gameroom/components/RequiredFeedbackGate.jsx';
 import PremiumPage from '../features/premium/PremiumPage.jsx';
 import AdminDashboard from '../features/admin/AdminDashboard.jsx';
 import PrivacyPolicyPage from '../features/legal/PrivacyPolicyPage.jsx';
@@ -49,7 +50,7 @@ function MemberLayout() {
     const { user } = useAuth();
     if (user?.isAdmin) return <Navigate to="/admin" replace />;
     if (user && localStorage.getItem('sportgo-onboarding-pending') === String(user.id)) return <Navigate to="/onboarding" replace />;
-    return <NavbarLayout />;
+    return <RequiredFeedbackGate key={user.id}><NavbarLayout /></RequiredFeedbackGate>;
 }
 
 function AdminRoute({ children }) {

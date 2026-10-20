@@ -54,11 +54,12 @@ function RoomManager({ room, onClose, onAttendance, onEdit, onDelete, onChanged,
     return () => { mounted.current = false; window.clearInterval(timer); window.removeEventListener('focus', update); document.body.style.overflow = overflow; previous?.focus?.(); };
   }, [refresh]);
 
-  const pending = (current.participants || []).filter((person) => person.status === 'PENDING');
   const members = (current.participants || []).filter((person) => person.status === 'APPROVED' && person.role !== 'HOST' && Number(person.user_id) !== Number(current.host_id));
   const count = members.length + 1;
   const capacity = current.max_players || 2;
   const closed = ['CLOSED', 'CANCELLED', 'FINISHED'].includes(current.status) || date(current.end_time).getTime() <= clock;
+  const pending = (current.participants || []).filter((person) => person.status === 'PENDING' && !closed);
+  const expired = (current.participants || []).filter((person) => person.status === 'EXPIRED' || (closed && person.status === 'PENDING'));
   const cancelled = current.status === 'CANCELLED';
   const host = personInfo(current.host || { name: 'Chủ phòng' });
   const checkinByUser = new Map((attendance?.participants || []).map((person) => [person.user_id, person]));
@@ -112,9 +113,12 @@ function RoomManager({ room, onClose, onAttendance, onEdit, onDelete, onChanged,
       <p role="status" className="sg-attendance-sr-only">{busy ? 'Đang cập nhật…' : notice}</p>
       <div className="sg-room-manager-overview"><div><span><CalendarDays size={14} />{schedule(current)}</span><strong>{formatStoredCost(current.price_info)}</strong></div><div className="sg-room-manager-capacity"><span><Users size={15} />{count}/{capacity} người</span><span>{cancelled ? 'Đã hủy' : closed ? 'Đã kết thúc' : count >= capacity ? 'Đã đủ người' : `Còn ${capacity - count} chỗ`}</span></div><div className="sg-room-manager-meter" role="progressbar" aria-label="Số người trong phòng" aria-valuemin={0} aria-valuemax={capacity} aria-valuenow={count}><span style={{ width: `${Math.min(100, count / capacity * 100)}%` }} /></div></div>
       {closed && <p className="sg-room-manager-info">{cancelled ? 'Buổi chơi đã hủy. Người tham gia không bị tính vắng.' : 'Buổi chơi đã kết thúc. Mở điểm danh để ghi nhận kết quả cho từng người.'}</p>}
-      <div className="sg-room-manager-tabs" role="tablist" aria-label="Quản lý thành viên" onKeyDown={changeTab}>{[['requests', 'Chờ duyệt', pending.length], ['members', 'Thành viên', count]].map(([key, label, total]) => <button key={key} id={`${id}-${key}`} role="tab" type="button" aria-selected={tab === key} tabIndex={tab === key ? 0 : -1} aria-controls={`${id}-panel`} onClick={() => { setTab(key); setRemoveId(null); }}>{label}<span>{total}</span></button>)}</div>
+      <div className="sg-room-manager-tabs" role="tablist" aria-label="Quản lý thành viên" onKeyDown={changeTab}>{[['requests', closed ? 'Yêu cầu đã hết hạn' : 'Chờ duyệt', closed ? expired.length : pending.length], ['members', 'Thành viên', count]].map(([key, label, total]) => <button key={key} id={`${id}-${key}`} role="tab" type="button" aria-selected={tab === key} tabIndex={tab === key ? 0 : -1} aria-controls={`${id}-panel`} onClick={() => { setTab(key); setRemoveId(null); }}>{label}<span>{total}</span></button>)}</div>
       <section id={`${id}-panel`} role="tabpanel" aria-labelledby={`${id}-${tab}`} className="sg-room-manager-panel">
-        {tab === 'requests' ? pending.length ? <>
+        {tab === 'requests' ? closed && expired.length ? <>
+          <p className="sg-room-manager-hint">Các yêu cầu này chưa được duyệt trước khi buổi kết thúc. Người gửi không cần đánh giá và không bị ảnh hưởng uy tín.</p>
+          {expired.map((request) => { const person = personInfo(request); return <div className="sg-room-manager-request" key={person.id}><div className="sg-room-manager-person"><Avatar person={person} /><div><strong>{person.name}</strong><span>Yêu cầu đã hết hạn</span></div></div></div>; })}
+        </> : pending.length ? <>
           <p className="sg-room-manager-hint">{count >= capacity ? 'Phòng đã đủ người. Bạn có thể tăng số chỗ trong phần chỉnh sửa phòng.' : 'Xem thông tin và lời nhắn trước khi duyệt người chơi vào phòng.'}</p>
           {pending.map((request) => { const person = personInfo(request); return <div className="sg-modal-pending sg-room-manager-request" key={person.id}><div className="sg-room-manager-person"><Avatar person={person} /><div><strong>{person.name}</strong><ReputationBadge reputation={person.reputation} compact />{request.joined_at && <span>Gửi lúc {date(request.joined_at).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>}</div></div>{request.note && <p className="sg-room-manager-note">{request.note}</p>}<div className="sg-room-manager-request-actions"><button type="button" className="sg-attendance-secondary" disabled={busy || closed} onClick={() => updateStatus(person, 'REJECTED')}>Từ chối</button><button type="button" className="sg-primary-button" disabled={busy || closed || count >= capacity} onClick={() => updateStatus(person, 'APPROVED')}><Check size={14} />Duyệt vào</button></div></div>; })}
         </> : <div className="sg-room-manager-empty"><CheckCircle2 size={24} /><strong>Không có yêu cầu đang chờ</strong><p>Người chơi mới gửi yêu cầu sẽ xuất hiện tại đây.</p><button type="button" className="sg-attendance-text-button" onClick={() => setTab('members')}>Xem thành viên trong phòng</button></div> : <>{renderMember(host, true)}{members.map((person) => renderMember(personInfo(person)))}</>}
