@@ -5,7 +5,7 @@ export function parseCostInputToVnd(value) {
   let amount;
 
   if (/^\d+$/.test(input)) {
-    amount = Number(input) * 1000;
+    amount = Number(input) < 1000 ? Number(input) * 1000 : Number(input);
   } else if (GROUPED_VND_PATTERN.test(input)) {
     amount = Number(input.replaceAll('.', ''));
   } else {
@@ -38,11 +38,17 @@ export function parseStoredCostToVnd(value) {
 
 export function storedCostToInput(value) {
   const amount = parseStoredCostToVnd(value);
-  return amount !== null && amount % 1000 === 0 ? String(amount / 1000) : '';
+  return amount !== null && amount % 1000 === 0 ? amount.toLocaleString('vi-VN') : '';
 }
 
 export function formatStoredCost(value) {
   const amount = parseStoredCostToVnd(value);
   if (amount === null) return String(value || 'Chưa cập nhật');
   return `${amount.toLocaleString('vi-VN')}đ/người`;
+}
+
+export function formatCostAmount(value) {
+  const amount = parseStoredCostToVnd(value);
+  if (amount === null) return String(value || 'Chưa công bố');
+  return amount === 0 ? 'Miễn phí' : `${amount.toLocaleString('vi-VN')}đ`;
 }

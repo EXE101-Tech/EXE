@@ -9,6 +9,7 @@ import CreateRoomModal from './components/CreateRoomModal';
 import JoinRoomModal from './components/JoinRoomModal';
 import ManageRoomModal from './components/ManageRoomModal';
 import AutoRoomSearchModal from './components/AutoRoomSearchModal';
+import AttendanceRoomModal from './components/AttendanceRoomModal';
 import FilterSelect from '../../shared/components/FilterSelect';
 import { useSearchParams } from 'react-router-dom';
 import { createSportExperienceMap, sortBySportExperience } from '../../shared/utils/sportExperienceSort';
@@ -17,7 +18,7 @@ import { isActiveSport } from '../../shared/constants/sports';
 import { LOCATION_FILTER_OPTIONS } from '../../shared/constants/districts';
 
 function GameRoom() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const searchQuery = searchParams.get('search') || '';
   const routeSport = searchParams.get('sport');
   const { selectedSport, setSelectedSport } = useSportFilter();
@@ -29,7 +30,14 @@ function GameRoom() {
   const [selectedLevel, setSelectedLevel] = useState('all');
   const [selectedLocation, setSelectedLocation] = useState('all');
   const [selectedPrice, setSelectedPrice] = useState('all');
-  const [myPostsOnly, setMyPostsOnly] = useState(false);
+  const [myPostsOnly, setMyPostsOnly] = useState(() => searchParams.get('view') === 'mine');
+  const [attendanceRoomId, setAttendanceRoomId] = useState(() => Number(searchParams.get('attendance')) || null);
+  const attendanceFromRoute = Number(searchParams.get('attendance'));
+  useEffect(() => {
+    if (!Number.isInteger(attendanceFromRoute) || attendanceFromRoute < 1) return undefined;
+    const timer = window.setTimeout(() => setAttendanceRoomId(attendanceFromRoute), 0);
+    return () => window.clearTimeout(timer);
+  }, [attendanceFromRoute]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [toastMessage, setToastMessage] = useState('');
@@ -42,11 +50,18 @@ function GameRoom() {
   const [managingRoom, setManagingRoom] = useState(null);
   const [isAutoSearchOpen, setIsAutoSearchOpen] = useState(false);
 
+  const openAttendanceRoom = (roomId) => {
+    setAttendanceRoomId(roomId);
+    const next = new URLSearchParams(searchParams);
+    next.set('attendance', String(roomId));
+    setSearchParams(next, { replace: true });
+  };
+
   const loadRooms = useCallback(async () => {
     setIsLoading(true);
     try {
       const [data, sports] = await Promise.all([
-        myPostsOnly ? gameRoomService.getMine() : gameRoomService.getAll(),
+        myPostsOnly ? gameRoomService.getParticipating() : gameRoomService.getAll(),
         sportService.getAll(),
       ]);
       const activeSports = sports.filter((sport) => sport.id != null && isActiveSport(sport));
@@ -63,6 +78,7 @@ function GameRoom() {
           avatar: resolveMediaUrl(match.host?.profile?.avatar_url),
           isPremium: Boolean(match.host?.is_premium || (match.host?.premium_until && new Date(match.host.premium_until).getTime() > Date.now())),
           ownerStatus: match.host?.owner_status || 'none',
+          reputation: match.host?.reputation,
           attendance_status: (match.participants || []).find((participant) => participant.role === 'HOST')?.attendance_status || null,
         },
         participants: (match.participants || []).filter((participant) => participant.role !== 'HOST').map((participant) => ({
@@ -74,6 +90,7 @@ function GameRoom() {
             avatar: resolveMediaUrl(participant.user?.profile?.avatar_url),
             isPremium: Boolean(participant.user?.is_premium || (participant.user?.premium_until && new Date(participant.user.premium_until).getTime() > Date.now())),
             ownerStatus: participant.user?.owner_status || 'none',
+            reputation: participant.user?.reputation,
           },
         })),
         isMyRoom: Number(match.host_id) === Number(user?.id),
@@ -101,7 +118,6 @@ function GameRoom() {
   // Filtered rooms
   const filteredRooms = useMemo(() => {
     const visibleRooms = rooms.filter((room) => {
-      if (myPostsOnly && Number(room.host_id) !== Number(user?.id)) return false;
       if (searchQuery.trim()) {
         const q = searchQuery.trim().toLowerCase();
         return [room.title, room.location, room.host?.name, room.description]
@@ -136,7 +152,7 @@ function GameRoom() {
       return true;
     });
     return sortBySportExperience(visibleRooms, sportExperience, (room) => room.sportId || room.sportName);
-  }, [rooms, selectedSport, selectedLevel, selectedLocation, selectedPrice, searchQuery, sportExperience, myPostsOnly, user?.id]);
+  }, [rooms, selectedSport, selectedLevel, selectedLocation, selectedPrice, searchQuery, sportExperience]);
 
   const handleCreateSubmit = async (newRoomData) => {
     setIsLoading(true);
@@ -153,12 +169,12 @@ function GameRoom() {
         location: newRoomData.location.trim(),
         price_info: newRoomData.price_info.trim(),
       };
-      if (editingRoom) await gameRoomService.update(editingRoom.id, payload);
-      else await gameRoomService.create(payload);
+      const saved = editingRoom ? await gameRoomService.update(editingRoom.id, payload) : await gameRoomService.create(payload);
       await loadRooms();
       showToast(editingRoom ? 'Đã cập nhật phòng chơi.' : 'Đã tạo phòng chơi.');
       setIsCreateOpen(false);
       setEditingRoom(null);
+      openAttendanceRoom(saved.id);
     } catch (err) {
       const message = err.message || (editingRoom ? 'Không cập nhật được phòng chơi' : 'Không tạo được phòng chơi');
       setError(message);
@@ -175,16 +191,16 @@ function GameRoom() {
   };
 
   const handleDeleteRoom = async (room) => {
-    const confirmed = window.confirm(`Xóa phòng “${room.title}”? Các thành viên đã tham gia sẽ nhận được thông báo.`);
-    if (!confirmed) return;
     setIsLoading(true);
     try {
       await gameRoomService.remove(room.id);
       setManagingRoom(null);
       await loadRooms();
-      showToast('Đã xóa phòng. Thành viên trong phòng đã được thông báo.');
+      showToast('Đã gỡ phòng và giữ lịch sử xác nhận.');
+      return true;
     } catch (err) {
       showToast(err.message || 'Không xóa được phòng chơi');
+      return false;
     } finally {
       setIsLoading(false);
     }
@@ -225,50 +241,6 @@ function GameRoom() {
       showToast('Đã từ chối lời mời tự động.');
     } catch (err) {
       showToast(err.message || 'Không thể từ chối lời mời');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleUpdateStatus = async (roomId, userId, status) => {
-    setIsLoading(true);
-    try {
-      await gameRoomService.approveParticipant(roomId, userId, status);
-      const refreshed = await loadRooms();
-      setManagingRoom(refreshed.find((room) => room.id === roomId) || null);
-      showToast(`Đã ${status === 'APPROVED' ? 'duyệt' : 'từ chối'} thành viên.`);
-    } catch (err) {
-      showToast(err.message || 'Không cập nhật được thành viên');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleUpdateAttendance = async (roomId, userId, attendanceStatus) => {
-    setIsLoading(true);
-    try {
-      await gameRoomService.updateAttendance(roomId, userId, attendanceStatus);
-      const refreshed = await loadRooms();
-      const refreshedRoom = refreshed?.find((room) => room.id === roomId);
-      if (refreshedRoom) {
-        setManagingRoom(refreshedRoom);
-      } else {
-        setManagingRoom((current) => current?.id === roomId ? {
-          ...current,
-          status: 'CLOSED',
-          host: Number(current.host?.id) === Number(userId)
-            ? { ...current.host, attendance_status: attendanceStatus }
-            : current.host,
-          participants: current.participants.map((participant) =>
-            Number(participant.user_id ?? participant.user?.id) === Number(userId)
-              ? { ...participant, attendance_status: attendanceStatus }
-              : participant
-          ),
-        } : current);
-      }
-      showToast(attendanceStatus === 'ATTENDED' ? 'Đã xác nhận người chơi tham gia trận.' : 'Đã ghi nhận người chơi không tham gia.');
-    } catch (err) {
-      showToast(err.message || 'Không cập nhật được trạng thái tham gia');
     } finally {
       setIsLoading(false);
     }
@@ -340,7 +312,7 @@ function GameRoom() {
               onChange={(event) => setMyPostsOnly(event.target.value === 'mine')}
             >
               <option value="all">Tất cả phòng</option>
-              <option value="mine">Phòng của tôi</option>
+              <option value="mine">Buổi tôi đã tham gia</option>
             </FilterSelect>
 
             {/* 1. Địa điểm (Location) */}
@@ -437,6 +409,7 @@ function GameRoom() {
                 onDecline={handleDeclineInvite}
                 onChat={(r) => handleOpenChat(r)}
                 onManage={(r) => setManagingRoom(r)}
+                onAttendance={(r) => openAttendanceRoom(r.id)}
               />
             ))}
           </div>
@@ -468,11 +441,11 @@ function GameRoom() {
         isOpen={!!managingRoom}
         room={managingRoom}
         onClose={() => setManagingRoom(null)}
-        onUpdateStatus={handleUpdateStatus}
-        onUpdateAttendance={handleUpdateAttendance}
+        onChanged={loadRooms}
+        onMessage={(person) => openChat(person)}
+        onAttendance={(room) => { setManagingRoom(null); openAttendanceRoom(room.id); }}
         onEdit={handleEditRoom}
         onDelete={handleDeleteRoom}
-        isLoading={isLoading}
       />
 
       <AutoRoomSearchModal
@@ -480,6 +453,14 @@ function GameRoom() {
         onClose={() => setIsAutoSearchOpen(false)}
         onSaved={() => showToast('Đã lưu thiết lập tự động tìm phòng. Bạn sẽ nhận thông báo khi có phòng phù hợp.')}
       />
+      {attendanceRoomId && <AttendanceRoomModal key={attendanceRoomId} roomId={attendanceRoomId} onChanged={loadRooms} onClose={() => {
+        setAttendanceRoomId(null);
+        if (searchParams.has('attendance')) {
+          const next = new URLSearchParams(searchParams);
+          next.delete('attendance');
+          setSearchParams(next, { replace: true });
+        }
+      }} />}
     </div>
   );
 }

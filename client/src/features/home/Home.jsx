@@ -5,6 +5,7 @@ import heroBgImg from '../../assets/sports/badminton.avif';
 import EditProfileModal from '../profile/EditProfileModal';
 import { useAuth } from '../../shared/context/AuthContext';
 import MySocialPosts from '../profile/MySocialPosts';
+import ReputationPanel from '../profile/ReputationPanel';
 import { authService, storageService } from '../../shared/services/api';
 import { isActiveSport } from '../../shared/constants/sports';
 
@@ -122,7 +123,7 @@ function Home() {
           <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white break-words">Hồ sơ cá nhân</h1>
         </div>
 
-        <section className="member-content-surface rounded-3xl overflow-hidden">
+        <section className="member-content-surface rounded-3xl overflow-hidden" aria-label="Tổng quan hồ sơ">
           {/* Cover and profile identity */}
           <div className="relative h-48 sm:h-64 overflow-hidden group/cover">
             <img src={coverImage} alt="Ảnh bìa hồ sơ" className="w-full h-full object-cover object-[50%_42%]" />
@@ -184,14 +185,15 @@ function Home() {
             ))}
           </div>
 
-          <div className="border-t border-slate-200/70 dark:border-slate-700/70" />
+          {user?.id && <div className="border-t border-slate-200/70 dark:border-slate-700/70 p-5 sm:p-8"><ReputationPanel userId={user.id} embedded /></div>}
+        </section>
 
-          {/* Sport cards */}
-          <div className="p-5 sm:p-8">
+        {/* Sport cards */}
+        <section className="member-content-surface rounded-3xl mt-6 p-5 sm:p-8" aria-labelledby="skills-heading">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-11 h-11 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-lg"><Activity className="w-5 h-5" /></div>
               <div>
-                <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">Hồ sơ kỹ năng</h2>
+                <h2 id="skills-heading" className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">Hồ sơ kỹ năng</h2>
                 <p className="text-sm text-slate-500 dark:text-slate-400">Trình độ và hoạt động thể thao</p>
               </div>
             </div>
@@ -213,7 +215,6 @@ function Home() {
               ))}
             </div>
             {skills.length === 0 && <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700">Bạn chưa thêm môn thể thao hoặc trình độ. Hãy cập nhật hồ sơ để lưu kỹ năng của mình.</div>}
-          </div>
         </section>
         <MySocialPosts />
       </div>
