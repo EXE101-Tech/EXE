@@ -1,49 +1,52 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 
-const ChatContext = createContext();
+const ChatContext = createContext(null);
 
 export function ChatProvider({ children }) {
   const [isChatOpen, setIsChatOpen] = useState(false);
-  const [activeChatUser, setActiveChatUser] = useState(null);
+  const [pendingRecipient, setPendingRecipient] = useState(null);
 
-  const toggleChat = () => setIsChatOpen((prev) => !prev);
-  const openChat = (userOrName) => {
-    if (userOrName) {
-      if (typeof userOrName === 'string') {
-        setActiveChatUser({
-          id: Date.now(),
-          name: userOrName,
-          avatar: userOrName.charAt(0).toUpperCase(),
-          lastMessage: 'Xin chào! Mình muốn hỏi về thông tin sân / kèo chơi của bạn.',
-          time: 'Vừa xong',
-          unread: 0,
-          online: true,
-        });
-      } else if (typeof userOrName === 'object') {
-        const name = userOrName.name || userOrName.authorName || userOrName.host?.name || 'Trưởng nhóm';
-        setActiveChatUser({
-          id: userOrName.id || Date.now(),
-          name: name,
-          avatar: name.charAt(0).toUpperCase(),
-          lastMessage: 'Xin chào! Mình muốn giao lưu cùng nhóm của bạn.',
-          time: 'Vừa xong',
-          unread: 0,
-          online: true,
-        });
-      }
-    }
+  useEffect(() => {
+    if (!isChatOpen || !window.matchMedia('(max-width: 767px)').matches) return undefined;
+
+    const htmlOverflow = document.documentElement.style.overflow;
+    const bodyOverflow = document.body.style.overflow;
+    const bodyOverscroll = document.body.style.overscrollBehavior;
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    document.body.style.overscrollBehavior = 'none';
+
+    return () => {
+      document.documentElement.style.overflow = htmlOverflow;
+      document.body.style.overflow = bodyOverflow;
+      document.body.style.overscrollBehavior = bodyOverscroll;
+    };
+  }, [isChatOpen]);
+
+  const openChat = (recipient) => {
+    const user = recipient?.host_user || recipient?.author || recipient?.host || recipient?.user || recipient?.owner || recipient;
+    const id = Number(user?.user_id || user?.author_id || user?.owner_id || user?.host_id || user?.id);
+    setPendingRecipient(Number.isInteger(id) && id > 0 ? {
+      id,
+      name: user.name || user.full_name || user.author_name || user.owner_name || 'Người chơi',
+      avatar: user.avatar_url || user.avatar || '',
+    } : null);
     setIsChatOpen(true);
   };
-  const closeChat = () => setIsChatOpen(false);
 
-  const startChat = (user) => {
-    openChat(user);
+  const closeChat = () => {
+    setIsChatOpen(false);
+    setPendingRecipient(null);
   };
 
   return (
-    <ChatContext.Provider value={{ 
-      isChatOpen, toggleChat, openChat, closeChat,
-      activeChatUser, setActiveChatUser, startChat 
+    <ChatContext.Provider value={{
+      isChatOpen,
+      toggleChat: () => setIsChatOpen((open) => !open),
+      openChat,
+      closeChat,
+      pendingRecipient,
+      setPendingRecipient,
     }}>
       {children}
     </ChatContext.Provider>
@@ -52,8 +55,6 @@ export function ChatProvider({ children }) {
 
 export function useChat() {
   const context = useContext(ChatContext);
-  if (!context) {
-    throw new Error('useChat must be used within a ChatProvider');
-  }
+  if (!context) throw new Error('useChat must be used within a ChatProvider');
   return context;
 }

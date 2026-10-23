@@ -1,12 +1,11 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import badmintonImg from '../../../assets/sports/badminton.avif';
 import footballImg from '../../../assets/sports/foodball.avif';
 import pickleballImg from '../../../assets/sports/pickleball.jpg';
 import tennisImg from '../../../assets/sports/tennis.jpg';
 import basketballImg from '../../../assets/sports/bong_ro.jpg';
 import volleyballImg from '../../../assets/sports/volleyball.jpg';
-
 import CourtHero from '../components/CourtHero';
 import CourtInfo from '../components/CourtInfo';
 import CourtFacilities from '../components/CourtFacilities';
@@ -15,224 +14,252 @@ import BookingBar from '../components/BookingBar';
 import BookingSuccessModal from '../components/BookingSuccessModal';
 import { courtService, bookingService } from '../../../shared/services/api';
 
-const FALLBACK_VENUES = {
-  1: {
-    id: 1,
-    name: 'Sân Cầu Lông Proton VIP Q10',
-    sport: 'badminton',
-    address: '286 Thành Thái, Phường 14, Quận 10, TP.HCM',
-    distance: '0.8 km',
-    rating: 4.9,
-    reviewCount: 42,
-    price: '50.000đ',
-    priceNumber: 50000,
-    courtCount: 6,
-    image: badmintonImg,
-    hostName: 'Anh Tuấn Proton',
-    facilities: { wifi: true, parking: true, shower: true, canteen: true, rental: true },
-    description: 'Sân cầu lông tiêu chuẩn quốc tế thảm lót chuyên dụng, đèn chống chói, không gian thoáng mát.',
-  },
-  2: {
-    id: 2,
-    name: 'Sân Bóng Đá Cỏ Nhân Tạo Elite Q7',
-    sport: 'football',
-    address: '45 Nguyễn Thị Thập, Tân Phong, Quận 7, TP.HCM',
-    distance: '2.5 km',
-    rating: 4.8,
-    reviewCount: 56,
-    price: '80.000đ',
-    priceNumber: 80000,
-    courtCount: 4,
-    image: footballImg,
-    hostName: 'Chị Mai Elite',
-    facilities: { wifi: true, parking: true, shower: true, canteen: true, rental: true },
-    description: 'Sân bóng cỏ nhân tạo chất lượng cao FIFA 2 sao, có khu vực chờ mát mẻ, phục vụ nước uống định kỳ.',
-  },
+const SPORT_IMAGES = {
+  badminton: badmintonImg,
+  football: footballImg,
+  pickleball: pickleballImg,
+  tennis: tennisImg,
+  basketball: basketballImg,
+  volleyball: volleyballImg,
 };
+
+function mapVenue(data) {
+  const sport = data.sport_key || data.courts?.[0]?.sport?.name?.toLowerCase() || '';
+  return {
+    ...data,
+    sport,
+    image: data.image_url || SPORT_IMAGES[sport],
+    price: data.price_label || '',
+    courtCount: data.court_count ?? data.courts?.length ?? 0,
+    facilities: data.facilities || {},
+    hostName: data.owner_name || '',
+  };
+}
+
+const getVietnamDate = (offset = 0) => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  const day = new Date(Date.UTC(Number(values.year), Number(values.month) - 1, Number(values.day) + offset));
+  return `${day.getUTCFullYear()}-${String(day.getUTCMonth() + 1).padStart(2, '0')}-${String(day.getUTCDate()).padStart(2, '0')}`;
+};
+
+function toUtcEpoch(value) {
+  const normalized = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value) ? value : `${value}Z`;
+  return new Date(normalized).getTime();
+}
+
+function makeUnavailableSlots(bookings, day) {
+  const unavailable = new Set();
+  const slotTimes = Array.from({ length: 36 }, (_, index) => {
+    const minutes = 360 + index * 30;
+    return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${minutes % 60 ? '30' : '00'}`;
+  });
+
+  bookings.forEach((booking) => {
+    const start = toUtcEpoch(booking.start_time);
+    const end = toUtcEpoch(booking.end_time);
+    if (!Number.isFinite(start) || !Number.isFinite(end)) return;
+    slotTimes.forEach((time) => {
+      const slotStart = new Date(`${day}T${time}:00+07:00`).getTime();
+      const slotEnd = slotStart + 30 * 60 * 1000;
+      if (start < slotEnd && end > slotStart) unavailable.add(`${booking.court_id}|${time}`);
+    });
+  });
+  return unavailable;
+}
 
 function CourtDetailPage() {
   const { id } = useParams();
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  const [court, setCourt] = useState(null);
-  const [venueCourts, setVenueCourts] = useState([]);
+  const [venue, setVenue] = useState(null);
+  const [courts, setCourts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-
-  const [selectedDate, setSelectedDate] = useState(0); // 0 to 6
+  const [error, setError] = useState('');
+  const [selectedDate, setSelectedDate] = useState(() => getVietnamDate());
   const [selectedSlots, setSelectedSlots] = useState(new Set());
-  const [isFavorite, setIsFavorite] = useState(false);
+  const [unavailableSlots, setUnavailableSlots] = useState(new Set());
+  const [isAvailabilityLoading, setIsAvailabilityLoading] = useState(true);
+  const [availabilityError, setAvailabilityError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [bookingError, setBookingError] = useState('');
   const [successBookingData, setSuccessBookingData] = useState(null);
 
+  const loadVenue = useCallback(async () => {
+    setIsLoading(true);
+    setError('');
+    try {
+      const data = await courtService.getVenueById(id);
+      setVenue(mapVenue(data));
+      setCourts((data.courts || []).filter((court) => court.is_active !== false));
+      setIsAvailabilityLoading(true);
+      setUnavailableSlots(new Set());
+      setAvailabilityError('');
+    } catch (loadError) {
+      setError(loadError.message || 'Không tải được thông tin sân từ máy chủ.');
+      setVenue(null);
+      setCourts([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [id]);
+
   useEffect(() => {
-    const loadCourtData = async () => {
-      setIsLoading(true);
-      try {
-        // Check if data passed from Bookings page
-        if (location.state?.venueData) {
-          const vData = location.state.venueData;
-          setCourt(vData);
-          generateSubCourts(vData.courtCount || 4, vData.name);
-          setIsLoading(false);
-          return;
-        }
+    let active = true;
+    courtService.getVenueById(id)
+      .then((data) => {
+        if (!active) return;
+        setVenue(mapVenue(data));
+        setCourts((data.courts || []).filter((court) => court.is_active !== false));
+        setUnavailableSlots(new Set());
+        setAvailabilityError('');
+        setIsAvailabilityLoading(true);
+      })
+      .catch((loadError) => {
+        if (!active) return;
+        setError(loadError.message || 'Không tải được thông tin sân từ máy chủ.');
+        setVenue(null);
+        setCourts([]);
+      })
+      .finally(() => { if (active) setIsLoading(false); });
+    return () => { active = false; };
+  }, [id]);
 
-        // Try API
-        try {
-          const courtData = await courtService.getById(id);
-          const mappedCourt = {
-            id: courtData.id,
-            name: courtData.venue?.name || courtData.name,
-            address: courtData.venue?.address || 'TP.HCM',
-            sport: courtData.sport?.name || 'badminton',
-            rating: 4.8,
-            reviewCount: 24,
-            distance: '1.2 km',
-            price: '50.000đ',
-            priceNumber: 50000,
-            courtCount: 4,
-            description: courtData.venue?.description || 'Sân thể thao chất lượng cao đáp ứng mọi nhu cầu luyện tập và thi đấu.',
-            image: badmintonImg,
-            hostName: 'Chủ Sân Thể Thao',
-            facilities: { wifi: true, parking: true, shower: true, canteen: true, rental: true },
-          };
-          setCourt(mappedCourt);
-          generateSubCourts(4, mappedCourt.name);
-        } catch (apiErr) {
-          // Fallback to local mock by ID
-          const fb = FALLBACK_VENUES[id] || {
-            ...FALLBACK_VENUES[1],
-            id: Number(id) || 1,
-            name: `Khu Sân Thể Thao Cao Cấp #${id}`,
-          };
-          setCourt(fb);
-          generateSubCourts(fb.courtCount || 4, fb.name);
-        }
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  useEffect(() => {
+    let active = true;
+    if (!venue?.id) return () => { active = false; };
 
-    loadCourtData();
-  }, [id, location.state]);
+    bookingService.getAvailability(venue.id, selectedDate)
+      .then((bookings) => {
+        if (active) setUnavailableSlots(makeUnavailableSlots(bookings, selectedDate));
+      })
+      .catch((loadError) => {
+        if (active) setAvailabilityError(loadError.message || 'Không tải được lịch đặt sân.');
+      })
+      .finally(() => { if (active) setIsAvailabilityLoading(false); });
+    return () => { active = false; };
+  }, [venue?.id, selectedDate]);
 
-  const generateSubCourts = (count, venueName) => {
-    const subList = Array.from({ length: count }, (_, i) => ({
-      id: i + 1,
-      name: `Sân số ${i + 1} (${venueName ? venueName.split(' ')[0] : 'VIP'})`,
-    }));
-    setVenueCourts(subList);
-  };
-
-  const handleSelectDate = (index) => {
-    setSelectedDate(index);
+  const handleSelectDate = (date) => {
+    setSelectedDate(date);
     setSelectedSlots(new Set());
+    setUnavailableSlots(new Set());
+    setAvailabilityError('');
+    setIsAvailabilityLoading(true);
+    setBookingError('');
   };
 
   const handleToggleSlot = (slotId) => {
-    setSelectedSlots(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(slotId)) {
-        newSet.delete(slotId);
-      } else {
-        newSet.add(slotId);
-      }
-      return newSet;
+    setBookingError('');
+    setSelectedSlots((previous) => {
+      const next = new Set(previous);
+      if (next.has(slotId)) next.delete(slotId);
+      else next.add(slotId);
+      return next;
     });
   };
 
+  const selectedItems = useMemo(() => Array.from(selectedSlots).map((slotId) => {
+    const [courtId, time] = slotId.split('|');
+    const court = courts.find((item) => item.id === Number(courtId));
+    return { court, time };
+  }).filter((item) => item.court), [selectedSlots, courts]);
+
+  const totalPrice = selectedItems.reduce((total, { court }) => total + Number(court.price_per_hour || 0) / 2, 0);
+  const displayPricePerSlot = courts.length
+    ? Math.min(...courts.map((court) => Number(court.price_per_hour || 0))) / 2
+    : 0;
+
   const handleBook = async () => {
-    if (selectedSlots.size === 0) return;
-
-    const priceNum = court?.priceNumber || 50000;
-    const totalCalc = selectedSlots.size * priceNum;
-
-    const bData = {
-      venueName: court?.name || 'Sân Thể Thao SportGo',
-      address: court?.address || 'TP.HCM',
-      hostName: court?.hostName || 'Chủ sân',
-      selectedCount: selectedSlots.size,
-      totalPrice: totalCalc,
-      slots: Array.from(selectedSlots),
-    };
-
-    // Try API call in background without blocking UI celebratory flow
+    if (!selectedItems.length || isSubmitting || isAvailabilityLoading || availabilityError) return;
+    setIsSubmitting(true);
+    setBookingError('');
     try {
-      const targetDate = new Date();
-      targetDate.setDate(targetDate.getDate() + selectedDate);
-      const dateStr = targetDate.getFullYear() + '-' + String(targetDate.getMonth() + 1).padStart(2, '0') + '-' + String(targetDate.getDate()).padStart(2, '0');
-
-      const promises = [];
-      selectedSlots.forEach(slotId => {
-        const [cId, time] = slotId.split('-');
-        promises.push(
-          bookingService.create({
-            court_id: parseInt(cId) || 1,
-            start_time: `${dateStr}T${time}:00`,
-            end_time: `${dateStr}T${add30Mins(time)}:00`
-          }).catch(() => {})
-        );
+      const bookings = selectedItems.map(({ court, time }) => {
+        const start = new Date(`${selectedDate}T${time}:00+07:00`);
+        const end = new Date(start.getTime() + 30 * 60 * 1000);
+        return {
+          court_id: court.id,
+          start_time: start.toISOString(),
+          end_time: end.toISOString(),
+        };
       });
-      Promise.all(promises);
-    } catch (err) {
-      console.log('Backend booking sync notice:', err);
+      const created = await bookingService.createBatch(bookings);
+      const newUnavailable = new Set(unavailableSlots);
+      selectedItems.forEach(({ court, time }) => newUnavailable.add(`${court.id}|${time}`));
+      setUnavailableSlots(newUnavailable);
+      setSuccessBookingData({
+        venueName: venue.name,
+        address: venue.address,
+        hostName: venue.hostName,
+        ownerId: venue.owner_id,
+        bookingIds: created.map((booking) => booking.id),
+        selectedCount: created.length,
+        totalPrice: created.reduce((total, booking) => total + Number(booking.total_price || 0), 0),
+        date: selectedDate,
+        slots: selectedItems.map(({ court, time }) => `${court.name} · ${time}`),
+      });
+      setSelectedSlots(new Set());
+    } catch (bookError) {
+      setBookingError(bookError.message || 'Không thể hoàn tất đặt sân. Vui lòng tải lại lịch và thử lại.');
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setSuccessBookingData(bData);
   };
 
-  function add30Mins(timeStr) {
-    const [h, m] = timeStr.split(':').map(Number);
-    let date = new Date();
-    date.setHours(h, m + 30);
-    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  if (isLoading) {
+    return <div className="min-h-[50vh] flex items-center justify-center text-slate-500">Đang tải thông tin sân…</div>;
   }
 
-  if (isLoading || !court) {
+  if (error || !venue) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-transparent text-slate-500 dark:text-slate-400">
-        <div className="w-12 h-12 border-4 border-emerald-200 dark:border-emerald-900 border-t-emerald-600 dark:border-t-emerald-500 rounded-full animate-spin mb-4" />
-        <p className="font-bold animate-pulse">Đang tải chi tiết khu sân & lịch thi đấu...</p>
+      <div className="max-w-3xl mx-auto my-12 rounded-2xl border border-rose-200 bg-white p-6 text-center dark:bg-slate-900">
+        <p className="font-semibold text-rose-700 dark:text-rose-300">{error || 'Không tìm thấy sân.'}</p>
+        <button type="button" onClick={loadVenue} className="mt-4 rounded-xl bg-emerald-600 px-5 py-2 font-bold text-white">Thử tải lại</button>
       </div>
     );
   }
 
-  const pricePerSlot = court.priceNumber || 50000;
-
   return (
     <div className="bg-transparent pb-36 font-sans animate-in fade-in duration-300">
-      {/* Ảnh bìa + nút quay lại / yêu thích */}
-      <CourtHero
-        image={court.image}
-        name={court.name}
-        isFavorite={isFavorite}
-        onToggleFavorite={() => setIsFavorite((f) => !f)}
-      />
+      <CourtHero image={venue.image} name={venue.name} />
+      <CourtInfo court={venue} />
+      <CourtFacilities facilities={venue.facilities} />
 
-      {/* Tên sân, rating, địa chỉ, giá */}
-      <CourtInfo court={court} />
+      {!courts.length && (
+        <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
+          Sân này chưa có sân con đang hoạt động nên hiện chưa thể đặt trực tuyến. Vui lòng liên hệ chủ sân.
+        </div>
+      )}
 
-      {/* Tiện ích */}
-      <CourtFacilities facilities={court.facilities} />
+      {!!courts.length && (
+        <>
+          <CourtSchedule
+            selectedDate={selectedDate}
+            onSelectDate={handleSelectDate}
+            courts={courts}
+            selectedSlots={selectedSlots}
+            unavailableSlots={unavailableSlots}
+            onToggleSlot={handleToggleSlot}
+            pricePerSlot={displayPricePerSlot}
+            isAvailabilityLoading={isAvailabilityLoading}
+            availabilityError={availabilityError}
+          />
+          {(bookingError || availabilityError) && (
+            <div role="alert" className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-medium text-rose-800">
+              {bookingError || availabilityError}
+            </div>
+          )}
+          <BookingBar
+            selectedCount={selectedSlots.size}
+            totalPrice={totalPrice}
+            onBook={handleBook}
+            isSubmitting={isSubmitting}
+            disabled={isAvailabilityLoading || !!availabilityError}
+          />
+        </>
+      )}
 
-      {/* Chọn ngày và khung giờ lưới */}
-      <CourtSchedule
-        selectedDate={selectedDate}
-        onSelectDate={handleSelectDate}
-        courts={venueCourts}
-        selectedSlots={selectedSlots}
-        onToggleSlot={handleToggleSlot}
-        pricePerSlot={pricePerSlot}
-      />
-
-      {/* Thanh đặt sân cố định dưới cùng */}
-      <BookingBar 
-        selectedCount={selectedSlots.size} 
-        totalPrice={selectedSlots.size * pricePerSlot} 
-        onBook={handleBook} 
-      />
-
-      {/* Modal xác nhận đặt thành công */}
       <BookingSuccessModal
         isOpen={!!successBookingData}
         onClose={() => setSuccessBookingData(null)}

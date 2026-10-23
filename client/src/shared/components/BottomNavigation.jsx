@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Home, Trophy, Gamepad2, Calendar, MapPin, MessageSquare, Users } from 'lucide-react';
+import { Home, Trophy, Gamepad2, MessageSquare, Users } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useChat } from '../context/ChatContext';
 
@@ -7,8 +7,6 @@ const NAV_ITEMS = [
   { id: 'home', labelKey: 'bottomNav.home', Icon: Home, path: '/home' },
   { id: 'tournament', labelKey: 'bottomNav.tournament', Icon: Trophy, path: '/tournaments' },
   { id: 'gameroom', labelKey: 'bottomNav.gameroom', Icon: Gamepad2, path: '/matches' },
-  { id: 'bookings', labelKey: 'bottomNav.bookings', Icon: Calendar, path: '/bookings' },
-  { id: 'map', labelKey: 'bottomNav.map', Icon: MapPin, path: '/map' },
   { id: 'team', labelKey: 'bottomNav.team', Icon: Users, path: '/team' },
 ];
 
