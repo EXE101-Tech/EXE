@@ -219,6 +219,51 @@
       "emailPlaceholder": "Enter your email address...",
       "subscribeBtn": "Subscribe",
       "copyright": "Copyright 2026 © SportGo. All Rights Reserved."
+    },
+    "story": {
+      "scrollHint": "Scroll to explore",
+      "chapters": [
+        "Intro",
+        "Match",
+        "Sports",
+        "Trust",
+        "Community",
+        "Play"
+      ],
+      "match": {
+        "eyebrow": "01 · Matchmaking",
+        "title": "Play with the right people",
+        "text": "Open a room or find a game at your level, from Beginner to Pro. No more missing players, no more skill gaps.",
+        "stat1": "Skill levels",
+        "stat1Value": "4 tiers",
+        "stat2": "Filter by",
+        "stat2Value": "Time · Area · Price"
+      },
+      "sports": {
+        "eyebrow": "02 · Multi-sport",
+        "title": "One platform, three courts",
+        "text": "Pick a sport, an area and a time slot, then play. SportGo supports the three most loved sports.",
+        "badminton": "Badminton",
+        "pickleball": "Pickleball",
+        "football": "Football"
+      },
+      "trust": {
+        "eyebrow": "03 · Reputation",
+        "title": "No more no-shows",
+        "text": "Check in with a code at the court and confirm each other on site. Reputation scores help hosts approve the right players.",
+        "point1": "Check-in code rotates every 60s",
+        "point2": "Peer confirmation on site",
+        "point3": "View profiles before approving"
+      },
+      "community": {
+        "eyebrow": "04 · Community",
+        "title": "Your whole sports crew, in your pocket",
+        "text": "Start clubs, add friends, chat and react with SportGo's own sports stickers for every moment on court."
+      },
+      "finale": {
+        "title": "Ready to play?",
+        "text": "Create a free account and find your first game today."
+      }
     }
   }
 }

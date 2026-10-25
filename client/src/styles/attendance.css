@@ -287,3 +287,6 @@ html.dark .sg-reputation-panel { --reputation-positive: #6dd6b1; --reputation-ne
   .sg-reputation-history-link { width: 100%; }
   .sg-reputation-context > div { grid-template-columns: minmax(0, 1fr); gap: 0; margin: 10px 0; }
 }
+/* Check-in grace period after the end: shown above the post-game report. */
+.sg-attendance-late-checkin { margin-bottom: 18px; padding: 16px; border: 1px solid rgba(94, 135, 247, .35); border-radius: 16px; background: rgba(94, 135, 247, .07); }
+.sg-attendance-late-checkin h4 { margin-top: 0; }
