@@ -137,6 +137,30 @@ class SeatHoldsTests(unittest.TestCase):
         self.assertEqual(record.confirmed_at, self.stamp)
         self.assertIsNone(offer.response_deadline)
         self.assertEqual(room.status, "FULL")
+        self.assertEqual(attendance.room_state(self.db, room, self.player)["mine"]["required_peer_confirmations"], 1)
+
+    def test_hold_expiring_during_game_updates_peer_threshold_and_verification(self):
+        room = self.room(minutes=20)
+        attendance.confirm(self.db, room, self.host, room.terms_version)
+        self.db.commit()
+        self.member(room, self.player, confirm=True)
+        self.stamp = room.start_time
+        held = self.member(room, self.witness)
+        for user in (self.host, self.player):
+            attendance.report_self(self.db, room, user, True, True)
+            self.db.commit()
+        for voter, subject in ((self.host, self.player), (self.player, self.host)):
+            attendance.report_peer(self.db, room, voter, subject.id, True)
+            self.db.commit()
+        self.assertEqual(attendance.room_state(self.db, room, self.player)["mine"]["required_peer_confirmations"], 2)
+        self.stamp = held.response_deadline
+        seat_holds.process_seat_holds(self.db)
+        self.assertEqual(held.status, "EXPIRED")
+        self.stamp = room.end_time + timedelta(minutes=1)
+        state = attendance.room_state(self.db, room, self.player)
+        self.assertEqual(state["mine"]["required_peer_confirmations"], 1)
+        self.assertEqual(state["mine"]["outcome"], "ATTENDED")
+        self.assertEqual(state["verification_status"], "OCCURRED")
 
     def test_expired_offer_cannot_be_accepted_even_without_worker(self):
         room = self.room(minutes=180, capacity=2)
@@ -249,6 +273,65 @@ class SeatHoldsTests(unittest.TestCase):
         self.stamp = room.start_time - timedelta(minutes=150)
         seat_holds.process_seat_holds(self.db)
         self.assertEqual(self.db.query(models.Notification).filter_by(type="seat_confirmation_reminder").count(), 1)
+
+    def test_registered_view_keeps_waitlist_pending_and_expired_rooms_visible_without_leaking_other_users(self):
+        joined = self.room()
+        self.member(joined, self.player, confirm=True)
+        standby = self.room(capacity=2)
+        self.member(standby, self.witness, confirm=True)
+        self.waitlist(standby, self.player)
+        pending = self.room()
+        matches.join_match(self.db, pending.id, self.player.id, accepted_hold_policy=True)
+        expired = self.room()
+        holding = self.member(expired, self.player)
+        unrelated = self.room()
+        self.stamp = holding.response_deadline
+        seat_holds.process_seat_holds(self.db)
+        with self.client(self.player) as client:
+            registered = client.get("/api/gamerooms/participating?role=registered")
+            self.assertEqual(registered.status_code, 200, registered.text)
+            self.assertEqual({r["id"] for r in registered.json()}, {standby.id, pending.id, expired.id})
+            self.assertEqual({r["id"] for r in client.get("/api/gamerooms/participating?role=joined").json()}, {joined.id})
+            self.assertEqual(client.get("/api/gamerooms/participating?role=hosted").json(), [])
+            self.assertNotIn(unrelated.id, {r["id"] for r in registered.json()})
+        with self.client(self.outsider) as client:
+            self.assertEqual(client.get("/api/gamerooms/participating?role=registered").json(), [])
+
+    def test_personal_hold_deadline_stays_separate_from_new_checkin_and_peer_window(self):
+        room = self.room(minutes=50)
+        participant = self.member(room, self.player)
+        state = attendance.room_state(self.db, room, self.player)
+        self.assertEqual(state["confirmation_deadline"], participant.response_deadline)
+        self.assertEqual(state["confirmation_deadline"], self.stamp + timedelta(minutes=5))
+        self.assertEqual(state["window_closes_at"], room.end_time + timedelta(minutes=30))
+        self.assertFalse(state["checkin_available"])
+        self.assertFalse(state["peer_window_open"])
+        self.stamp = participant.response_deadline
+        with self.client(self.player) as client:
+            result = client.post(f"/api/gamerooms/{room.id}/attendance/confirm", json={
+                "accepted_policy": True, "terms_version": room.terms_version})
+            self.assertEqual(result.status_code, 409)
+        self.assertIsNone(attendance.record_for(self.db, room, self.player.id).confirmed_at)
+
+    def test_confirmed_seat_uses_new_checkin_window_through_thirty_minutes_after_end(self):
+        room = self.room(minutes=180)
+        self.member(room, self.player, confirm=True)
+        attendance.confirm(self.db, room, self.host, room.terms_version)
+        self.db.commit()
+        self.stamp = room.start_time - timedelta(microseconds=1)
+        with self.assertRaises(HTTPException):
+            attendance.open_checkin(self.db, room, self.host)
+        self.stamp = room.start_time
+        code = attendance.open_checkin(self.db, room, self.host)["code"]
+        attendance.check_in(self.db, room, self.player, code)
+        self.db.commit()
+        self.stamp = room.end_time + timedelta(minutes=30) - timedelta(microseconds=1)
+        self.assertTrue(attendance.room_state(self.db, room, self.player)["peer_window_open"])
+        self.stamp += timedelta(microseconds=1)
+        self.assertFalse(attendance.room_state(self.db, room, self.player)["checkin_available"])
+        self.assertFalse(attendance.room_state(self.db, room, self.player)["peer_window_open"])
+        with self.assertRaises(HTTPException):
+            attendance.open_checkin(self.db, room, self.host)
 
 
 if __name__ == "__main__":

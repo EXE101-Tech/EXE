@@ -86,6 +86,7 @@ def expire_room(db, room):
             room.status = "FULL" if count >= room.max_players else "OPEN"
         notify(db, room, room.host_id, "seat_roster_changed", "Phòng có suất vừa mở lại",
                f'“{room.title}” có {changed} lượt giữ chỗ/lời mời hết hạn. Kiểm tra danh sách xác nhận và dự bị.')
+        attendance.refresh_verification(db, room)
     return changed
 
 

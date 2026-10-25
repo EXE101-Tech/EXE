@@ -96,8 +96,13 @@ def main():
                 signup.get_by_role("checkbox").check()
                 signup.get_by_role("button", name="Đăng ký dự bị", exact=True).click()
                 expect(witness.get_by_role("button", name="Rút dự bị", exact=True)).to_be_visible()
+                witness.goto(base + "/matches?view=registered", wait_until="networkidle")
+                expect(witness.get_by_role("button", name="Rút dự bị", exact=True)).to_be_visible()
                 assert host.request.post(api + "/test/advance?seconds=3600").ok
                 assert host.request.post(api + "/test/seat-hold-cycle").ok
+                player.goto(base + "/matches?view=registered", wait_until="networkidle")
+                expect(player.get_by_text("Đã hết hạn giữ chỗ/nhận lời mời.", exact=False)).to_be_visible()
+                player.goto(base + f"/matches?attendance={room}", wait_until="networkidle")
                 player.reload(wait_until="networkidle")
                 expect(player.get_by_role("heading", name="Đã hết hạn giữ chỗ", exact=True)).to_be_visible()
                 expect(player.get_by_role("dialog")).to_contain_text("không bị trừ uy tín")
@@ -136,6 +141,30 @@ def main():
                 late.get_by_role("checkbox").check()
                 late.get_by_role("button", name="Tôi sẽ tham gia", exact=True).click()
                 expect(late.get_by_role("dialog").get_by_role("status")).to_contain_text("Đã xác nhận tham gia")
+                assert late_host.request.post(api + "/test/advance?seconds=1200").ok
+                late_host.goto(base + f"/matches?attendance={late_room}", wait_until="networkidle")
+                player_row = late_host.locator(".sg-attendance-person").filter(
+                    has=late_host.locator(".sg-attendance-person-info > strong").filter(has_text="Lan Người Chơi"))
+                player_row.get_by_role("button", name="Báo vắng", exact=True).click()
+                expect(player_row.get_by_role("button", name="Bỏ báo vắng", exact=True)).to_have_attribute("aria-pressed", "true")
+                player_row.get_by_role("button", name="Bỏ báo vắng", exact=True).click()
+                expect(player_row.get_by_role("button", name="Báo vắng", exact=True)).to_have_attribute("aria-pressed", "false")
+                late.reload(wait_until="networkidle")
+                for page in (late_host, late):
+                    page.get_by_label("Buổi chơi có diễn ra không?").select_option("true")
+                    page.get_by_label("Bạn có tham gia không?").select_option("true")
+                    page.get_by_role("button", name=re.compile(r"^Gửi (?:xác nhận sau buổi|khai báo bổ sung)$")).click()
+                    expect(page.get_by_role("button", name="Sửa xác nhận của tôi", exact=True)).to_be_visible()
+                late_host.get_by_role("button", name="Tạo mã check-in", exact=True).click()
+                code = late_host.get_by_label("Mã check-in của phòng").inner_text()
+                late.reload(wait_until="networkidle")
+                late.get_by_label("Mã check-in", exact=True).fill(code)
+                late.get_by_role("button", name="Check-in tại sân", exact=True).click()
+                expect(late.get_by_role("dialog").get_by_role("status")).to_contain_text("Check-in thành công")
+                verified = late.request.get(api + f"/api/gamerooms/{late_room}/attendance", headers={
+                    "Authorization": "Bearer " + fixture["identities"]["player"]["token"]})
+                assert verified.ok, verified.text()
+                assert verified.json()["verification_status"] == "OCCURRED", verified.text()
                 print(json.dumps({"ok": True, "room_id": room, "late_room_id": late_room, "page_errors": errors}))
             if errors:
                 raise AssertionError(errors)

@@ -135,6 +135,7 @@ def cross_confirmation_room(missing_steps: bool = False):
             matches.update_match_participant_status(db, room.id, identities[role]["id"], "APPROVED")
         host = db.get(models.User, identities["host"]["id"])
         attendance.confirm(db, room, host)
+        clock["now"] = room.start_time
         code = attendance.open_checkin(db, room, host)["code"]
         for role in ("player", "witness"):
             person = db.get(models.User, identities[role]["id"])
@@ -211,6 +212,7 @@ def checkin_completion_room():
         for role in ("host", "player"):
             attendance.confirm(db, room, db.get(models.User, identities[role]["id"]))
         db.commit()
+        clock["now"] = room.start_time
         memory_cache.clear()
         return {"room_id": room.id}
 

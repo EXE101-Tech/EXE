@@ -187,6 +187,7 @@ def leave_match(db: Session, match_id: int, user_id: int, reason: str = "Ngườ
             ).count()
             match.status = "FULL" if approved_count >= match.max_players else "OPEN"
                 
+        attendance.refresh_verification(db, match)
         db.commit()
         return True
     return False
@@ -247,6 +248,7 @@ def update_match_participant_status(db: Session, match_id: int, user_id: int, st
             
     participant.status = status
     attendance.event(db, match, match.host_id, "MEMBERSHIP_UPDATED", user_id, status=status, previous_status=previous_status)
+    attendance.refresh_verification(db, match)
     db.commit()
     db.refresh(participant)
     return participant

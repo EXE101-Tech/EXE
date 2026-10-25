@@ -19,6 +19,10 @@ không tự gán hạn hoặc thu hồi các chỗ đã duyệt trước đây.
   không tính hủy sát giờ/vắng không báo, không bắt gửi phản hồi sau buổi.
 - Xác nhận rồi thì bỏ hạn giữ chỗ. Bỏ qua thông báo nhắc không mất chỗ.
 - Chủ phòng không bị thu hồi quyền/chỗ do chưa xác nhận.
+- Web tách **Phòng tôi tham gia** (đã duyệt) và **Đăng ký & dự bị** (đang chờ,
+  dự bị hoặc lịch sử yêu cầu/hết hạn), để người chơi tìm lại được lời mời và kết quả.
+- Hạn giữ chỗ riêng độc lập với khung check-in/xác nhận chéo mới: từ giờ bắt đầu
+  đến 30 phút sau giờ kết thúc. Xác nhận giữ chỗ vẫn phải hoàn tất trước hạn cá nhân.
 - Đổi điều kiện buổi chơi yêu cầu xác nhận lại và cấp hạn mới theo lịch mới.
 - Buổi hủy/gỡ dừng toàn bộ nhắc, thu hồi chỗ và mời tự động.
 

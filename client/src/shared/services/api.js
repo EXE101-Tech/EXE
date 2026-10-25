@@ -216,7 +216,7 @@ export const socialPostService = {
   create: (data) => apiClient.post('/social/posts', data),
   update: (id, data) => apiClient.put(`/social/posts/${id}`, data),
   remove: (id) => apiClient.delete(`/social/posts/${id}`),
-  like: (id) => apiClient.put(`/social/posts/${id}/like`),
+  like: (id, reaction = 'like') => apiClient.put(`/social/posts/${id}/like`, { reaction }),
   unlike: (id) => apiClient.delete(`/social/posts/${id}/like`),
   getInteractions: (ids) => apiClient.get('/social/posts/interactions', { params: { ids: ids.join(',') } }),
   getRealtimeTicket: () => apiClient.post('/social/posts/realtime-ticket'),
@@ -277,6 +277,10 @@ export const attendanceService = {
 
 export const reputationService = {
   get: (userId) => apiClient.get(`/reputation/users/${userId}`),
+};
+
+export const userProfileService = {
+  get: (userId) => apiClient.get(`/users/${userId}/public-profile`),
 };
 
 export default apiClient;

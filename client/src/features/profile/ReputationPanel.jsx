@@ -3,17 +3,18 @@ import { Link } from 'react-router-dom';
 import { CalendarDays, CheckCircle2, ChevronDown, CircleMinus, History, ShieldCheck, UserRoundX } from 'lucide-react';
 import { reputationService } from '../../shared/services/api';
 
-export default function ReputationPanel({ userId, embedded = false }) {
-  const [summary, setSummary] = useState(null);
+export default function ReputationPanel({ userId, embedded = false, own = true, summary: provided = null }) {
+  const [summary, setSummary] = useState(provided);
   const [error, setError] = useState('');
   const load = useCallback(() => reputationService.get(userId).then((data) => { setSummary(data); setError(''); }).catch((failure) => setError(failure.message)), [userId]);
   useEffect(() => {
+    if (provided) return undefined;
     let active = true;
     const refresh = () => { if (active && document.visibilityState === 'visible') load(); };
     refresh();
     document.addEventListener('visibilitychange', refresh);
     return () => { active = false; document.removeEventListener('visibilitychange', refresh); };
-  }, [load]);
+  }, [load, provided]);
 
   const attended = summary?.verified_attended ?? 0;
   const noShows = summary?.no_shows ?? summary?.reviewed_no_shows ?? 0;
@@ -36,7 +37,7 @@ export default function ReputationPanel({ userId, embedded = false }) {
     {summary && <>
       <div className="sg-reputation-overview">
         <div className={`sg-reputation-score ${hasScore ? 'has-score' : 'is-building'}`}>
-          <span className="sg-reputation-score-label">{hasScore ? 'Điểm uy tín của bạn' : 'Chưa đủ dữ liệu để chấm điểm'}</span>
+          <span className="sg-reputation-score-label">{hasScore ? (own ? 'Điểm uy tín của bạn' : 'Điểm uy tín') : 'Chưa đủ dữ liệu để chấm điểm'}</span>
           <div className="sg-reputation-score-value"><strong>{hasScore ? summary.score : samples}</strong><span>/ {hasScore ? '100' : minimum}<small>{hasScore ? 'điểm' : 'buổi có kết quả'}</small></span></div>
           {hasScore ? <p>Dựa trên <strong>{samples} buổi có kết quả</strong> trong {windowDays} ngày gần nhất.</p> : <>
             <progress className="sg-reputation-progress" max={minimum} value={Math.min(samples, minimum)} aria-label="Tiến độ hiển thị điểm uy tín" aria-valuetext={`${samples} trên ${minimum} buổi có kết quả`} />
@@ -52,7 +53,7 @@ export default function ReputationPanel({ userId, embedded = false }) {
             <div><CircleMinus size={17} aria-hidden="true" /><strong>Hủy tham gia</strong><span className="sg-reputation-neutral-note">Không trừ điểm</span></div>
             <p><span><strong>{lateCancellations}</strong> lần hủy sát giờ</span><span><strong>{earlyCancellations}</strong> lần hủy sớm</span></p>
           </div>
-          <Link className="sg-reputation-history-link" to="/matches?view=mine"><History size={16} aria-hidden="true" />Xem lịch sử tham gia</Link>
+          {own && <Link className="sg-reputation-history-link" to="/matches?view=joined"><History size={16} aria-hidden="true" />Xem lịch sử tham gia</Link>}
         </div>
       </div>
       <details className="sg-reputation-details">
@@ -61,7 +62,7 @@ export default function ReputationPanel({ userId, embedded = false }) {
           <p className="sg-reputation-formula">Điểm = Số buổi tham dự đã xác minh ÷ Tổng số buổi có kết quả × 100</p>
           <p>Buổi có kết quả gồm lượt tham dự đã xác minh và lần vắng không báo. Cần ít nhất {minimum} buổi trong {windowDays} ngày gần nhất để hiển thị điểm.</p>
           <ul>
-            <li>Vắng chỉ được tính khi bạn đã cam kết, chủ phòng báo vắng, buổi chơi đã xác minh và không có check-in hay phản hồi mâu thuẫn.</li>
+            <li>Vắng chỉ được tính khi {own ? 'bạn' : 'người chơi'} đã cam kết, chủ phòng báo vắng, buổi chơi đã xác minh và không có check-in hay phản hồi mâu thuẫn.</li>
             <li>Hủy sớm và hủy sát giờ được ghi nhận riêng. Buổi bị hủy, chưa được xác minh hoặc có phản hồi mâu thuẫn chưa được dùng để trừ điểm.</li>
             {summary.supplemental_attended > 0 && <li>Có {summary.supplemental_attended} buổi tham dự được xác minh bổ sung dù thiếu xác nhận trước buổi hoặc check-in bằng mã.</li>}
           </ul>

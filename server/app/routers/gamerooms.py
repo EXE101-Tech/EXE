@@ -77,6 +77,7 @@ def _accept_invite(db, match, participant, current_user, data):
     match.status = "FULL" if approved >= match.max_players else "OPEN"
     seat_holds.notify(db, match, match.host_id, "gameroom_auto_invite_accepted", "Đã có người nhận chỗ",
                       f'{display_name(current_user)} đã nhận suất trong “{match.title}”.')
+    attendance.refresh_verification(db, match)
     db.commit()
     db.refresh(participant)
     memory_cache.delete_prefix("gamerooms:list:")
@@ -478,10 +479,6 @@ def update_participant_attendance(
         raise HTTPException(status_code=403, detail="Only the host can confirm attendance")
     if match.status == "CANCELLED":
         raise HTTPException(status_code=409, detail="Phòng đã bị hủy nên không thể xác nhận tham gia")
-    now = attendance.now()
-    if match.end_time > now:
-        raise HTTPException(status_code=409, detail="Chỉ có thể xác nhận sau khi trận đấu kết thúc")
-
     participant = db.query(models.MatchParticipant).filter_by(
         match_id=id,
         user_id=user_id,

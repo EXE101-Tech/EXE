@@ -16,6 +16,7 @@ from sqlalchemy.pool import StaticPool
 from app import attendance, auth_utils, database, models, schemas
 from app.cache import memory_cache
 from app.crud import matches
+from app.routers import admin as admin_routes
 from app.routers import auth, gamerooms
 from app.routers import attendance as routes
 
@@ -65,6 +66,7 @@ class AttendanceTests(unittest.TestCase):
 
     def checkin(self, room, users):
         self.confirm(room, self.host)
+        self.stamp = max(self.stamp, room.start_time)  # Check-in opens at the start time.
         code = attendance.open_checkin(self.db, room, self.host)["code"]
         self.db.commit()
         for user in users:
@@ -99,6 +101,225 @@ class AttendanceTests(unittest.TestCase):
     def peer(self, room, voter, subject, attended=True, *, report=None):
         attendance.report_peer(self.db, room, voter, subject.id, attended, report=report)
         self.db.commit()
+
+    def test_admin_summary_counts_only_rooms_verified_to_have_occurred(self):
+        app = FastAPI()
+        app.include_router(admin_routes.router, prefix="/api")
+        app.dependency_overrides[database.get_db] = lambda: self.db
+        app.dependency_overrides[auth_utils.require_admin] = lambda: self.admin
+        with TestClient(app) as client:
+            empty = client.get("/api/admin/summary")
+            self.assertEqual(empty.status_code, 200, empty.text)
+            self.assertEqual(empty.json()["rooms_occurred"], 0)
+            self.room()
+            cancelled = self.room()
+            attendance.cancel_room(self.db, cancelled, self.host.id)
+            self.db.commit()
+            self.verified_room()
+            response = client.get("/api/admin/summary")
+            self.assertEqual(response.status_code, 200, response.text)
+            self.assertEqual(response.json()["rooms"], 3)
+            self.assertEqual(response.json()["rooms_occurred"], 1)
+
+    def test_checking_in_after_presence_reports_preserves_peer_evidence(self):
+        room = self.room()
+        users = (self.host, self.player, self.witness)
+        for user in users:
+            if user != self.host:
+                self.approve(room, user)
+            self.confirm(room, user)
+        self.stamp = room.start_time
+        for user in users:
+            self.report(room, user)
+        for voter in users:
+            for subject in users:
+                if voter != subject:
+                    self.peer(room, voter, subject)
+        self.assertEqual(attendance.room_state(self.db, room, self.player)["mine"]["outcome"], "ATTENDED")
+
+        self.stamp += timedelta(minutes=1)
+        self.checkin(room, [self.player, self.witness])
+        reports_before = self.db.query(models.MatchTrustEvent).filter_by(event_type="SELF_REPORTED").count()
+        for user in users:
+            self.report(room, user)
+            state = attendance.room_state(self.db, room, user)
+            self.assertTrue(state["can_peer_confirm"])
+            self.assertEqual(len(state["mine"]["peer_confirmations"]), 2)
+            self.assertEqual(state["mine"]["outcome"], "ATTENDED")
+        self.assertEqual(self.db.query(models.MatchTrustEvent).filter_by(event_type="SELF_REPORTED").count(), reports_before)
+        self.stamp = room.end_time + timedelta(minutes=31)
+        for user in users:
+            self.assertEqual(attendance.room_state(self.db, room, user)["mine"]["outcome"], "ATTENDED")
+            self.assertEqual(attendance.reputations(self.db, [user.id])[user.id]["verified_attended"], 1)
+
+    def test_checkin_after_presence_reports_refreshes_verification_without_new_reports(self):
+        room = self.room(capacity=2)
+        self.approve(room, self.player)
+        for user in (self.host, self.player):
+            self.confirm(room, user)
+        self.stamp = room.start_time
+        for user in (self.host, self.player):
+            self.report(room, user)
+        self.assertEqual(room.trust_session.verification_status, "UNVERIFIED")
+        code = attendance.open_checkin(self.db, room, self.host)["code"]
+        self.db.commit()
+        self.assertEqual(room.trust_session.verification_status, "UNVERIFIED")
+        attendance.check_in(self.db, room, self.player, code)
+        self.db.commit()
+        self.assertEqual(room.trust_session.verification_status, "OCCURRED")
+        self.assertEqual(self.db.query(models.MatchTrustEvent).filter_by(event_type="SELF_REPORTED").count(), 2)
+        self.assertEqual(admin_routes.admin_summary(current_user=self.admin, db=self.db)["rooms_occurred"], 1)
+
+    def test_new_host_checking_in_refreshes_existing_presence_reports(self):
+        room = self.room()
+        for user in (self.player, self.witness):
+            self.approve(room, user)
+            self.confirm(room, user)
+        self.confirm(room, self.host)
+        self.stamp = room.start_time
+        self.checkin(room, [self.witness])
+        for user in (self.host, self.player, self.witness):
+            self.report(room, user)
+        matches.leave_match(self.db, room.id, self.host.id)
+        self.assertEqual(room.host_id, self.player.id)
+        self.assertEqual(room.trust_session.verification_status, "UNVERIFIED")
+        self.stamp += timedelta(minutes=1)
+        result = attendance.open_checkin(self.db, room, self.player)
+        self.db.commit()
+        self.assertTrue(result["complete"])
+        self.assertEqual(room.trust_session.verification_status, "OCCURRED")
+
+    def test_rejoining_requires_new_reports_and_keeps_old_evidence_in_audit(self):
+        room = self.room(capacity=2)
+        self.approve(room, self.player)
+        for user in (self.host, self.player):
+            self.confirm(room, user)
+        self.stamp = room.start_time
+        for user in (self.host, self.player):
+            self.report(room, user)
+        attendance.report_host(self.db, room, self.host, self.player.id, "ATTENDED")
+        self.db.commit()
+        self.peer(room, self.host, self.player)
+        self.peer(room, self.player, self.host)
+        self.stamp += timedelta(minutes=1)
+        matches.leave_match(self.db, room.id, self.player.id)
+        self.stamp += timedelta(minutes=1)
+        self.approve(room, self.player)
+        self.confirm(room, self.player)
+        record = attendance.record_for(self.db, room, self.player.id)
+        self.assertIsNone(record.self_reported_at)
+        self.assertIsNone(record.self_attended)
+        self.assertIsNone(record.host_report)
+        self.assertIsNone(attendance.require_participant(self.db, room, self.player.id).attendance_status)
+        state = attendance.room_state(self.db, room, self.player)
+        self.assertFalse(state["can_peer_confirm"])
+        self.assertEqual(state["mine"]["peer_confirmations"], [])
+        self.report(room, self.player)
+        self.assertTrue(attendance.room_state(self.db, room, self.player)["can_peer_confirm"])
+        self.peer(room, self.host, self.player)
+        self.peer(room, self.player, self.host)
+        self.assertEqual(attendance.room_state(self.db, room, self.player)["mine"]["outcome"], "ATTENDED")
+        self.assertEqual(self.db.query(models.MatchTrustEvent).filter_by(
+            match_id=room.id, subject_id=self.player.id, event_type="SELF_REPORTED").count(), 2)
+        self.assertEqual(self.db.query(models.MatchTrustEvent).filter_by(
+            match_id=room.id, subject_id=self.player.id, event_type="CANCELLED_PARTICIPATION").count(), 1)
+
+    def test_resubmitting_presence_after_new_commitment_renews_only_stale_reports(self):
+        room = self.room(capacity=2)
+        self.approve(room, self.player)
+        self.stamp = room.start_time
+        self.report(room, self.player)
+        original = attendance.record_for(self.db, room, self.player.id).self_reported_at
+        self.stamp += timedelta(minutes=1)
+        self.confirm(room, self.player)
+        self.assertFalse(attendance.room_state(self.db, room, self.player)["can_peer_confirm"])
+        self.report(room, self.player)
+        self.assertGreater(attendance.record_for(self.db, room, self.player.id).self_reported_at, original)
+        self.assertTrue(attendance.room_state(self.db, room, self.player)["can_peer_confirm"])
+        renewed = attendance.record_for(self.db, room, self.player.id).self_reported_at
+        self.stamp += timedelta(minutes=1)
+        self.report(room, self.player)
+        self.assertEqual(attendance.record_for(self.db, room, self.player.id).self_reported_at, renewed)
+        self.assertEqual(self.db.query(models.MatchTrustEvent).filter_by(event_type="SELF_REPORTED").count(), 2)
+
+    def test_host_absence_route_opens_at_start_and_remains_open_after_peer_deadline(self):
+        room = self.room()
+        self.approve(room, self.player)
+        app = FastAPI()
+        app.include_router(gamerooms.router, prefix="/api")
+        app.dependency_overrides[database.get_db] = lambda: self.db
+        identity = {"user": self.host}
+        app.dependency_overrides[auth_utils.get_current_user] = lambda: identity["user"]
+        path = f"/api/gamerooms/{room.id}/participants/{self.player.id}/attendance"
+        with TestClient(app) as client:
+            self.assertEqual(client.patch(path, json={"attendance_status": "ABSENT"}).status_code, 409)
+            self.stamp = room.start_time
+            identity["user"] = self.player
+            self.assertEqual(client.patch(path, json={"attendance_status": "ABSENT"}).status_code, 403)
+            identity["user"] = self.host
+            response = client.patch(path, json={"attendance_status": "ABSENT"})
+            self.assertEqual(response.status_code, 200, response.text)
+            self.assertEqual(attendance.record_for(self.db, room, self.player.id).host_report, "ABSENT")
+            self.assertEqual(attendance.room_state(self.db, room, self.player)["mine"]["outcome"], "UNVERIFIED")
+            self.stamp = room.end_time + timedelta(hours=1)
+            response = client.patch(path, json={"attendance_status": "ATTENDED"})
+            self.assertEqual(response.status_code, 200, response.text)
+
+    def test_second_player_approved_after_first_report_uses_one_peer(self):
+        room = self.room(capacity=2)
+        self.confirm(room, self.host)
+        self.stamp = room.start_time
+        self.report(room, self.host)
+        self.stamp += timedelta(minutes=1)
+        self.approve(room, self.player)
+        self.confirm(room, self.player)
+        self.assertEqual(attendance.room_state(self.db, room, self.host)["mine"]["required_peer_confirmations"], 1)
+        self.finish(room)
+        self.report(room, self.player)
+        self.peer(room, self.host, self.player)
+        self.peer(room, self.player, self.host)
+        for user in (self.host, self.player):
+            state = attendance.room_state(self.db, room, user)
+            self.assertEqual(state["mine"]["required_peer_confirmations"], 1)
+            self.assertEqual(state["mine"]["outcome"], "ATTENDED")
+
+    def test_third_player_approved_during_game_updates_threshold_without_another_report(self):
+        room = self.room()
+        self.approve(room, self.player)
+        self.stamp = room.start_time
+        for user in (self.host, self.player):
+            self.report(room, user)
+        self.peer(room, self.host, self.player)
+        self.peer(room, self.player, self.host)
+        self.assertEqual(room.trust_session.verification_status, "OCCURRED")
+        self.approve(room, self.witness)
+        self.finish(room)
+        state = attendance.room_state(self.db, room, self.player)
+        self.assertEqual(state["mine"]["required_peer_confirmations"], 2)
+        self.assertEqual(len(state["mine"]["peer_confirmations"]), 1)
+        self.assertEqual(state["mine"]["outcome"], "UNVERIFIED")
+        self.assertEqual(state["verification_status"], "UNVERIFIED")
+
+    def test_leaving_or_removing_third_player_during_game_updates_two_person_exception(self):
+        for action in ("leave", "remove"):
+            with self.subTest(action=action):
+                room = self.room()
+                self.approve(room, self.player)
+                self.approve(room, self.witness)
+                self.stamp = room.start_time
+                for user in (self.host, self.player):
+                    self.report(room, user)
+                self.peer(room, self.host, self.player)
+                self.peer(room, self.player, self.host)
+                if action == "leave":
+                    matches.leave_match(self.db, room.id, self.witness.id)
+                else:
+                    matches.update_match_participant_status(self.db, room.id, self.witness.id, "REJECTED")
+                self.finish(room)
+                state = attendance.room_state(self.db, room, self.player)
+                self.assertEqual(state["mine"]["required_peer_confirmations"], 1)
+                self.assertEqual(state["mine"]["outcome"], "ATTENDED")
+                self.assertEqual(state["verification_status"], "OCCURRED")
 
     def test_pending_requests_expire_at_end_including_previously_closed_rooms_without_penalties(self):
         room = self.room()
@@ -732,7 +953,8 @@ class AttendanceTests(unittest.TestCase):
         attendance.check_in(self.db, room, self.player, code)
         self.assertEqual(attendance.record_for(self.db, room, self.player.id).checked_in_at, stamp)
         state = attendance.room_state(self.db, room, self.player)
-        self.assertEqual(state["participants"], [])
+        # Once the game has started players see who is playing, so they can confirm each other.
+        self.assertEqual({person["user_id"] for person in state["participants"]}, {self.host.id, self.player.id})
         self.assertNotIn(code, str(state))
         self.assertNotIn("code_hash", state)
         self.approve(room, self.witness)
@@ -753,6 +975,7 @@ class AttendanceTests(unittest.TestCase):
         attendance.confirm(self.db, room, self.player, state["terms_version"])
         self.confirm(room, self.witness)
         self.confirm(room, self.host)
+        self.stamp = room.start_time
         opened_at = self.stamp
         with patch("app.attendance.secrets.randbelow", side_effect=[123456, 123456, 654321]):
             first = attendance.open_checkin(self.db, room, self.host)
@@ -773,19 +996,82 @@ class AttendanceTests(unittest.TestCase):
         self.assertEqual(attendance.record_for(self.db, room, self.host.id).checked_in_at, opened_at)
         self.assertEqual(attendance.record_for(self.db, room, self.witness.id).checked_in_at, opened_at + timedelta(seconds=59))
 
-    def test_checkin_rotation_stops_at_room_end(self):
+    def test_checkin_opens_at_start_and_closes_thirty_minutes_after_end(self):
         room = self.room()
         self.approve(room, self.player)
-        room.start_time = self.stamp - timedelta(minutes=5)
-        room.end_time = self.stamp + timedelta(seconds=30)
-        self.db.commit()
         self.confirm(room, self.host)
-        result = attendance.open_checkin(self.db, room, self.host)
-        self.assertEqual(result["expires_at"], room.end_time)
-        self.stamp = room.end_time
+        self.confirm(room, self.player)
+        self.stamp = room.start_time - timedelta(seconds=1)
         with self.assertRaises(HTTPException) as error:
             attendance.open_checkin(self.db, room, self.host)
         self.assertEqual(error.exception.status_code, 409)
+        self.assertFalse(attendance.room_state(self.db, room, self.host)["checkin_available"])
+
+        # Players who only reach their phones after the game can still check in.
+        closes_at = room.end_time + timedelta(minutes=30)
+        self.stamp = closes_at - timedelta(seconds=30)
+        state = attendance.room_state(self.db, room, self.host)
+        self.assertTrue(state["checkin_available"])
+        self.assertEqual(state["window_closes_at"], closes_at)
+        self.assertTrue(state["peer_window_open"])
+        result = attendance.open_checkin(self.db, room, self.host)
+        self.assertEqual(result["expires_at"], closes_at)
+        attendance.check_in(self.db, room, self.player, result["code"])
+        self.assertIsNotNone(attendance.record_for(self.db, room, self.player.id).checked_in_at)
+
+        self.stamp = closes_at
+        with self.assertRaises(HTTPException) as error:
+            attendance.open_checkin(self.db, room, self.host)
+        self.assertEqual(error.exception.status_code, 409)
+
+    def test_peer_confirmation_closes_thirty_minutes_after_end_while_self_reports_stay_open(self):
+        room = self.room()
+        self.approve(room, self.player)
+        self.approve(room, self.witness)
+        self.confirm(room, self.witness)
+        self.stamp = room.start_time - timedelta(seconds=1)
+        with self.assertRaises(HTTPException) as error:
+            self.report(room, self.player)
+        self.assertEqual(error.exception.status_code, 409)
+
+        # From the start: "I was there" and peer confirmation both work during the game.
+        self.stamp = room.start_time + timedelta(minutes=10)
+        self.report(room, self.player)
+        self.report(room, self.witness)
+        self.peer(room, self.witness, self.player)
+        self.assertTrue(attendance.room_state(self.db, room, self.witness)["peer_window_open"])
+        self.assertFalse(attendance.room_state(self.db, room, self.player)["feedback_required"])
+
+        # Peer confirmation closes at end + 30 minutes; the host and players can still submit their results.
+        self.stamp = room.end_time + timedelta(minutes=30)
+        self.assertFalse(attendance.room_state(self.db, room, self.host)["peer_window_open"])
+        with self.assertRaises(HTTPException) as error:
+            self.peer(room, self.host, self.player)
+        self.assertEqual(error.exception.status_code, 409)
+        attendance.report_host(self.db, room, self.host, self.witness.id, "ABSENT")
+        self.db.commit()
+        self.report(room, self.host, occurred=True, attended=True)
+        self.assertIsNone(attendance.required_feedback(self.db, self.player.id)["room"])
+
+    def test_feedback_reminder_only_after_the_end_for_players_who_have_not_reported(self):
+        room = self.room()
+        self.approve(room, self.player)
+        self.stamp = room.end_time - timedelta(minutes=1)
+        self.assertFalse(attendance.room_state(self.db, room, self.player)["feedback_required"])
+        self.stamp = room.end_time + timedelta(minutes=1)
+        self.assertTrue(attendance.room_state(self.db, room, self.player)["feedback_required"])
+        self.assertEqual(attendance.required_feedback(self.db, self.player.id)["room"]["match_id"], room.id)
+
+    def test_old_room_policies_use_the_new_checkin_window(self):
+        room = self.room()
+        session = attendance.session_for(self.db, room)
+        policy = {key: value for key, value in session.policy.items() if key != "after_end_minutes"}
+        session.policy = {**policy, "checkin_before_minutes": 30}
+        self.db.commit()
+        self.stamp = room.start_time - timedelta(minutes=10)
+        self.assertFalse(attendance.room_state(self.db, room, self.host)["checkin_available"])
+        self.stamp = room.end_time + timedelta(minutes=20)
+        self.assertTrue(attendance.room_state(self.db, room, self.host)["checkin_available"])
 
     def test_all_checkins_close_the_code_and_do_not_generate_or_audit_more_rotations(self):
         room = self.room()
@@ -829,6 +1115,7 @@ class AttendanceTests(unittest.TestCase):
     def test_solo_host_checks_in_without_creating_an_unneeded_code(self):
         room = self.room()
         self.confirm(room, self.host)
+        self.stamp = room.start_time
         with patch("app.attendance.secrets.randbelow", side_effect=AssertionError("No one needs a code")):
             result = attendance.open_checkin(self.db, room, self.host)
             self.db.commit()

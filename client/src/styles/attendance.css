@@ -294,3 +294,6 @@ html.dark .sg-reputation-panel { --reputation-positive: #6dd6b1; --reputation-ne
 .sg-seat-arrival input { min-width: 0; width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 10px; background: transparent; color: inherit; }
 .sg-seat-arrival small { font-weight: 400; }
 .dark .sg-seat-hold-notice { background: #172e24; border-color: #345e47; color: #c7ead5; }
+/* Check-in grace period after the end: shown above the post-game report. */
+.sg-attendance-late-checkin { margin-bottom: 18px; padding: 16px; border: 1px solid rgba(94, 135, 247, .35); border-radius: 16px; background: rgba(94, 135, 247, .07); }
+.sg-attendance-late-checkin h4 { margin-top: 0; }

@@ -1,17 +1,17 @@
-import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import LoginForm from './components/LoginForm';
 import RegisterForm from './components/RegisterForm';
+import HalloweenBackdrop from './components/HalloweenBackdrop';
+import useHalloweenMode from '../../shared/hooks/useHalloweenMode';
+import { HalloweenModeSwitch } from '../../shared/components/HalloweenModeSwitch';
 
-function AuthPage({ defaultIsRegister = false }) {
+function AuthPageContent({ defaultIsRegister }) {
   const [isFlipped, setIsFlipped] = useState(defaultIsRegister);
   const [isExiting, setIsExiting] = useState(false);
+  const [halloween, chooseMode] = useHalloweenMode();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    setIsFlipped(defaultIsRegister);
-  }, [defaultIsRegister]);
 
   const handleNavigate = (path) => (e) => {
     e.preventDefault();
@@ -26,6 +26,8 @@ function AuthPage({ defaultIsRegister = false }) {
       className={`w-full h-full min-h-screen flex items-center justify-center p-4 relative overflow-hidden page-fade-in ${isExiting ? 'page-fade-out' : ''}`}
       style={{ perspective: '1200px' }}
     >
+      {halloween && <HalloweenBackdrop />}
+
       {/* Back to Home Button */}
       <a 
         href="/" 
@@ -37,8 +39,10 @@ function AuthPage({ defaultIsRegister = false }) {
         <span className="hidden sm:inline text-sm font-bold">Quay lại Trang chủ</span>
       </a>
 
+      <HalloweenModeSwitch halloween={halloween} onChoose={chooseMode} />
+
       <div 
-        className="relative w-full max-w-[420px] h-[540px] sm:h-[680px] duration-700 ease-in-out my-auto sm:my-0"
+        className="relative z-10 w-full max-w-[420px] h-[540px] sm:h-[680px] duration-700 ease-in-out my-auto sm:my-0"
         style={{ 
           transformStyle: 'preserve-3d', 
           transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' 
@@ -64,4 +68,6 @@ function AuthPage({ defaultIsRegister = false }) {
   );
 }
 
-export default AuthPage;
+export default function AuthPage({ defaultIsRegister = false }) {
+  return <AuthPageContent key={defaultIsRegister ? 'register' : 'login'} defaultIsRegister={defaultIsRegister} />;
+}

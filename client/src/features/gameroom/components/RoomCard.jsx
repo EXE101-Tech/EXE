@@ -3,12 +3,14 @@ import { CalendarDays, Clock3, MapPin, MessageCircle, Users } from 'lucide-react
 import { formatCostAmount } from '../../../shared/utils/price';
 import ViewLocationModal from '../../../shared/components/ViewLocationModal';
 import ReputationBadge from '../../../shared/components/ReputationBadge';
+import useUserProfile from '../../../shared/hooks/useUserProfile';
 
 const levels = { Beginner: 'Mới chơi', Intermediate: 'Trung bình', Advanced: 'Khá / Giỏi', Expert: 'Chuyên nghiệp' };
 const sports = { badminton: ['🏸', 'Cầu lông'], 'cầu lông': ['🏸', 'Cầu lông'], football: ['⚽', 'Bóng đá'], 'bóng đá': ['⚽', 'Bóng đá'], pickleball: ['🏓', 'Pickleball'] };
 const date = (value) => value ? new Date(/(?:Z|[+-]\d\d:\d\d)$/.test(value) ? value : `${value}Z`) : null;
 
 export default function RoomCard({ room, currentUserId, onJoin, onDecline, onWithdraw, onChat, onManage, onAttendance }) {
+  const { openProfile } = useUserProfile();
   const [mapOpen, setMapOpen] = useState(false);
   const [localClock, setClock] = useState(Date.now);
   const clock = localClock + (room.clockOffset || 0);
@@ -34,7 +36,7 @@ export default function RoomCard({ room, currentUserId, onJoin, onDecline, onWit
   const requestExpired = mine?.status === 'EXPIRED' || (closed && mine?.status === 'PENDING');
   const canSeeResult = closed && (isHost || mine);
   const [emoji, sport] = sports[(room.sportId || room.sportName || '').toLowerCase()] || ['🏓', room.sportName || 'Thể thao'];
-  const players = [{ id: room.host_id, name: room.host?.name || 'Chủ phòng', avatar: room.host?.avatar }, ...approved.map((person) => ({ id: person.user_id, name: person.user?.name || person.name || 'Người chơi', avatar: person.user?.avatar || person.avatar }))];
+  const players = [{ id: room.host_id, name: room.host?.name || 'Chủ phòng', avatar: room.host?.avatar, isPremium: room.host?.isPremium }, ...approved.map((person) => ({ id: person.user_id, name: person.user?.name || person.name || 'Người chơi', avatar: person.user?.avatar || person.avatar, isPremium: person.user?.isPremium }))];
   const hostName = room.host?.name || 'Người chơi';
   const timeLabel = start && !Number.isNaN(start.getTime()) ? `${start.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}${end ? ` – ${end.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}` : ''}` : 'Chưa có giờ chơi';
 
@@ -46,8 +48,8 @@ export default function RoomCard({ room, currentUserId, onJoin, onDecline, onWit
       <div className="sg-match-post-location"><MapPin size={17} /><p>{room.location || 'Địa điểm chưa cập nhật'}</p>{room.location && <button type="button" onClick={() => setMapOpen(true)} aria-label="Xem vị trí sân trên bản đồ">Bản đồ</button>}</div>
       {room.description && <p className="sg-match-post-description">{room.description}</p>}
       <div className="sg-match-post-key-info"><div className="sg-match-post-price"><strong>{formatCostAmount(room.price_info)}</strong><span>mỗi người</span></div><div className="sg-match-post-level"><span>Trình độ</span><strong>{levels[room.required_level] || room.required_level || 'Mọi trình độ'}</strong></div></div>
-      <div className="sg-match-post-players"><div className="sg-match-post-avatars" aria-label={`${count} người đã tham gia`}>{players.slice(0, 5).map((person) => <span key={person.id} title={person.name}>{person.avatar ? <img src={person.avatar} alt={person.name} /> : <span>{person.name.charAt(0).toUpperCase()}</span>}</span>)}{players.length > 5 && <span>+{players.length - 5}</span>}</div><span><Users size={14} /><strong>{count}/{capacity}</strong> người</span></div>
-      <div className="sg-match-post-host"><span>Chủ phòng: <strong>{hostName}</strong></span><ReputationBadge reputation={room.host?.reputation} compact /></div>
+      <div className="sg-match-post-players"><div className="sg-match-post-avatars" aria-label={`${count} người đã tham gia`}>{players.slice(0, 5).map((person) => <button type="button" className={`sg-profile-trigger ${person.isPremium ? 'sg-premium-avatar' : ''}`} key={person.id} title={`Xem hồ sơ ${person.name}`} aria-label={`Xem hồ sơ ${person.name}`} onClick={() => openProfile(person.id)}>{person.avatar ? <img src={person.avatar} alt="" /> : <span>{person.name.charAt(0).toUpperCase()}</span>}</button>)}{players.length > 5 && <span>+{players.length - 5}</span>}</div><span><Users size={14} /><strong>{count}/{capacity}</strong> người</span></div>
+      <div className="sg-match-post-host"><span>Chủ phòng: <button type="button" className="sg-profile-name-link" onClick={() => openProfile(room.host_id)}><strong className={room.host?.isPremium ? 'sg-premium-name' : ''}>{hostName}</strong></button></span><ReputationBadge reputation={room.host?.reputation} compact /></div>
       {room.seat_holds_enabled && <p className="sg-seat-summary"><strong>{room.roster_summary?.confirmed || 0} đã xác nhận</strong> · {room.roster_summary?.waiting_confirmation || 0} chờ xác nhận{room.roster_summary?.invited > 0 && ` · ${room.roster_summary.invited} suất đang mời`} · {room.roster_summary?.waitlisted || 0} dự bị</p>}
       {isMember && mine.response_deadline && <p className="sg-seat-summary">Giữ chỗ đến <strong>{date(mine.response_deadline)?.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}</strong>. Hãy mở xác nhận để giữ suất.</p>}
       {isWaitlisted && <p className="sg-seat-summary">Bạn đang trong danh sách dự bị. Khi có suất, hãy nhận lời mời đúng hạn.</p>}

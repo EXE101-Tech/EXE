@@ -12,6 +12,7 @@ import { useChat } from '../../shared/context/ChatContext';
 import { useAuth } from '../../shared/context/AuthContext';
 import { createSportExperienceMap, sortBySportExperience } from '../../shared/utils/sportExperienceSort';
 import { isActiveSport } from '../../shared/constants/sports';
+import ProfileLink from '../../shared/components/ProfileLink';
 
 const TABS = [
   { id: 'discover', label: 'Khám phá CLB', icon: Users, emoji: '🌐' },
@@ -337,12 +338,12 @@ export default function Team() {
               <ul className="max-h-[60vh] space-y-2 overflow-y-auto">
                 {members.map((member) => <li key={member.id} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 p-3 dark:bg-white/5">
                   <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#589470]/15 text-sm font-black text-[#589470]">
+                    <ProfileLink userId={member.user_id} name={member.full_name} className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#589470]/15 text-sm font-black text-[#589470]">
                       {member.avatar_url
                         ? <img src={resolveMediaUrl(member.avatar_url)} alt="" className="h-full w-full object-cover" />
                         : (member.full_name || 'Người chơi').charAt(0).toUpperCase()}
-                    </div>
-                    <div className="min-w-0"><p className="truncate text-sm font-bold">{member.full_name || member.email || 'Người chơi'}</p><p className="text-xs text-slate-500">{member.status === 'APPROVED' ? 'Đã duyệt' : member.status === 'PENDING' ? 'Đang chờ duyệt' : member.status}</p></div>
+                    </ProfileLink>
+                    <div className="min-w-0"><p className="truncate text-sm font-bold"><ProfileLink userId={member.user_id} name={member.full_name} className="max-w-full truncate">{member.full_name || member.email || 'Người chơi'}</ProfileLink></p><p className="text-xs text-slate-500">{member.status === 'APPROVED' ? 'Đã duyệt' : member.status === 'PENDING' ? 'Đang chờ duyệt' : member.status}</p></div>
                   </div>
                   {memberDialog.isCaptain && member.status === 'PENDING' && <div className="flex shrink-0 gap-2"><button onClick={() => updateMember(member, 'REJECTED')} className="rounded-lg border px-3 py-1.5 text-xs font-bold">Từ chối</button><button onClick={() => updateMember(member, 'APPROVED')} className="rounded-lg bg-[#589470] px-3 py-1.5 text-xs font-bold text-white">Duyệt</button></div>}
                   {memberDialog.isCaptain && member.status === 'APPROVED' && member.user_id !== user?.id && <button onClick={() => removeMember(member)} className="flex shrink-0 items-center gap-1.5 rounded-lg border border-rose-300 px-2.5 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-50 dark:border-rose-500/30 dark:hover:bg-rose-500/10"><Trash2 className="h-3.5 w-3.5" /><span>Xóa</span></button>}

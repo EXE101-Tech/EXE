@@ -122,7 +122,8 @@ export default function SocialFeed() {
       } else if (event.type === 'like_changed') {
         updatePostMetrics(event.post_id, {
           like_count: event.like_count,
-          ...(Number(event.actor_id) === Number(user?.id) ? { liked_by_me: event.liked } : {}),
+          ...(event.reaction_counts ? { reaction_counts: event.reaction_counts } : {}),
+          ...(Number(event.actor_id) === Number(user?.id) ? { liked_by_me: event.liked, my_reaction: event.actor_reaction ?? null } : {}),
         });
       } else if (event.type === 'comment_created' || event.type === 'comment_deleted') {
         updatePostMetrics(event.post_id, { comment_count: event.comment_count });

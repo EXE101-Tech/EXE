@@ -617,6 +617,31 @@ class SocialPostCommentReaction(Base):
     user = relationship("User")
 
 
+POST_REACTIONS = ("like", "fire", "bolt", "gg", "trophy", "haha", "toang")
+
+
+class SocialPostReaction(Base):
+    """Which sports sticker a user picked for a post.
+
+    The like row in social_post_likes stays the source of truth for "reacted"; this table
+    only refines its type, so older clients that only know likes keep working.
+    """
+    __tablename__ = "social_post_reactions"
+    __table_args__ = (
+        UniqueConstraint("post_id", "user_id", name="uq_social_post_reaction"),
+        CheckConstraint(
+            "reaction IN ('like', 'fire', 'bolt', 'gg', 'trophy', 'haha', 'toang')",
+            name="ck_social_post_reaction_type",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    post_id = Column(Integer, ForeignKey("social_posts.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    reaction = Column(String(20), nullable=False, default="like")
+    updated_at = Column(DateTime, nullable=False, default=utc_now_naive, onupdate=utc_now_naive)
+
+
 class PremiumPayment(Base):
     """Manual Premium payment submitted with a QR transfer proof."""
     __tablename__ = "premium_payments"

@@ -4,6 +4,7 @@ import { UserPlus, CheckCircle, Eye, EyeOff } from 'lucide-react';
 import { validateGmailEmail, validatePassword } from '../../../shared/utils/validators';
 
 import { useAuth } from '../../../shared/context/AuthContext';
+import TermsCheckbox from './TermsCheckbox';
 
 function RegisterForm({ onShowLogin }) {
   const navigate = useNavigate();
@@ -272,11 +273,7 @@ function RegisterForm({ onShowLogin }) {
             <p className="text-red-300 text-xs text-center font-medium mt-1">{errors.general}</p>
           )}
 
-          <label className="flex cursor-pointer items-start gap-2 text-[11px] leading-5 text-slate-500 dark:text-gray-400">
-            <input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} className="mt-1 accent-[var(--brand-primary)]" />
-            <span>Tôi đồng ý tuân thủ quy tắc cộng đồng SportGo và đã đọc chính sách quyền riêng tư.</span>
-          </label>
-          {errors.terms && <p className="text-red-300 text-[10px] pl-1 font-medium">{errors.terms}</p>}
+          <TermsCheckbox checked={acceptedTerms} onChange={setAcceptedTerms} error={errors.terms} />
 
           <button
             type="submit"
