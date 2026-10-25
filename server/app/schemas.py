@@ -489,6 +489,9 @@ class MatchParticipantResponse(BaseModel):
     invite_source: Optional[str] = None
     invited_at: Optional[datetime] = None
     invite_round: Optional[int] = None
+    response_deadline: Optional[datetime] = None
+    hold_policy_accepted: bool = False
+    expected_arrival_at: Optional[datetime] = None
     joined_at: datetime
     user: UserBasicResponse
     model_config = ConfigDict(from_attributes=True)
@@ -504,6 +507,7 @@ class MatchCreate(BaseModel):
     start_time: datetime
     end_time: datetime
     max_players: int = Field(..., ge=2)
+    seat_holds_enabled: bool = False
 
     @field_validator("start_time", "end_time")
     @classmethod
@@ -544,7 +548,11 @@ class MatchResponse(BaseModel):
     max_players: int
     status: str
     is_priority: bool = False
+    seat_holds_enabled: bool = False
     verification_status: str = "UNVERIFIED"
+    terms_version: Optional[str] = None
+    roster_summary: dict = Field(default_factory=dict)
+    server_time: Optional[datetime] = None
     attendance_policy: Optional[dict] = None
     created_at: datetime
     host: UserBasicResponse
@@ -555,6 +563,8 @@ class MatchResponse(BaseModel):
 
 class MatchInviteResponse(BaseModel):
     action: Literal["ACCEPT", "REJECT"]
+    accepted_policy: bool = False
+    terms_version: Optional[str] = Field(None, pattern=r"^[a-f0-9]{64}$")
 
 
 class RoomSearchTimeSlot(BaseModel):
@@ -626,6 +636,14 @@ class MatchAttendanceUpdate(BaseModel):
 
 class MatchJoinRequest(BaseModel):
     note: Optional[str] = Field(None, max_length=500)
+    accepted_hold_policy: bool = False
+    terms_version: Optional[str] = Field(None, pattern=r"^[a-f0-9]{64}$")
+    expected_arrival_at: Optional[datetime] = None
+
+    @field_validator("expected_arrival_at")
+    @classmethod
+    def arrival_utc(cls, value):
+        return value.astimezone(timezone.utc).replace(tzinfo=None) if value and value.tzinfo else value
 
 
 class AttendanceConfirmation(BaseModel):

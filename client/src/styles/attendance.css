@@ -287,6 +287,13 @@ html.dark .sg-reputation-panel { --reputation-positive: #6dd6b1; --reputation-ne
   .sg-reputation-history-link { width: 100%; }
   .sg-reputation-context > div { grid-template-columns: minmax(0, 1fr); gap: 0; margin: 10px 0; }
 }
+.sg-seat-hold-notice { padding: 14px 16px; border: 1px solid #b8d7c5; border-radius: 14px; background: #f0f8f3; color: #254b35; font-size: 13px; line-height: 1.65; }
+.sg-seat-hold-notice p + p, .sg-seat-hold-notice .sg-attendance-consent { margin-top: 10px; }
+.sg-seat-summary { margin: 8px 0; color: var(--sg-text-muted, #64748b); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.sg-seat-arrival { display: grid; gap: 8px; font-size: 13px; font-weight: 600; }
+.sg-seat-arrival input { min-width: 0; width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 10px; background: transparent; color: inherit; }
+.sg-seat-arrival small { font-weight: 400; }
+.dark .sg-seat-hold-notice { background: #172e24; border-color: #345e47; color: #c7ead5; }
 /* Check-in grace period after the end: shown above the post-game report. */
 .sg-attendance-late-checkin { margin-bottom: 18px; padding: 16px; border: 1px solid rgba(94, 135, 247, .35); border-radius: 16px; background: rgba(94, 135, 247, .07); }
 .sg-attendance-late-checkin h4 { margin-top: 0; }

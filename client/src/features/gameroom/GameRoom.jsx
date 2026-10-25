@@ -30,10 +30,10 @@ function GameRoom() {
   const [selectedLevel, setSelectedLevel] = useState('all');
   const [selectedLocation, setSelectedLocation] = useState('all');
   const [selectedPrice, setSelectedPrice] = useState('all');
-  // 'all' = open rooms; 'hosted' = rooms I opened; 'joined' = rooms I was approved into ('mine' is the old link name).
+  // Preserve a separate view for applications, standby places and expired requests.
   const [roomView, setRoomView] = useState(() => {
     const view = searchParams.get('view');
-    return view === 'hosted' ? 'hosted' : view === 'joined' || view === 'mine' ? 'joined' : 'all';
+    return ['hosted', 'registered'].includes(view) ? view : view === 'joined' || view === 'mine' ? 'joined' : 'all';
   });
   const myPostsOnly = roomView !== 'all';
   const [attendanceRoomId, setAttendanceRoomId] = useState(() => Number(searchParams.get('attendance')) || null);
@@ -73,6 +73,7 @@ function GameRoom() {
       const keyById = Object.fromEntries(activeSports.map((sport) => [sport.id, sport.key]));
       const mapped = data.map((match) => ({
         ...match,
+        clockOffset: match.server_time ? new Date(/(?:Z|[+-]\d\d:\d\d)$/.test(match.server_time) ? match.server_time : `${match.server_time}Z`).getTime() - Date.now() : 0,
         sportId: keyById[match.sport_id] || '',
         sportName: match.sport?.name || 'Môn thể thao',
         start_time: match.start_time?.endsWith('Z') ? match.start_time : `${match.start_time}Z`,
@@ -173,6 +174,7 @@ function GameRoom() {
         max_players: Number(newRoomData.max_players),
         location: newRoomData.location.trim(),
         price_info: newRoomData.price_info.trim(),
+        seat_holds_enabled: Boolean(newRoomData.seat_holds_enabled),
       };
       const saved = editingRoom ? await gameRoomService.update(editingRoom.id, payload) : await gameRoomService.create(payload);
       await loadRooms();
@@ -224,15 +226,18 @@ function GameRoom() {
     setIsAutoSearchOpen(true);
   };
 
-  const handleJoinConfirm = async (roomId, note) => {
+  const handleJoinConfirm = async (roomId, note, options = {}) => {
     setIsLoading(true);
     try {
-      await gameRoomService.join(roomId, note);
+      const { isWaitlist, ...data } = options;
+      if (isWaitlist) await gameRoomService.waitlist(roomId, note, data);
+      else await gameRoomService.join(roomId, note, data);
       await loadRooms();
-      showToast(joiningRoom?.isAutoInvite ? 'Đã nhận lời mời vào phòng.' : 'Đã gửi yêu cầu tham gia phòng.');
+      showToast(isWaitlist ? 'Đã đăng ký dự bị. Bạn sẽ được mời nhận chỗ khi có suất.' : joiningRoom?.isAutoInvite ? 'Đã nhận lời mời vào phòng.' : 'Đã gửi/cập nhật yêu cầu tham gia phòng.');
       setJoiningRoom(null);
     } catch (err) {
       showToast(err.message || 'Không gửi được yêu cầu tham gia');
+      if (err.status === 409) { setJoiningRoom(null); await loadRooms(); }
     } finally {
       setIsLoading(false);
     }
@@ -249,6 +254,14 @@ function GameRoom() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleWithdrawWaitlist = async (room) => {
+    try {
+      await gameRoomService.leave(room.id, 'Rút đăng ký dự bị');
+      await loadRooms();
+      showToast('Đã rút đăng ký dự bị. Uy tín không bị ảnh hưởng.');
+    } catch (err) { showToast(err.message || 'Chưa rút được đăng ký dự bị'); }
   };
 
   // Handle Open Chat
@@ -319,6 +332,7 @@ function GameRoom() {
               <option value="all">Tất cả phòng</option>
               <option value="hosted">Phòng của tôi</option>
               <option value="joined">Phòng tôi tham gia</option>
+              <option value="registered">Đăng ký & dự bị</option>
             </FilterSelect>
 
             {/* 1. Địa điểm (Location) */}
@@ -413,6 +427,7 @@ function GameRoom() {
                 currentUserId={user?.id || 0}
                 onJoin={(r) => setJoiningRoom(r)}
                 onDecline={handleDeclineInvite}
+                onWithdraw={handleWithdrawWaitlist}
                 onChat={(r) => handleOpenChat(r)}
                 onManage={(r) => setManagingRoom(r)}
                 onAttendance={(r) => openAttendanceRoom(r.id)}
@@ -435,6 +450,7 @@ function GameRoom() {
 
       {/* Join Room Modal */}
       <JoinRoomModal
+        key={joiningRoom ? `${joiningRoom.id}-${joiningRoom.isWaitlist ? 'waitlist' : 'join'}` : 'closed'}
         isOpen={!!joiningRoom}
         room={joiningRoom}
         onClose={() => setJoiningRoom(null)}

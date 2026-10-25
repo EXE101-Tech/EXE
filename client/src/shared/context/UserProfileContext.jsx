@@ -1,7 +1,6 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import UserProfileModal from '../components/UserProfileModal';
-
-const UserProfileContext = createContext({ openProfile: () => {} });
+import { UserProfileContext } from '../hooks/useUserProfile';
 
 export function UserProfileProvider({ children }) {
   const [userId, setUserId] = useState(null);
@@ -12,5 +11,3 @@ export function UserProfileProvider({ children }) {
     {userId && <UserProfileModal key={userId} userId={userId} onClose={() => setUserId(null)} />}
   </UserProfileContext.Provider>;
 }
-
-export const useUserProfile = () => useContext(UserProfileContext);

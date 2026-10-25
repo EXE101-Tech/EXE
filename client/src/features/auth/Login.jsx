@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import LoginForm from './components/LoginForm';
 import RegisterForm from './components/RegisterForm';
@@ -7,15 +7,11 @@ import HalloweenBackdrop from './components/HalloweenBackdrop';
 import useHalloweenMode from '../../shared/hooks/useHalloweenMode';
 import { HalloweenModeSwitch } from '../../shared/components/HalloweenModeSwitch';
 
-function AuthPage({ defaultIsRegister = false }) {
+function AuthPageContent({ defaultIsRegister }) {
   const [isFlipped, setIsFlipped] = useState(defaultIsRegister);
   const [isExiting, setIsExiting] = useState(false);
   const [halloween, chooseMode] = useHalloweenMode();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    setIsFlipped(defaultIsRegister);
-  }, [defaultIsRegister]);
 
   const handleNavigate = (path) => (e) => {
     e.preventDefault();
@@ -72,4 +68,6 @@ function AuthPage({ defaultIsRegister = false }) {
   );
 }
 
-export default AuthPage;
+export default function AuthPage({ defaultIsRegister = false }) {
+  return <AuthPageContent key={defaultIsRegister ? 'register' : 'login'} defaultIsRegister={defaultIsRegister} />;
+}

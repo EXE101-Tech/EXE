@@ -1,18 +1,22 @@
+from datetime import timedelta
 from sqlalchemy.orm import Session, joinedload, selectinload
 from fastapi import HTTPException
-from app import models, schemas, attendance
+from app import models, schemas, attendance, seat_holds
 
 def _match_eager_options():
     return [
         joinedload(models.Match.host).joinedload(models.User.profile),
         joinedload(models.Match.sport),
         joinedload(models.Match.trust_session),
+        selectinload(models.Match.attendance_records),
         joinedload(models.Match.court).joinedload(models.Court.venue),
         joinedload(models.Match.court).joinedload(models.Court.sport),
         selectinload(models.Match.participants).joinedload(models.MatchParticipant.user).joinedload(models.User.profile),
     ]
 
 def create_match(db: Session, host_id: int, match: schemas.MatchCreate):
+    if match.seat_holds_enabled and not db.get(models.User, host_id).is_premium:
+        raise HTTPException(403, "Nhắc chốt kèo và tìm người thay dành cho chủ phòng Premium")
     db_match = models.Match(
         host_id=host_id,
         sport_id=match.sport_id,
@@ -38,13 +42,15 @@ def create_match(db: Session, host_id: int, match: schemas.MatchCreate):
         status="APPROVED"
     )
     db.add(db_host_participant)
-    attendance.session_for(db, db_match)
+    session = attendance.session_for(db, db_match)
+    session.policy = {**session.policy, "seat_holds_enabled": match.seat_holds_enabled}
     attendance.event(db, db_match, host_id, "ROOM_CREATED", host_id)
     db.commit()
     db.refresh(db_match)
     return db_match
 
 def close_expired_matches(db: Session):
+    seat_changes = seat_holds.process_seat_holds(db)
     now = attendance.now()
     updated = db.query(models.Match).filter(
         models.Match.end_time <= now,
@@ -53,7 +59,7 @@ def close_expired_matches(db: Session):
     expired_requests = attendance.expire_join_requests(db)
     if updated or expired_requests:
         db.commit()
-    return updated + expired_requests
+    return updated + expired_requests + seat_changes
 
 
 def get_matches(db: Session, sport_id: int = None, status: str = None, host_id: int = None):
@@ -97,20 +103,24 @@ def update_match(db: Session, match_id: int, data: schemas.MatchCreate):
         models.MatchParticipant.status == "APPROVED",
     ).count()
     match.status = "FULL" if approved_count >= match.max_players else "OPEN"
+    if changed_fields and match.seat_holds_enabled:
+        for participant in db.query(models.MatchParticipant).filter_by(match_id=match.id, status="APPROVED").all():
+            seat_holds.assign_hold(db, match, participant)
     db.commit()
     return get_match_by_id(db, match_id)
 
 def get_match_by_id(db: Session, match_id: int):
     return db.query(models.Match).options(*_match_eager_options()).filter(models.Match.id == match_id).first()
 
-def join_match(db: Session, match_id: int, user_id: int, note: str = None):
+def join_match(db: Session, match_id: int, user_id: int, note: str = None,
+               accepted_hold_policy=False, expected_arrival_at=None):
     room = attendance.lock_room(db, match_id)
     exists = db.query(models.MatchParticipant).filter(
         models.MatchParticipant.match_id == match_id,
         models.MatchParticipant.user_id == user_id
     ).first()
     if exists:
-        if exists.status == "REJECTED":
+        if exists.status in ("REJECTED", "EXPIRED", "WAITLISTED"):
             exists.status = "PENDING"
             exists.role = "PLAYER"
             exists.note = note
@@ -119,6 +129,9 @@ def join_match(db: Session, match_id: int, user_id: int, note: str = None):
             exists.invite_source = None
             exists.invited_at = None
             exists.invite_round = None
+            exists.response_deadline = None
+            exists.hold_policy_accepted = accepted_hold_policy
+            exists.expected_arrival_at = expected_arrival_at
             exists.joined_at = models.utc_now_naive()
             attendance.reset_after_rejoin(db, room, user_id)
             db.commit()
@@ -131,6 +144,8 @@ def join_match(db: Session, match_id: int, user_id: int, note: str = None):
         role="PLAYER",
         status="PENDING",  # Default status is PENDING to support approval flow
         note=note,
+        hold_policy_accepted=accepted_hold_policy,
+        expected_arrival_at=expected_arrival_at,
     )
     db.add(db_participant)
     attendance.event(db, room, user_id, "JOIN_REQUESTED", user_id)
@@ -172,6 +187,7 @@ def leave_match(db: Session, match_id: int, user_id: int, reason: str = "Ngườ
             ).count()
             match.status = "FULL" if approved_count >= match.max_players else "OPEN"
                 
+        attendance.refresh_verification(db, match)
         db.commit()
         return True
     return False
@@ -194,6 +210,16 @@ def update_match_participant_status(db: Session, match_id: int, user_id: int, st
     previous_status = participant.status
         
     if status == "APPROVED":
+        if participant.invite_source in seat_holds.INVITE_SOURCES and participant.status == "PENDING":
+            raise HTTPException(409, "Người được mời cần tự nhận chỗ và xác nhận tham gia")
+        if match.seat_holds_enabled:
+            if participant.status not in ("PENDING", "WAITLISTED") or not participant.hold_policy_accepted:
+                raise HTTPException(409, "Người chơi cần gửi yêu cầu và đồng ý hạn giữ chỗ trước khi được duyệt")
+            if match.start_time - attendance.now() < timedelta(minutes=30) and (
+                not participant.expected_arrival_at or participant.expected_arrival_at < attendance.now()
+                or participant.expected_arrival_at >= match.end_time
+            ):
+                raise HTTPException(409, "Sát giờ chơi: hãy yêu cầu người chơi cập nhật giờ dự kiến đến trước khi duyệt")
         other_approved = db.query(models.MatchParticipant).filter(
             models.MatchParticipant.match_id == match_id,
             models.MatchParticipant.status == "APPROVED",
@@ -201,11 +227,12 @@ def update_match_participant_status(db: Session, match_id: int, user_id: int, st
         ).count()
         
         total_approved = other_approved + 1
-        if total_approved > match.max_players:
+        if seat_holds.reserved_count(db, match, excluding_user_id=user_id) + 1 > match.max_players:
             raise HTTPException(409, "Phòng đã đủ người")
         record = attendance.record_for(db, match, user_id)
         if record.confirmation_status != "CONFIRMED":
             record.confirmation_status = "UNCONFIRMED"
+            seat_holds.assign_hold(db, match, participant)
         if total_approved >= match.max_players:
             match.status = "FULL"
             
@@ -221,6 +248,7 @@ def update_match_participant_status(db: Session, match_id: int, user_id: int, st
             
     participant.status = status
     attendance.event(db, match, match.host_id, "MEMBERSHIP_UPDATED", user_id, status=status, previous_status=previous_status)
+    attendance.refresh_verification(db, match)
     db.commit()
     db.refresh(participant)
     return participant

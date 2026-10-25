@@ -1,5 +1,9 @@
 # Attendance confirmation and reputation (issue #44)
 
+Phòng Premium mới có thể bật giữ chỗ có hạn và dự bị. Xem [SEAT_HOLDS.md](SEAT_HOLDS.md)
+về hạn xác nhận trước buổi, nhắc tự động, hết hạn không phạt và migration cần chạy.
+Những phòng này dùng hạn riêng cho từng người thay cho hạn xác nhận thông thường bên dưới.
+
 Phạm vi: web trong `client/` và API. Xác nhận/check-in/uy tín cơ bản không yêu cầu Premium.
 
 ## Luồng sử dụng
@@ -24,6 +28,8 @@ Danh sách **Người tham gia** luôn hiển thị cho chủ phòng/admin, có 
 
 API cam kết yêu cầu `terms_version` từ màn đọc thông tin. Nếu chủ phòng sửa điều kiện trong lúc người chơi đang đọc, server từ chối phiên bản cũ và web tải thông tin mới để xác nhận lại.
 
+Check-in tính lại trạng thái xác minh ngay, kể cả khi mọi người đã gửi phản hồi có mặt trước đó hoặc chủ phòng vừa được chuyển quyền. Chủ phòng có thể báo/bỏ báo vắng từ giờ bắt đầu và sau khi hết hạn xác nhận chéo. Người rời phòng rồi xin vào lại cần phản hồi mới; phản hồi/check-in/báo cáo cũ không được dùng lại cho lượt tham gia mới, còn audit vẫn giữ lịch sử. Nếu phản hồi đã lưu cũ hơn cam kết mới, gửi lại cùng câu trả lời sẽ làm mới phản hồi một lần; gửi lặp sau đó vẫn không tạo sự kiện trùng.
+
 ## Hai loại kết quả độc lập
 
 - Trạng thái đăng ký phòng vẫn dùng `OPEN/FULL/CLOSED/CANCELLED`.
@@ -31,8 +37,8 @@ API cam kết yêu cầu `terms_version` từ màn đọc thông tin. Nếu ch�
 - Hồ sơ từng người phân biệt chưa cam kết, đã cam kết, chủ phòng gỡ, hủy tham gia, check-in, phản hồi, kết quả kiểm duyệt.
 - Hết giờ hoặc đóng phòng không chứng minh buổi đã diễn ra.
 - MVP xác minh `OCCURRED` khi chủ phòng và đủ số người khác chủ phòng cùng phản hồi có diễn ra và có mặt, kèm check-in đối chiếu hoặc mỗi người đủ xác nhận chéo. Phản hồi mâu thuẫn chuyển `DISPUTED`. Chỉ chủ phòng trả lời thì giữ `UNVERIFIED`.
-- Tự động ghi nhận một người `ATTENDED` khi vẫn là người được duyệt, tự phản hồi có mặt, buổi đã xác minh và đủ xác nhận chéo từ tài khoản khác. Mặc định cần 2 người; phòng chỉ có 2 thành viên được duyệt (tính cả chủ phòng) cần 1 người còn lại. Sức chứa tối đa của phòng không quyết định ngoại lệ này. Số thành viên được chụp khi bắt đầu nhận phản hồi sau buổi; xóa tài khoản về sau không tự hạ ngưỡng. Người thiếu cam kết hoặc check-in được đánh dấu `supplemental_attendance`, giữ nguyên dữ liệu thiếu và xác minh bằng bằng chứng chéo.
-- Người xác nhận chéo phải là thành viên đang được duyệt và đã phản hồi có mặt, bao gồm người khai báo bổ sung. Không tự xác nhận; cùng một người gửi lại chỉ tính một lượt. Bấm lại để bỏ xác nhận, không được coi là báo vắng. Phản hồi/điều kiện thay đổi làm bằng chứng cũ không còn hợp lệ. Không đủ xác nhận giữ `UNVERIFIED`, không tự trừ uy tín; admin vẫn có thể đối chiếu và quyết định có lý do.
+- Tự động ghi nhận một người `ATTENDED` khi vẫn là người được duyệt, tự phản hồi có mặt, buổi đã xác minh và đủ xác nhận chéo từ tài khoản khác. Mặc định cần 2 người; phòng chỉ có 2 thành viên được duyệt (tính cả chủ phòng) cần 1 người còn lại. Sức chứa tối đa của phòng không quyết định ngoại lệ này. Số thành viên được cập nhật khi duyệt, nhận lời mời, rời, gỡ hoặc hết hạn giữ chỗ trước giờ kết thúc, kể cả khi đã có phản hồi giữa buổi. Sau giờ kết thúc, số đã chốt được giữ; xóa tài khoản về sau không tự hạ ngưỡng. Người thiếu cam kết hoặc check-in được đánh dấu `supplemental_attendance`, giữ nguyên dữ liệu thiếu và xác minh bằng bằng chứng chéo.
+- Người xác nhận chéo phải là thành viên đang được duyệt và đã phản hồi có mặt, bao gồm người khai báo bổ sung. Không tự xác nhận; cùng một người gửi lại chỉ tính một lượt. Bấm lại để bỏ xác nhận, không được coi là báo vắng. Check-in sau khi đã phản hồi có mặt không làm mất quyền xác nhận hay các lượt xác nhận chéo còn hợp lệ. Phản hồi/điều kiện thay đổi làm bằng chứng cũ không còn hợp lệ. Không đủ xác nhận giữ `UNVERIFIED`, không tự trừ uy tín; admin vẫn có thể đối chiếu và quyết định có lý do.
 - Thiếu check-in không tự thành vắng. `NO_SHOW` luôn cần admin xét duyệt, chỉ áp dụng với cam kết còn hiệu lực, buổi đã xác minh và chưa check-in. Admin có thể xác nhận tham dự sau đối chiếu thủ công nếu người chơi quên check-in.
 - Phản hồi đang tranh chấp tạm loại kết quả liên quan khỏi uy tín; phản hồi về việc buổi có diễn ra có thể tạm loại cả buổi. Quyết định admin có lý do và lịch sử, không cộng/trừ theo số lần gọi API.
 - Chủ phòng hủy buổi không phạt người chơi. Chủ phòng gỡ thành viên không bị tính là người đó tự hủy.

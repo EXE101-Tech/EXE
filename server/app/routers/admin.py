@@ -123,7 +123,7 @@ def admin_summary(
         "teams": db.query(func.count(models.Team.id)).scalar() or 0,
         "rooms": db.query(func.count(models.Match.id)).scalar() or 0,
         # Rooms whose game was confirmed to have happened (host + peer evidence), not just rooms that ended.
-        "rooms_occurred": db.query(func.count(models.MatchTrustSession.id)).filter(
+        "rooms_occurred": db.query(func.count(models.MatchTrustSession.match_id)).filter(
             models.MatchTrustSession.verification_status == "OCCURRED",
         ).scalar() or 0,
         "pending_payments": db.query(func.count(models.PremiumPayment.id)).filter(

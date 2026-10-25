@@ -140,7 +140,7 @@ def require_participant(db, room, user_id, approved=False):
 
 
 def _terms(room, policy):
-    # The peer roster is bookkeeping written by the first report (possibly during the game);
+    # The peer roster is bookkeeping updated while membership can still change;
     # it must not invalidate a confirmation that is still in progress.
     policy = {key: value for key, value in policy.items() if key != "peer_roster_size"}
     return {
@@ -164,7 +164,7 @@ def confirmation_deadline(room, policy):
 
 
 def confirm(db, room, user, accepted_terms_version=None):
-    require_participant(db, room, user.id, approved=True)
+    participant = require_participant(db, room, user.id, approved=True)
     session = session_for(db, room)
     _available(room, session)
     if accepted_terms_version and accepted_terms_version != terms_version(room, session.policy):
@@ -172,7 +172,8 @@ def confirm(db, room, user, accepted_terms_version=None):
     record = record_for(db, room, user.id)
     if record.confirmation_status == "CONFIRMED":
         return record
-    if now() >= confirmation_deadline(room, session.policy):
+    deadline = participant.response_deadline or confirmation_deadline(room, session.policy)
+    if now() >= deadline:
         raise HTTPException(409, "Đã hết hạn xác nhận tham gia; không ghi nhận cam kết hồi tố")
     if record.confirmation_status != "CONFIRMED":
         record.confirmation_status = "CONFIRMED"
@@ -181,6 +182,7 @@ def confirm(db, room, user, accepted_terms_version=None):
         record.cancelled_at = None
         record.cancellation_reason = None
         record.late_cancellation = False
+        participant.response_deadline = None
         event(db, room, user.id, "CONFIRMED", user.id, terms=record.terms)
     return record
 
@@ -219,6 +221,11 @@ def reset_after_rejoin(db, room, user_id):
         record.cancelled_at = None
         record.cancellation_reason = None
         record.late_cancellation = False
+        for field in ("self_occurred", "self_attended", "self_reported_at", "host_report", "host_reported_at",
+                      "dispute_reason", "dispute_at", "resolved_outcome", "resolution_note", "reviewed_by", "reviewed_at"):
+            setattr(record, field, None)
+        participant = require_participant(db, room, user_id)
+        participant.attendance_status = None
     event(db, room, user_id, "JOIN_REQUESTED", user_id)
 
 
@@ -338,7 +345,7 @@ def decide_low_attendance(db, room, user, action):
 
 
 def window_closes_at(room, policy=None):
-    """Check-in and all feedback (self, host and peer) run from the start time until this moment.
+    """Check-in and peer confirmation run from the start time until this moment.
 
     Players often only reach their phones after the game, so it stays open a while after the end.
     Older room snapshots lack the key (they carried `checkin_before_minutes`); the new window applies to them too.
@@ -383,6 +390,7 @@ def open_checkin(db, room, user):
     if not record.checked_in_at:
         record.checked_in_at = now()
         event(db, room, user.id, "CHECKED_IN", user.id)
+    refresh_verification(db, room)
     if _close_completed_checkin(db, room, session):
         return {"complete": True, "code": None, "expires_at": None}
     while True:
@@ -406,6 +414,7 @@ def check_in(db, room, user, code):
     if record.confirmation_status != "CONFIRMED":
         raise HTTPException(409, "Hãy xác nhận tham gia trước khi check-in")
     if record.checked_in_at:
+        refresh_verification(db, room)
         _close_completed_checkin(db, room, session)
         return record
     if record.locked_until and record.locked_until > now():
@@ -425,6 +434,7 @@ def check_in(db, room, user, code):
     record.failed_attempts = 0
     record.locked_until = None
     event(db, room, user.id, "CHECKED_IN", user.id)
+    refresh_verification(db, room)
     _close_completed_checkin(db, room, session)
     return record
 
@@ -432,6 +442,7 @@ def check_in(db, room, user, code):
 def refresh_verification(db, room):
     session = session_for(db, room)
     db.flush()
+    _snapshot_peer_roster(db, room)
     records = db.query(models.MatchAttendanceRecord).filter_by(match_id=room.id).all()
     if room.status == "CANCELLED":
         session.verification_status = "CANCELLED"
@@ -484,7 +495,8 @@ def report_self(db, room, user, occurred, attended):
     record = record_for(db, room, user.id)
     if record.confirmation_status not in ("CONFIRMED", "UNCONFIRMED"):
         raise HTTPException(409, "Bạn không còn tham gia phòng này")
-    if record.self_occurred == occurred and record.self_attended == attended:
+    fresh_report = record.self_reported_at and (not record.confirmed_at or record.self_reported_at >= record.confirmed_at)
+    if record.self_occurred == occurred and record.self_attended == attended and fresh_report:
         return record
     record.self_occurred, record.self_attended = occurred, attended
     record.self_reported_at = now()
@@ -526,8 +538,8 @@ def _evidence_signature(record):
 
 def _can_witness(record):
     return bool(record and record.confirmation_status in ("CONFIRMED", "UNCONFIRMED") and record.self_reported_at
-                and record.self_reported_at >= max([stamp for stamp in (record.confirmed_at, record.checked_in_at)
-                                                   if stamp], default=record.self_reported_at)
+                # A later check-in adds evidence without changing an existing presence report.
+                and (not record.confirmed_at or record.self_reported_at >= record.confirmed_at)
                 and record.self_occurred is True and record.self_attended is True
                 and not is_disputed(record))
 
@@ -539,10 +551,14 @@ def _can_receive_peer(record):
 
 def _snapshot_peer_roster(db, room):
     session = session_for(db, room)
-    if "peer_roster_size" not in session.policy:
-        count = db.query(models.MatchParticipant).filter_by(match_id=room.id, status="APPROVED").count()
-        session.policy = {**session.policy, "peer_roster_size": count}
+    # Reports may start during the game. Keep the roster current until membership
+    # closes, then preserve it even if an account is subsequently erased.
+    if now() < room.end_time or "peer_roster_size" not in session.policy:
         db.flush()
+        count = db.query(models.MatchParticipant).filter_by(match_id=room.id, status="APPROVED").count()
+        if session.policy.get("peer_roster_size") != count:
+            session.policy = {**session.policy, "peer_roster_size": count}
+            db.flush()
 
 
 def peer_evidence(db, match_ids):
@@ -761,6 +777,9 @@ def _record_payload(record, participant, session, peers, viewer_id):
     return {
         "user_id": participant.user_id, "name": display_name(participant.user),
         "membership_status": participant.status, "role": participant.role,
+        "response_deadline": participant.response_deadline,
+        "expected_arrival_at": participant.expected_arrival_at,
+        "invite_source": participant.invite_source,
         "confirmation_status": record.confirmation_status if record else "UNCONFIRMED",
         "confirmed_at": record.confirmed_at if record else None,
         "cancelled_at": record.cancelled_at if record else None,
@@ -834,7 +853,8 @@ def room_state(db, room, user):
                    "required_peer_confirmations": 2, "two_person_peer_confirmations": 1,
                    "allow_supplemental_attendance": True}, "mine": mine,
         "terms_version": terms_version(room, policy),
-        "confirmation_deadline": confirmation_deadline(room, policy),
+        "confirmation_deadline": (mine_participant.response_deadline if mine_participant and mine_participant.response_deadline
+                                  else confirmation_deadline(room, policy)),
         "window_closes_at": window_closes_at(room, policy),
         "peer_window_open": room.start_time <= now() < window_closes_at(room, policy) and room.status != "CANCELLED",
         "can_manage": can_manage,

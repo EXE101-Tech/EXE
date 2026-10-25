@@ -1,4 +1,4 @@
-import { useUserProfile } from '../context/UserProfileContext';
+import useUserProfile from '../hooks/useUserProfile';
 
 // Wraps a name or avatar so clicking it opens that member's public profile.
 export default function ProfileLink({ userId, name, className = '', children, ...props }) {

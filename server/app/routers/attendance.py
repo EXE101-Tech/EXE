@@ -38,10 +38,10 @@ def required_feedback(user=Depends(auth_utils.get_current_user), db: Session = D
 @router.get("/gamerooms/participating", response_model=list[schemas.MatchResponse])
 def participating_rooms(
     limit: int = Query(50, ge=1, le=100), offset: int = Query(0, ge=0),
-    role: str = Query("all", pattern="^(all|joined|hosted)$"),
+    role: str = Query("all", pattern="^(all|joined|hosted|registered)$"),
     user=Depends(auth_utils.get_current_user), db: Session = Depends(database.get_db),
 ):
-    """role=hosted: rooms the user opened; role=joined: rooms they were approved into as a player."""
+    """Keep approved rooms separate from pending applications, standby places and past requests."""
     _member(user)
     if close_expired_matches(db):
         memory_cache.delete_prefix("gamerooms:list:")
@@ -50,6 +50,13 @@ def participating_rooms(
     elif role == "joined":
         condition = and_(models.Match.host_id != user.id, models.Match.id.in_(
             db.query(models.MatchParticipant.match_id).filter_by(user_id=user.id, status="APPROVED")
+        ))
+    elif role == "registered":
+        condition = and_(models.Match.host_id != user.id, models.Match.id.in_(
+            db.query(models.MatchParticipant.match_id).filter(
+                models.MatchParticipant.user_id == user.id,
+                models.MatchParticipant.status != "APPROVED",
+            )
         ))
     else:
         condition = models.Match.id.in_(db.query(models.MatchParticipant.match_id).filter_by(user_id=user.id))

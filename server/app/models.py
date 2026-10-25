@@ -228,6 +228,31 @@ class Match(Base):
         return self.trust_session.policy if self.trust_session else None
 
     @property
+    def seat_holds_enabled(self):
+        return bool(self.attendance_policy and self.attendance_policy.get("seat_holds_enabled"))
+
+    @property
+    def terms_version(self):
+        from app.attendance import terms_version
+        return terms_version(self, self.attendance_policy or {})
+
+    @property
+    def server_time(self):
+        from app.attendance import now
+        return now()
+
+    @property
+    def roster_summary(self):
+        stamp = self.server_time
+        members = {p.user_id for p in self.participants if p.status == "APPROVED"}
+        confirmed = sum(1 for r in self.attendance_records if r.user_id in members and r.confirmation_status == "CONFIRMED")
+        offers = sum(1 for p in self.participants if p.status == "PENDING" and p.invite_source in ("AUTO", "WAITLIST")
+                     and p.response_deadline and p.response_deadline > stamp)
+        return {"approved": len(members), "confirmed": confirmed, "waiting_confirmation": len(members) - confirmed,
+                "invited": offers, "waitlisted": sum(1 for p in self.participants if p.status == "WAITLISTED"),
+                "available": max(0, self.max_players - len(members) - offers)}
+
+    @property
     def is_priority(self):
         """Whether this Premium-hosted room should be boosted while filling."""
         if not self.host or not self.host.is_premium or self.status != "OPEN":
@@ -246,12 +271,15 @@ class MatchParticipant(Base):
     match_id = Column(Integer, ForeignKey("matches.id", ondelete="CASCADE"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     role = Column(String, default="PLAYER")  # HOST, PLAYER
-    status = Column(String, default="APPROVED")  # PENDING, APPROVED, REJECTED, EXPIRED
+    status = Column(String, default="APPROVED")  # PENDING, APPROVED, REJECTED, EXPIRED, WAITLISTED
     attendance_status = Column(String(16), nullable=True)  # ATTENDED, ABSENT; set by host after match ends
     note = Column(Text, nullable=True)
-    invite_source = Column(String(20), nullable=True)  # AUTO for Premium automatic invitations
+    invite_source = Column(String(20), nullable=True)  # AUTO or WAITLIST for reserved invitations
     invited_at = Column(DateTime, nullable=True)
     invite_round = Column(Integer, nullable=True)
+    response_deadline = Column(DateTime, nullable=True, index=True)
+    hold_policy_accepted = Column(Boolean, nullable=False, default=False, server_default="false")
+    expected_arrival_at = Column(DateTime, nullable=True)
     joined_at = Column(DateTime, default=utc_now_naive)
 
     __table_args__ = (
