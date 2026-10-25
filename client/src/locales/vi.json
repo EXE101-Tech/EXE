@@ -219,6 +219,57 @@
       "emailPlaceholder": "Nhập địa chỉ email của bạn...",
       "subscribeBtn": "Đăng ký ngay",
       "copyright": "Copyright 2026 © SportGo. All Rights Reserved."
+    },
+    "story": {
+      "scrollHint": "Cuộn để khám phá",
+      "chapters": [
+        "Mở đầu",
+        "Ghép kèo",
+        "Đa môn",
+        "Uy tín",
+        "Cộng đồng",
+        "Ra sân"
+      ],
+      "match": {
+        "eyebrow": "01 · Ghép kèo",
+        "title": "Chơi đúng người",
+        "text": "Mở phòng hoặc tìm kèo cùng trình độ, từ Mới chơi đến Chuyên nghiệp. Không còn thiếu chân, không còn chênh lệch kỹ năng.",
+        "stat1": "Trình độ",
+        "stat1Value": "4 cấp",
+        "stat2": "Lọc theo",
+        "stat2Value": "Giờ · Khu vực · Giá"
+      },
+      "sports": {
+        "eyebrow": "02 · Đa môn",
+        "title": "Một nền tảng, ba sân chơi",
+        "text": "Chọn môn, chọn khu vực, chọn khung giờ và ra sân. SportGo hỗ trợ ba môn được yêu thích nhất.",
+        "badminton": "Cầu lông",
+        "pickleball": "Pickleball",
+        "football": "Bóng đá"
+      },
+      "trust": {
+        "eyebrow": "03 · Uy tín",
+        "title": "Nói không với bùm kèo",
+        "text": "Check-in bằng mã tại sân, xác nhận chéo giữa người chơi. Điểm uy tín giúp chủ phòng duyệt đúng người.",
+        "point1": "Mã check-in đổi mỗi 60 giây",
+        "point2": "Xác nhận chéo tại sân",
+        "point3": "Xem hồ sơ trước khi duyệt"
+      },
+      "community": {
+        "eyebrow": "04 · Cộng đồng",
+        "title": "Cả cộng đồng trong túi bạn",
+        "text": "Lập CLB, kết bạn, nhắn tin và thả sticker thể thao riêng của SportGo cho từng khoảnh khắc trên sân."
+      },
+      "finale": {
+        "title": "Sẵn sàng ra sân?",
+        "text": "Tạo tài khoản miễn phí và tìm trận đầu tiên của bạn ngay hôm nay."
+      },
+      "mode": {
+        "label": "Chế độ trang",
+        "halloween": "Halloween",
+        "default": "Mặc định",
+        "eyebrow": "🎃 Đêm Halloween"
+      }
     }
   }
 }

@@ -68,7 +68,7 @@ with sync_playwright() as playwright:
                         assert panel.evaluate("node => node.scrollWidth <= node.clientWidth"), (theme, width, name, "overflow")
                         assert panel.bounding_box()["width"] <= width, (theme, width, name, "panel width")
                         expect(panel.locator(".sg-reputation-result.is-attended dd")).to_contain_text(str(data["verified_attended"]))
-                        expect(panel.get_by_role("link", name="Xem lịch sử tham gia", exact=True)).to_have_attribute("href", "/matches?view=mine")
+                        expect(panel.get_by_role("link", name="Xem lịch sử tham gia", exact=True)).to_have_attribute("href", "/matches?view=joined")
                         expect(panel.get_by_text("Không trừ điểm", exact=True)).to_be_visible()
                         if data["score"] is None:
                             expect(panel.get_by_role("progressbar")).to_have_attribute("value", str(data["sample_count"]))

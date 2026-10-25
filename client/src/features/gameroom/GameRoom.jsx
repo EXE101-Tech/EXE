@@ -30,7 +30,12 @@ function GameRoom() {
   const [selectedLevel, setSelectedLevel] = useState('all');
   const [selectedLocation, setSelectedLocation] = useState('all');
   const [selectedPrice, setSelectedPrice] = useState('all');
-  const [myPostsOnly, setMyPostsOnly] = useState(() => searchParams.get('view') === 'mine');
+  // 'all' = open rooms; 'hosted' = rooms I opened; 'joined' = rooms I was approved into ('mine' is the old link name).
+  const [roomView, setRoomView] = useState(() => {
+    const view = searchParams.get('view');
+    return view === 'hosted' ? 'hosted' : view === 'joined' || view === 'mine' ? 'joined' : 'all';
+  });
+  const myPostsOnly = roomView !== 'all';
   const [attendanceRoomId, setAttendanceRoomId] = useState(() => Number(searchParams.get('attendance')) || null);
   const attendanceFromRoute = Number(searchParams.get('attendance'));
   useEffect(() => {
@@ -61,7 +66,7 @@ function GameRoom() {
     setIsLoading(true);
     try {
       const [data, sports] = await Promise.all([
-        myPostsOnly ? gameRoomService.getParticipating() : gameRoomService.getAll(),
+        myPostsOnly ? gameRoomService.getParticipating({ role: roomView }) : gameRoomService.getAll(),
         sportService.getAll(),
       ]);
       const activeSports = sports.filter((sport) => sport.id != null && isActiveSport(sport));
@@ -105,7 +110,7 @@ function GameRoom() {
     } finally {
       setIsLoading(false);
     }
-  }, [user?.id, myPostsOnly]);
+  }, [user?.id, myPostsOnly, roomView]);
 
   useEffect(() => { const timer = window.setTimeout(loadRooms, 0); return () => window.clearTimeout(timer); }, [loadRooms]);
 
@@ -308,11 +313,12 @@ function GameRoom() {
             <FilterSelect
               icon={UserRound}
               iconColor="text-violet-500"
-              value={myPostsOnly ? 'mine' : 'all'}
-              onChange={(event) => setMyPostsOnly(event.target.value === 'mine')}
+              value={roomView}
+              onChange={(event) => setRoomView(event.target.value)}
             >
               <option value="all">Tất cả phòng</option>
-              <option value="mine">Buổi tôi đã tham gia</option>
+              <option value="hosted">Phòng của tôi</option>
+              <option value="joined">Phòng tôi tham gia</option>
             </FilterSelect>
 
             {/* 1. Địa điểm (Location) */}

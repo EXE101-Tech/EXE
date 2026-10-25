@@ -3,6 +3,7 @@ import { CalendarDays, Check, CheckCircle2, ChevronDown, ClipboardCheck, Clock3,
 import { attendanceService, gameRoomService } from '../../../shared/services/api';
 import { formatStoredCost } from '../../../shared/utils/price';
 import AttendanceHistory from './AttendanceHistory';
+import ProfileLink from '../../../shared/components/ProfileLink';
 
 const date = (value) => value ? new Date(/(?:Z|[+-]\d\d:\d\d)$/.test(value) ? value : `${value}Z`) : null;
 const time = (value) => date(value)?.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) || 'Chưa có';
@@ -35,14 +36,14 @@ function LowAttendanceNotice({ state, ended, isHost, busy, run }) {
   </section>;
 }
 
-function Participants({ state, ended, closed, isHost, busy, run }) {
+function Participants({ state, ended, closed, peerOpen, isHost, busy, run }) {
   const approved = state.participants.filter((person) => person.membership_status === 'APPROVED')
     .sort((a, b) => Number(b.user_id === state.mine?.user_id) - Number(a.user_id === state.mine?.user_id));
   const checkedInCount = approved.filter((person) => person.checked_in_at).length;
   const requiredPeers = state.mine?.required_peer_confirmations || approved[0]?.required_peer_confirmations || 2;
   return <section className="sg-attendance-section sg-attendance-roster" aria-label="Người tham gia">
-    <div className="sg-attendance-roster-heading"><div className="sg-attendance-roster-title"><Users size={20} aria-hidden="true" /><h4>{ended ? 'Xác nhận người cùng chơi' : 'Người tham gia'} <span>{approved.length}</span></h4></div><span className={`sg-attendance-roster-checkins ${checkedInCount === approved.length && approved.length ? 'is-complete' : ''}`}><CheckCircle2 size={15} aria-hidden="true" /><span><strong>{checkedInCount}/{approved.length}</strong> đã check-in</span></span></div>
-    {ended && !closed && <div className="sg-attendance-roster-guidance">{approved.length < 2 ? <p>Phòng chưa có đủ 2 người để đối chiếu tham dự. Buổi chưa được tính vào uy tín.</p> : <><p>Đối chiếu theo thực tế tại sân. {requiredPeers === 1 ? 'Phòng có 2 người: cần 1 người còn lại xác nhận có mặt.' : 'Mỗi người cần ít nhất 2 người khác xác nhận có mặt, có thể tính cả chủ phòng.'}</p><p>Chọn “Không tham gia” khi biết người đó đã vắng. Nếu chưa rõ, hãy để trống. Phản hồi mâu thuẫn sẽ tạm chưa tính uy tín.</p>{!state.can_peer_confirm && <p>Gửi phản hồi bạn đã có mặt ở phần trên để xác nhận người cùng chơi. Quên xác nhận hoặc nhập mã vẫn có thể khai báo bổ sung.</p>}</>}</div>}
+    <div className="sg-attendance-roster-heading"><div className="sg-attendance-roster-title"><Users size={20} aria-hidden="true" /><h4>{peerOpen || ended ? 'Xác nhận người cùng chơi' : 'Người tham gia'} <span>{approved.length}</span></h4></div><span className={`sg-attendance-roster-checkins ${checkedInCount === approved.length && approved.length ? 'is-complete' : ''}`}><CheckCircle2 size={15} aria-hidden="true" /><span><strong>{checkedInCount}/{approved.length}</strong> đã check-in</span></span></div>
+    {peerOpen && <div className="sg-attendance-roster-guidance">{approved.length < 2 ? <p>Phòng chưa có đủ 2 người để đối chiếu tham dự. Buổi chưa được tính vào uy tín.</p> : <><p>Đối chiếu theo thực tế tại sân. {requiredPeers === 1 ? 'Phòng có 2 người: cần 1 người còn lại xác nhận có mặt.' : 'Mỗi người cần ít nhất 2 người khác xác nhận có mặt, có thể tính cả chủ phòng.'}</p><p>Chọn “Không tham gia” khi biết người đó đã vắng. Nếu chưa rõ, hãy để trống. Phản hồi mâu thuẫn sẽ tạm chưa tính uy tín.</p>{!state.can_peer_confirm && <p>Gửi phản hồi bạn đã có mặt ở phần trên để xác nhận người cùng chơi. Quên xác nhận hoặc nhập mã vẫn có thể khai báo bổ sung.</p>}</>}</div>}
     {!approved.length && <p>Chưa có người tham gia.</p>}
     <div className="sg-attendance-people">{approved.map((person) => {
       const present = !!person.checked_in_at;
@@ -55,16 +56,16 @@ function Participants({ state, ended, closed, isHost, busy, run }) {
       const absences = person.peer_absences || [];
       const required = person.required_peer_confirmations || 2;
       const myReport = person.my_peer_report;
-      const canVote = ended && !closed && !isSelf && state.can_peer_confirm;
-      const canWithdraw = ended && !closed && !isSelf && ['ATTENDED', 'ABSENT'].includes(myReport);
+      const canVote = peerOpen && !isSelf && state.can_peer_confirm;
+      const canWithdraw = peerOpen && !isSelf && ['ATTENDED', 'ABSENT'].includes(myReport);
       return <div className={`sg-attendance-person ${present ? 'is-checked-in' : ''} ${isSelf ? 'is-self' : ''}`} role="group" aria-label={isSelf ? `Thông tin của bạn: ${person.name}` : person.name} key={person.user_id}>
-      <div className="sg-attendance-person-identity"><span className="sg-attendance-person-avatar" aria-hidden="true">{initials}</span><div className="sg-attendance-person-info"><strong>{person.name}{isSelf && <span className="sg-attendance-person-you">Bạn</span>}{person.role === 'HOST' && <small><Crown size={11} aria-hidden="true" />Chủ phòng</small>}</strong>
+      <div className="sg-attendance-person-identity"><span className="sg-attendance-person-avatar" aria-hidden="true">{initials}</span><div className="sg-attendance-person-info"><strong>{isSelf ? person.name : <ProfileLink userId={person.user_id} name={person.name}>{person.name}</ProfileLink>}{isSelf && <span className="sg-attendance-person-you">Bạn</span>}{person.role === 'HOST' && <small><Crown size={11} aria-hidden="true" />Chủ phòng</small>}</strong>
         {present && <p className="sg-attendance-person-time">Check-in lúc {hour(person.checked_in_at)}</p>}
         {!person.has_commitment && <p className="sg-attendance-person-missing">Chưa xác nhận trước buổi</p>}
         {ended && <><p>{person.self_attended == null ? 'Chưa gửi xác nhận sau buổi' : person.self_attended ? person.supplemental_attendance ? 'Đã khai báo có mặt bổ sung' : 'Xác nhận có mặt' : 'Xác nhận không có mặt'}</p><span className={`sg-attendance-person-result ${person.disputed ? 'is-conflicting' : person.outcome === 'ATTENDED' ? 'is-success' : ''}`}>{person.disputed ? 'Phản hồi chưa khớp' : person.outcome === 'ATTENDED' && person.supplemental_attendance ? 'Tham dự đã xác minh bổ sung' : OUTCOME[person.outcome]}</span></>}
         {ended && !isSelf && !person.can_receive_peer_confirmation && <p>Chờ người chơi khai báo đã tham gia.</p>}
-        {ended && approved.length >= 2 && <div className={`sg-attendance-peer-count ${confirmations.length >= required ? 'is-enough' : ''}`}><span><Users size={13} aria-hidden="true" /><strong>{confirmations.length}/{required}</strong> người khác xác nhận</span>{confirmations.length > 0 && <p>{confirmations.map((peer) => peer.name).join(', ')}</p>}</div>}
-        {ended && absences.length > 0 && <div className="sg-attendance-peer-absences"><span><X size={13} aria-hidden="true" /><span><strong>{absences.length}</strong> người xác nhận không tham gia</span></span><p>{absences.map((peer) => peer.name).join(', ')}</p></div>}
+        {(peerOpen || ended) && approved.length >= 2 && <div className={`sg-attendance-peer-count ${confirmations.length >= required ? 'is-enough' : ''}`}><span><Users size={13} aria-hidden="true" /><strong>{confirmations.length}/{required}</strong> người khác xác nhận</span>{confirmations.length > 0 && <p>{confirmations.map((peer) => peer.name).join(', ')}</p>}</div>}
+        {(peerOpen || ended) && absences.length > 0 && <div className="sg-attendance-peer-absences"><span><X size={13} aria-hidden="true" /><span><strong>{absences.length}</strong> người xác nhận không tham gia</span></span><p>{absences.map((peer) => peer.name).join(', ')}</p></div>}
       </div></div>
       <div className="sg-attendance-person-meta"><span className={`sg-attendance-person-status ${present ? 'is-present' : !ended && confirmed ? 'is-confirmed' : 'is-waiting'}`}>{present || (!ended && confirmed) ? <CheckCircle2 size={14} aria-hidden="true" /> : <Clock3 size={14} aria-hidden="true" />}{ended && !present ? 'Chưa check-in' : statusLabel}</span>
       {(canVote || canWithdraw) && <div className="sg-attendance-peer-actions" role="group" aria-label={`Xác nhận tham dự của ${person.name}`}>
@@ -183,15 +184,21 @@ export default function AttendanceRoomModal({ roomId, onClose, onChanged, requir
   const checkedIn = !!mine?.checked_in_at;
   const allCheckedIn = !!state?.checkin_progress?.complete;
   const canConfirm = state && serverNow < date(state.confirmation_deadline).getTime();
-  const checkinStarts = state && new Date(date(state.start_time).getTime() - state.policy.checkin_before_minutes * 60000);
-  const canCheckin = state && serverNow >= checkinStarts.getTime() && !ended && !closed;
+  // Check-in and all feedback (self, host, peer) run from the start time until a while after the end,
+  // so players can still confirm each other once they finish. After that the window closes for good.
+  const checkinStarts = state && date(state.start_time);
+  const windowCloses = state && (state.window_closes_at ? date(state.window_closes_at) : new Date(date(state.end_time).getTime() + 30 * 60000));
+  const started = state && serverNow >= checkinStarts.getTime();
+  const windowOpen = state && started && serverNow < windowCloses.getTime() && !closed;
+  const canCheckin = windowOpen;
   const codeLive = !allCheckedIn && issuedCode?.code && date(issuedCode.expires_at).getTime() > serverNow && confirmed;
   const codeSeconds = codeLive ? Math.max(0, Math.ceil((date(issuedCode.expires_at).getTime() - serverNow) / 1000)) : 0;
   const hasReport = mine?.self_occurred != null;
   const step = ended ? 2 : confirmed ? 1 : 0;
   const completedSteps = [confirmed || mine?.has_commitment, checkedIn, ended && mine?.outcome !== 'UNVERIFIED' && !mine?.disputed];
   const supplementalEntry = isApproved && (!mine?.has_commitment || !checkedIn);
-  const showReport = ended && !closed && isApproved && (!hasReport || editingReport);
+  const peerOpen = started && windowOpen;
+  const showReport = started && !closed && isApproved && (!hasReport || editingReport);
   const showCancellation = !ended && !closed && isApproved && (isHost || !checkedIn);
 
   useEffect(() => {
@@ -229,6 +236,23 @@ export default function AttendanceRoomModal({ roomId, onClose, onChanged, requir
     return () => { active = false; window.clearTimeout(timer); };
   }, [isHost, canCheckin, confirmed, issuedCode, allCheckedIn, roomId, offset, load]);
 
+  const closesLabel = state ? `Mở đến ${hour(windowCloses.toISOString())}.` : '';
+  const hostCheckin = state && <>
+      <h4>{codeLive ? 'Mã check-in của buổi chơi' : renewingCode ? 'Đang đổi mã check-in…' : 'Đón người chơi tại sân'}</h4><p>{codeLive ? 'Mã tự đổi mỗi 1 phút. Chỉ chia sẻ với những người đang có mặt tại sân.' : 'Khi đã đến sân, tạo mã check-in để người chơi xác nhận có mặt.'} {closesLabel}</p>
+      {codeLive && <div className="sg-attendance-code"><output aria-label="Mã check-in của phòng">{issuedCode.code}</output><span>Đổi mã sau {Math.floor(codeSeconds / 60)}:{String(codeSeconds % 60).padStart(2, '0')}<small>Mã cũ không còn dùng được sau khi đổi.</small></span></div>}
+      {!codeLive && state.code_expires_at && date(state.code_expires_at).getTime() > serverNow && <p className="sg-attendance-small">Mã đã tạo không hiển thị lại sau khi đóng cửa sổ. Tạo mã mới sẽ thay thế mã trước đó.</p>}
+      <button type="button" className={codeLive ? 'sg-attendance-text-button' : 'sg-primary-button'} disabled={busy} onClick={() => run(async () => { const issued = await attendanceService.openCode(roomId); setIssuedCode(issued.complete ? null : issued); return issued; }, 'Đã tạo mã check-in. Mã mới thay thế mã cũ.')}>{codeLive ? 'Đổi mã check-in' : state.code_expires_at ? 'Tạo mã check-in mới' : 'Tạo mã check-in'}</button>
+      {checkedIn && <p className="sg-attendance-small"><CheckCircle2 size={14} />Bạn đã check-in lúc {hour(mine.checked_in_at)}.</p>}
+    </>;
+  const playerCheckin = state && <>
+      <h4>{ended ? 'Bạn chưa check-in' : 'Bạn đã đến sân chưa?'}</h4><p>Nhập mã 6 số do chủ phòng cung cấp khi bạn có mặt tại sân. {closesLabel}</p>
+      <form className="sg-attendance-form" onSubmit={(event) => { event.preventDefault(); run(() => attendanceService.checkin(roomId, code), 'Check-in thành công.'); }}>
+        <label htmlFor="attendance-code">Mã check-in</label><div className="sg-attendance-checkin-input"><input id="attendance-code" value={code} inputMode="numeric" autoComplete="off" maxLength={6} pattern="[0-9]{6}" required placeholder="000000" onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))} /><button type="submit" className="sg-primary-button" disabled={busy || code.length !== 6}>Check-in tại sân</button></div>
+      </form>
+    </>;
+  // While the window is open, check-in sits above the attendance report instead of replacing it.
+  const inlineCheckin = canCheckin && confirmed && !allCheckedIn && (isHost ? hostCheckin : !checkedIn && playerCheckin);
+
   let action;
   if (state) {
     if (closed) action = <><h4>{state.low_attendance?.cancelled_for_low_attendance ? 'Buổi chơi đã hủy vì thiếu người' : 'Buổi chơi đã được hủy'}</h4><p>Bạn không cần check-in hay gửi xác nhận. Buổi này không làm giảm uy tín của bạn.</p></>;
@@ -236,7 +260,10 @@ export default function AttendanceRoomModal({ roomId, onClose, onChanged, requir
     else if (mine?.membership_status === 'PENDING') action = <><h4>Đang chờ chủ phòng duyệt</h4><p>Sau khi được duyệt, bạn có thể xác nhận tham gia và check-in tại sân.</p></>;
     else if (!isApproved) action = <><h4>{CONFIRMATION[mine?.confirmation_status] || 'Bạn chưa tham gia buổi này'}</h4><p>{mine?.cancellation_reason || 'Bạn có thể xem lại thông tin và lịch sử của mình bên dưới.'}</p></>;
     else if (!requiredCount && ended && state.low_attendance?.approved_count < 2 && state.verification_status === 'UNVERIFIED') action = <><h4>Buổi chơi chưa đủ người để đối chiếu</h4><p>Phòng chỉ có {state.low_attendance.approved_count} người đã được duyệt nên chưa thể xác minh tham dự. {isHost ? 'Nếu buổi không diễn ra, hãy hủy vì thiếu người ở phía trên để kết thúc điểm danh.' : 'Chủ phòng có thể hủy vì thiếu người để kết thúc điểm danh.'} Buổi này chưa được tính vào uy tín.</p></>;
-    else if (ended) action = <>
+    else if (ended || (started && !closed && (confirmed || !canConfirm))) action = <>
+      {inlineCheckin && <div className="sg-attendance-late-checkin">{inlineCheckin}</div>}
+      {!ended && <p className="sg-attendance-small">Báo có mặt và xác nhận người cùng chơi được mở ngay trong buổi. Xác nhận chéo {closesLabel}</p>}
+      {ended && !windowOpen && !hasReport && <p className="sg-attendance-small">Đã hết thời gian xác nhận ({hour(windowCloses.toISOString())}). Buổi này không được tính vào uy tín của bạn.</p>}
       <h4>{mine.disputed ? 'Phản hồi chưa khớp' : mine.outcome !== 'UNVERIFIED' ? mine.outcome === 'ATTENDED' && mine.supplemental_attendance ? 'Đã xác minh tham dự bổ sung' : OUTCOME[mine.outcome] : hasReport ? supplementalEntry && mine.self_attended ? 'Đang đối chiếu bổ sung' : 'Đã gửi xác nhận sau buổi' : supplementalEntry ? 'Bạn có tham gia buổi chơi này không?' : 'Buổi chơi của bạn thế nào?'}</h4>
       <p>{requiredCount && !hasReport ? 'Chọn theo đúng thực tế. Nếu không đến sân, hãy chọn “Tôi không có mặt”.' : mine.disputed ? 'Các phản hồi về bạn chưa khớp nên kết quả chưa được tính vào uy tín. Hãy kiểm tra xác nhận của bạn và trao đổi với người cùng chơi để cập nhật đúng thực tế.' : mine.outcome === 'ATTENDED' ? mine.supplemental_attendance ? 'Người cùng chơi đã xác nhận bạn có mặt. Lượt tham dự được ghi nhận qua đối chiếu bổ sung.' : 'Lượt tham dự này đã được ghi nhận vào hồ sơ uy tín của bạn.' : mine.outcome === 'NO_SHOW' ? 'Bạn đã cam kết tham gia và được chủ phòng báo vắng trong buổi chơi đã xác minh. Kết quả đã được tính vào uy tín. Nếu chưa đúng, hãy gửi hoặc sửa xác nhận của bạn và liên hệ chủ phòng cập nhật điểm danh.' : (hasReport ? mine.self_attended ? 'Người cùng chơi cần xác nhận bạn có mặt để hoàn tất đối chiếu.' : 'Đã ghi nhận bạn không tham gia. Hệ thống sẽ đối chiếu với chủ phòng và người cùng chơi; kết quả chỉ ảnh hưởng uy tín khi đủ điều kiện.' : supplementalEntry ? 'Bạn đã được duyệt vào phòng. Nếu thực sự có mặt nhưng quên xác nhận hoặc nhập mã, hãy khai báo bổ sung để người cùng chơi đối chiếu.' : 'Cho biết buổi có diễn ra và bạn có mặt không để hoàn tất điểm danh.')}</p>
       {showReport && <form className="sg-attendance-form" onSubmit={async (event) => { event.preventDefault(); const saved = await run(() => attendanceService.report(roomId, { occurred: occurred === 'true', attended: attended === 'true' }), 'Đã lưu xác nhận sau buổi chơi.'); if (saved) { reportDirty.current = false; setEditingReport(false); } }}>
@@ -257,20 +284,9 @@ export default function AttendanceRoomModal({ roomId, onClose, onChanged, requir
       </form>}
     </>;
     else if (isHost && allCheckedIn) action = <><h4><CheckCircle2 size={22} />Mọi người đã check-in đầy đủ</h4><p>Đã ghi nhận {state.checkin_progress.checked_in}/{state.checkin_progress.total} người. Mã check-in đã đóng.</p><div className="sg-attendance-next">Sau {hour(state.end_time)}, quay lại để xác nhận kết quả buổi chơi.</div></>;
-    else if (isHost && canCheckin) action = <>
-      <h4>{codeLive ? 'Mã check-in của buổi chơi' : renewingCode ? 'Đang đổi mã check-in…' : 'Đón người chơi tại sân'}</h4><p>{codeLive ? 'Mã tự đổi mỗi 1 phút. Chỉ chia sẻ với những người đang có mặt tại sân.' : 'Khi đã đến sân, tạo mã check-in để người chơi xác nhận có mặt.'}</p>
-      {codeLive && <div className="sg-attendance-code"><output aria-label="Mã check-in của phòng">{issuedCode.code}</output><span>Đổi mã sau {Math.floor(codeSeconds / 60)}:{String(codeSeconds % 60).padStart(2, '0')}<small>Mã cũ không còn dùng được sau khi đổi.</small></span></div>}
-      {!codeLive && state.code_expires_at && date(state.code_expires_at).getTime() > serverNow && <p className="sg-attendance-small">Mã đã tạo không hiển thị lại sau khi đóng cửa sổ. Tạo mã mới sẽ thay thế mã trước đó.</p>}
-      <button type="button" className={codeLive ? 'sg-attendance-text-button' : 'sg-primary-button'} disabled={busy} onClick={() => run(async () => { const issued = await attendanceService.openCode(roomId); setIssuedCode(issued.complete ? null : issued); return issued; }, 'Đã tạo mã check-in. Mã mới thay thế mã cũ.')}>{codeLive ? 'Đổi mã check-in' : state.code_expires_at ? 'Tạo mã check-in mới' : 'Tạo mã check-in'}</button>
-      {checkedIn && <p className="sg-attendance-small"><CheckCircle2 size={14} />Bạn đã check-in lúc {hour(mine.checked_in_at)}.</p>}
-    </>;
+    else if (isHost && canCheckin) action = hostCheckin;
     else if (checkedIn) action = <><h4><CheckCircle2 size={22} />Bạn đã check-in</h4><p>Đã ghi nhận lúc {hour(mine.checked_in_at)}. Chúc bạn có một buổi chơi vui!</p><div className="sg-attendance-next">Sau {hour(state.end_time)}, quay lại đây để xác nhận kết quả buổi chơi.</div></>;
-    else if (canCheckin) action = <>
-      <h4>Bạn đã đến sân chưa?</h4><p>Nhập mã 6 số do chủ phòng cung cấp khi bạn có mặt tại sân.</p>
-      <form className="sg-attendance-form" onSubmit={(event) => { event.preventDefault(); run(() => attendanceService.checkin(roomId, code), 'Check-in thành công.'); }}>
-        <label htmlFor="attendance-code">Mã check-in</label><div className="sg-attendance-checkin-input"><input id="attendance-code" value={code} inputMode="numeric" autoComplete="off" maxLength={6} pattern="[0-9]{6}" required placeholder="000000" onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))} /><button type="submit" className="sg-primary-button" disabled={busy || code.length !== 6}>Check-in tại sân</button></div>
-      </form>
-    </>;
+    else if (canCheckin) action = playerCheckin;
     else action = <><h4><CheckCircle2 size={22} />Đã xác nhận tham gia</h4><p>Hẹn gặp bạn tại sân. Check-in mở từ {time(checkinStarts.toISOString())}.</p><div className="sg-attendance-next">{isHost ? 'Khi đến sân, quay lại đây để tạo mã check-in cho người chơi.' : 'Khi đến sân, lấy mã từ chủ phòng và check-in tại đây.'}</div></>;
   }
 
@@ -289,12 +305,12 @@ export default function AttendanceRoomModal({ roomId, onClose, onChanged, requir
           {!requiredCount && !closed && state.low_attendance?.needs_decision && <LowAttendanceNotice state={state} ended={ended} isHost={isHost} busy={busy} run={run} />}
           <section className={`sg-attendance-action ${checkedIn || mine?.outcome === 'ATTENDED' ? 'is-success' : ''}`}>{action}</section>
           {requiredCount > 0 && isHost && !closed && state.low_attendance?.needs_decision && <LowAttendanceNotice state={state} ended={ended} isHost={isHost} busy={busy} run={run} />}
-          {!requiredCount && (state.can_manage || (ended && state.participants.length > 0)) && <Participants state={state} ended={ended} closed={closed} isHost={isHost} busy={busy} run={run} />}
+          {!requiredCount && (state.can_manage || (started && state.participants.length > 0)) && <Participants state={state} ended={ended} closed={closed} peerOpen={peerOpen} isHost={isHost} busy={busy} run={run} />}
           {showCancellation && <Disclosure title={isHost ? 'Hủy buổi chơi' : 'Tôi không thể tham gia'} className="sg-attendance-cancellation">{isHost ? <>
             <p>Buổi chơi sẽ bị hủy với tất cả thành viên và được gỡ khỏi danh sách tìm trận. Lịch sử vẫn được giữ; người chơi không bị tính vắng.</p><form className="sg-attendance-form" onSubmit={(event) => { event.preventDefault(); run(() => gameRoomService.remove(roomId), 'Đã hủy buổi chơi.'); }}><label className="sg-attendance-consent"><input type="checkbox" required checked={cancelAccepted} onChange={(event) => setCancelAccepted(event.target.checked)} /><span>Tôi muốn hủy buổi chơi cho tất cả thành viên.</span></label><button className="sg-attendance-secondary sg-attendance-danger" type="submit" disabled={busy || !cancelAccepted}>Xác nhận hủy buổi chơi</button></form>
           </> : <><p>Hãy báo cho chủ phòng biết lý do. Hủy trong {state.policy.late_cancel_minutes} phút trước giờ bắt đầu được ghi nhận là hủy sát giờ.</p><form className="sg-attendance-form" onSubmit={(event) => { event.preventDefault(); run(() => gameRoomService.leave(roomId, reason.trim()), 'Đã hủy tham gia và thông báo cho chủ phòng.'); }}><label>Lý do hủy<textarea required minLength={3} maxLength={500} value={reason} onChange={(event) => setReason(event.target.value)} /></label><button className="sg-attendance-secondary sg-attendance-danger" type="submit" disabled={busy || reason.trim().length < 3}>Xác nhận hủy tham gia</button></form></>}</Disclosure>}
           <div className="sg-attendance-extras">
-            <Disclosure title="Quy định tham gia"><ul><li>Sau giờ bắt đầu {state.low_attendance?.grace_minutes || 15} phút (hoặc khi buổi kết thúc nếu ngắn hơn), nếu chưa ghi nhận đủ 2 người có mặt, chủ phòng có thể tiếp tục hoặc hủy vì thiếu người. Hủy vì thiếu người không ảnh hưởng uy tín.</li><li>Hủy trong {state.policy.late_cancel_minutes} phút trước giờ bắt đầu được ghi nhận là hủy sát giờ; lượt hủy hiển thị riêng, không trừ điểm.</li><li>Check-in mở trước giờ chơi {state.policy.checkin_before_minutes} phút. Mã tự đổi mỗi 1 phút khi chủ phòng mở màn hình check-in và còn người chưa check-in; mã sẽ đóng khi tất cả thành viên đã được duyệt đều check-in.</li><li>Sau buổi, chủ phòng và người cùng chơi gửi phản hồi để xác minh buổi có diễn ra. Check-in hoặc đủ xác nhận chéo được dùng để đối chiếu.</li><li>Mỗi người cần ít nhất 2 người khác xác nhận có mặt; phòng chỉ có 2 người cần 1 người còn lại. Tự xác nhận không tính vào số này. Người đánh giá phải ở trong phòng và đã gửi phản hồi có mặt.</li><li>Người đã được duyệt vẫn có thể tham gia dù quên xác nhận hoặc nhập mã. Sau buổi, khai báo có mặt để đối chiếu bổ sung; việc này không tạo cam kết trước buổi hay lượt check-in bằng mã.</li><li>Thiếu xác nhận chéo hoặc thiếu check-in chưa đủ để kết luận vắng. Vắng không báo được tự tính khi đã cam kết, chủ phòng báo vắng, buổi chơi đã xác minh và không có check-in hay tranh chấp.</li></ul></Disclosure>
+            <Disclosure title="Quy định tham gia"><ul><li>Sau giờ bắt đầu {state.low_attendance?.grace_minutes || 15} phút (hoặc khi buổi kết thúc nếu ngắn hơn), nếu chưa ghi nhận đủ 2 người có mặt, chủ phòng có thể tiếp tục hoặc hủy vì thiếu người. Hủy vì thiếu người không ảnh hưởng uy tín.</li><li>Hủy trong {state.policy.late_cancel_minutes} phút trước giờ bắt đầu được ghi nhận là hủy sát giờ; lượt hủy hiển thị riêng, không trừ điểm.</li><li>Check-in mở từ giờ bắt đầu đến {state.policy.after_end_minutes ?? 30} phút sau khi buổi chơi kết thúc, để mọi người chơi xong vẫn kịp check-in. Mã tự đổi mỗi 1 phút khi chủ phòng mở màn hình check-in và còn người chưa check-in; mã sẽ đóng khi tất cả thành viên đã được duyệt đều check-in.</li><li>Từ giờ bắt đầu, người chơi có thể báo buổi có diễn ra và mình có mặt không; chủ phòng báo vắng bất cứ lúc nào sau khi buổi bắt đầu. Xác nhận chéo đóng sau {state.policy.after_end_minutes ?? 30} phút kể từ khi buổi kết thúc. Check-in hoặc đủ xác nhận chéo được dùng để đối chiếu.</li><li>Mỗi người cần ít nhất 2 người khác xác nhận có mặt; phòng chỉ có 2 người cần 1 người còn lại. Tự xác nhận không tính vào số này. Người đánh giá phải ở trong phòng và đã gửi phản hồi có mặt.</li><li>Người đã được duyệt vẫn có thể tham gia dù quên xác nhận hoặc nhập mã. Sau buổi, khai báo có mặt để đối chiếu bổ sung; việc này không tạo cam kết trước buổi hay lượt check-in bằng mã.</li><li>Thiếu xác nhận chéo hoặc thiếu check-in chưa đủ để kết luận vắng. Vắng không báo được tự tính khi đã cam kết, chủ phòng báo vắng, buổi chơi đã xác minh và không có check-in hay tranh chấp.</li></ul></Disclosure>
             <Disclosure title="Lịch sử hoạt động"><AttendanceHistory events={state.events} viewerId={mine?.user_id} /></Disclosure>
           </div>
         </>}

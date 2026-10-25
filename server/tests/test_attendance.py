@@ -65,6 +65,7 @@ class AttendanceTests(unittest.TestCase):
 
     def checkin(self, room, users):
         self.confirm(room, self.host)
+        self.stamp = max(self.stamp, room.start_time)  # Check-in opens at the start time.
         code = attendance.open_checkin(self.db, room, self.host)["code"]
         self.db.commit()
         for user in users:
@@ -732,7 +733,8 @@ class AttendanceTests(unittest.TestCase):
         attendance.check_in(self.db, room, self.player, code)
         self.assertEqual(attendance.record_for(self.db, room, self.player.id).checked_in_at, stamp)
         state = attendance.room_state(self.db, room, self.player)
-        self.assertEqual(state["participants"], [])
+        # Once the game has started players see who is playing, so they can confirm each other.
+        self.assertEqual({person["user_id"] for person in state["participants"]}, {self.host.id, self.player.id})
         self.assertNotIn(code, str(state))
         self.assertNotIn("code_hash", state)
         self.approve(room, self.witness)
@@ -753,6 +755,7 @@ class AttendanceTests(unittest.TestCase):
         attendance.confirm(self.db, room, self.player, state["terms_version"])
         self.confirm(room, self.witness)
         self.confirm(room, self.host)
+        self.stamp = room.start_time
         opened_at = self.stamp
         with patch("app.attendance.secrets.randbelow", side_effect=[123456, 123456, 654321]):
             first = attendance.open_checkin(self.db, room, self.host)
@@ -773,19 +776,82 @@ class AttendanceTests(unittest.TestCase):
         self.assertEqual(attendance.record_for(self.db, room, self.host.id).checked_in_at, opened_at)
         self.assertEqual(attendance.record_for(self.db, room, self.witness.id).checked_in_at, opened_at + timedelta(seconds=59))
 
-    def test_checkin_rotation_stops_at_room_end(self):
+    def test_checkin_opens_at_start_and_closes_thirty_minutes_after_end(self):
         room = self.room()
         self.approve(room, self.player)
-        room.start_time = self.stamp - timedelta(minutes=5)
-        room.end_time = self.stamp + timedelta(seconds=30)
-        self.db.commit()
         self.confirm(room, self.host)
-        result = attendance.open_checkin(self.db, room, self.host)
-        self.assertEqual(result["expires_at"], room.end_time)
-        self.stamp = room.end_time
+        self.confirm(room, self.player)
+        self.stamp = room.start_time - timedelta(seconds=1)
         with self.assertRaises(HTTPException) as error:
             attendance.open_checkin(self.db, room, self.host)
         self.assertEqual(error.exception.status_code, 409)
+        self.assertFalse(attendance.room_state(self.db, room, self.host)["checkin_available"])
+
+        # Players who only reach their phones after the game can still check in.
+        closes_at = room.end_time + timedelta(minutes=30)
+        self.stamp = closes_at - timedelta(seconds=30)
+        state = attendance.room_state(self.db, room, self.host)
+        self.assertTrue(state["checkin_available"])
+        self.assertEqual(state["window_closes_at"], closes_at)
+        self.assertTrue(state["peer_window_open"])
+        result = attendance.open_checkin(self.db, room, self.host)
+        self.assertEqual(result["expires_at"], closes_at)
+        attendance.check_in(self.db, room, self.player, result["code"])
+        self.assertIsNotNone(attendance.record_for(self.db, room, self.player.id).checked_in_at)
+
+        self.stamp = closes_at
+        with self.assertRaises(HTTPException) as error:
+            attendance.open_checkin(self.db, room, self.host)
+        self.assertEqual(error.exception.status_code, 409)
+
+    def test_peer_confirmation_closes_thirty_minutes_after_end_while_self_reports_stay_open(self):
+        room = self.room()
+        self.approve(room, self.player)
+        self.approve(room, self.witness)
+        self.confirm(room, self.witness)
+        self.stamp = room.start_time - timedelta(seconds=1)
+        with self.assertRaises(HTTPException) as error:
+            self.report(room, self.player)
+        self.assertEqual(error.exception.status_code, 409)
+
+        # From the start: "I was there" and peer confirmation both work during the game.
+        self.stamp = room.start_time + timedelta(minutes=10)
+        self.report(room, self.player)
+        self.report(room, self.witness)
+        self.peer(room, self.witness, self.player)
+        self.assertTrue(attendance.room_state(self.db, room, self.witness)["peer_window_open"])
+        self.assertFalse(attendance.room_state(self.db, room, self.player)["feedback_required"])
+
+        # Peer confirmation closes at end + 30 minutes; the host and players can still submit their results.
+        self.stamp = room.end_time + timedelta(minutes=30)
+        self.assertFalse(attendance.room_state(self.db, room, self.host)["peer_window_open"])
+        with self.assertRaises(HTTPException) as error:
+            self.peer(room, self.host, self.player)
+        self.assertEqual(error.exception.status_code, 409)
+        attendance.report_host(self.db, room, self.host, self.witness.id, "ABSENT")
+        self.db.commit()
+        self.report(room, self.host, occurred=True, attended=True)
+        self.assertIsNone(attendance.required_feedback(self.db, self.player.id)["room"])
+
+    def test_feedback_reminder_only_after_the_end_for_players_who_have_not_reported(self):
+        room = self.room()
+        self.approve(room, self.player)
+        self.stamp = room.end_time - timedelta(minutes=1)
+        self.assertFalse(attendance.room_state(self.db, room, self.player)["feedback_required"])
+        self.stamp = room.end_time + timedelta(minutes=1)
+        self.assertTrue(attendance.room_state(self.db, room, self.player)["feedback_required"])
+        self.assertEqual(attendance.required_feedback(self.db, self.player.id)["room"]["match_id"], room.id)
+
+    def test_old_room_policies_use_the_new_checkin_window(self):
+        room = self.room()
+        session = attendance.session_for(self.db, room)
+        policy = {key: value for key, value in session.policy.items() if key != "after_end_minutes"}
+        session.policy = {**policy, "checkin_before_minutes": 30}
+        self.db.commit()
+        self.stamp = room.start_time - timedelta(minutes=10)
+        self.assertFalse(attendance.room_state(self.db, room, self.host)["checkin_available"])
+        self.stamp = room.end_time + timedelta(minutes=20)
+        self.assertTrue(attendance.room_state(self.db, room, self.host)["checkin_available"])
 
     def test_all_checkins_close_the_code_and_do_not_generate_or_audit_more_rotations(self):
         room = self.room()
@@ -829,6 +895,7 @@ class AttendanceTests(unittest.TestCase):
     def test_solo_host_checks_in_without_creating_an_unneeded_code(self):
         room = self.room()
         self.confirm(room, self.host)
+        self.stamp = room.start_time
         with patch("app.attendance.secrets.randbelow", side_effect=AssertionError("No one needs a code")):
             result = attendance.open_checkin(self.db, room, self.host)
             self.db.commit()

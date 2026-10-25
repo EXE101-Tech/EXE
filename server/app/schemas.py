@@ -367,6 +367,36 @@ class OwnerScheduleItem(BaseModel):
     note: Optional[str] = None
 
 
+class PublicUserSport(BaseModel):
+    sport_id: int
+    sport_name: Optional[str] = None
+    skill_level: Optional[str] = None
+    games_played: int = 0
+
+
+class PublicFriendshipState(BaseModel):
+    id: Optional[int] = None
+    status: Literal["none", "friends", "outgoing", "incoming"] = "none"
+
+
+class PublicUserProfile(BaseModel):
+    id: int
+    name: str
+    avatar_url: Optional[str] = None
+    cover_url: Optional[str] = None
+    bio: Optional[str] = None
+    district: Optional[str] = None
+    is_premium: bool = False
+    member_since: Optional[datetime] = None
+    games_played: int = 0
+    hosted_games: int = 0
+    teams_joined: int = 0
+    sports: List[PublicUserSport] = []
+    reputation: dict
+    is_self: bool = False
+    friendship: PublicFriendshipState
+
+
 class UserStatsResponse(BaseModel):
     games_played: int = 0
     games_by_sport: Dict[int, int] = Field(default_factory=dict)
@@ -957,6 +987,8 @@ class SocialPostResponse(BaseModel):
     like_count: int = 0
     comment_count: int = 0
     liked_by_me: bool = False
+    reaction_counts: Dict[str, int] = Field(default_factory=dict)
+    my_reaction: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -964,6 +996,12 @@ class SocialPostResponse(BaseModel):
 class SocialPostLikeResponse(BaseModel):
     liked: bool
     like_count: int
+    reaction_counts: Dict[str, int] = Field(default_factory=dict)
+    my_reaction: Optional[str] = None
+
+
+class SocialPostReactionUpdate(BaseModel):
+    reaction: Literal["like", "fire", "bolt", "gg", "trophy", "haha", "toang"] = "like"
 
 
 class SocialPostInteractionResponse(BaseModel):
@@ -971,6 +1009,8 @@ class SocialPostInteractionResponse(BaseModel):
     like_count: int
     comment_count: int
     liked_by_me: bool
+    reaction_counts: Dict[str, int] = Field(default_factory=dict)
+    my_reaction: Optional[str] = None
 
 
 class SocialPostCommentContent(BaseModel):
@@ -1026,6 +1066,8 @@ class SocialPostCommentPageResponse(BaseModel):
     oldest_root_id: Optional[int] = None
     like_count: int = 0
     liked_by_me: bool = False
+    reaction_counts: Dict[str, int] = Field(default_factory=dict)
+    my_reaction: Optional[str] = None
 
 
 class SocialPostCommentReactionResponse(BaseModel):

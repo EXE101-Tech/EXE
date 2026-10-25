@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Check, Clock3, LoaderCircle, Users, UserX, X } from 'lucide-react';
 import { lfgService, resolveMediaUrl } from '../../../shared/services/api';
+import ProfileLink from '../../../shared/components/ProfileLink';
 
 const formatDate = (value) => {
   if (!value) return '—';
@@ -94,11 +95,11 @@ export default function LfgParticipantsModal({ isOpen, post, onClose, onChanged 
             <ul className="space-y-2">
               {participants.map((participant, index) => (
                 <li key={participant.id} className="flex items-center gap-3 rounded-xl border border-slate-200 p-3 dark:border-white/10">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-emerald-100 font-black text-[#589470] dark:bg-emerald-400/15 dark:text-[#74C365]">
+                  <ProfileLink userId={participant.user_id} name={participant.name} className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-emerald-100 font-black text-[#589470] dark:bg-emerald-400/15 dark:text-[#74C365]">
                     {participant.avatar_url ? <img src={resolveMediaUrl(participant.avatar_url)} alt="" className="h-full w-full object-cover" /> : participant.name?.charAt(0)?.toUpperCase() || '?' }
-                  </span>
+                  </ProfileLink>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-bold text-slate-900 dark:text-white">{participant.name}</span>
+                    <ProfileLink userId={participant.user_id} name={participant.name} className="block max-w-full truncate"><span className="block truncate text-sm font-bold text-slate-900 dark:text-white">{participant.name}</span></ProfileLink>
                     <span className="mt-0.5 flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400"><Clock3 className="h-3 w-3" /> {formatDate(participant.joined_at)}{activeStatus === 'PENDING' ? ` · #${index + 1}` : ''}</span>
                   </span>
                   {activeStatus === 'PENDING' ? (

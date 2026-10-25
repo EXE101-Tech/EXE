@@ -3,16 +3,28 @@ import { CalendarDays, Check, CheckCircle2, ChevronDown, ClipboardCheck, Crown, 
 import { attendanceService, gameRoomService, resolveMediaUrl } from '../../../shared/services/api';
 import { formatStoredCost } from '../../../shared/utils/price';
 import ReputationBadge from '../../../shared/components/ReputationBadge';
+import { useUserProfile } from '../../../shared/context/UserProfileContext';
 
 const date = (value) => new Date(/(?:Z|[+-]\d\d:\d\d)$/.test(value) ? value : `${value}Z`);
 const schedule = (room) => `${date(room.start_time).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })} · ${date(room.start_time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} – ${date(room.end_time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`;
 const personInfo = (person) => {
   const user = person.user || person;
-  return { id: person.user_id || user.id, name: user.profile?.full_name || user.name || person.name || user.email || 'Người chơi', avatar: resolveMediaUrl(user.profile?.avatar_url || user.avatar || user.avatar_url || person.avatar), reputation: user.reputation };
+  return { id: person.user_id || user.id, name: user.profile?.full_name || user.name || person.name || user.email || 'Người chơi', avatar: resolveMediaUrl(user.profile?.avatar_url || user.avatar || user.avatar_url || person.avatar), reputation: user.reputation, isPremium: Boolean(user.isPremium ?? user.is_premium) };
 };
 
 function Avatar({ person }) {
-  return <span className="sg-room-manager-avatar">{person.avatar ? <img src={person.avatar} alt="" /> : person.name.charAt(0).toUpperCase()}</span>;
+  const { openProfile } = useUserProfile();
+  return <button type="button" className={`sg-room-manager-avatar sg-profile-trigger ${person.isPremium ? 'sg-premium-avatar' : ''}`} onClick={() => openProfile(person.id)} aria-label={`Xem hồ sơ ${person.name}`} disabled={!person.id}>{person.avatar ? <img src={person.avatar} alt="" /> : person.name.charAt(0).toUpperCase()}</button>;
+}
+
+function ProfileName({ person }) {
+  const { openProfile } = useUserProfile();
+  return person.id ? <button type="button" className={`sg-profile-name-link ${person.isPremium ? 'sg-premium-name' : ''}`} onClick={() => openProfile(person.id)}>{person.name}</button> : person.name;
+}
+
+function ViewProfileButton({ person }) {
+  const { openProfile } = useUserProfile();
+  return <button type="button" className="sg-attendance-text-button" onClick={() => openProfile(person.id)}>Xem hồ sơ</button>;
 }
 
 function RoomManager({ room, onClose, onAttendance, onEdit, onDelete, onChanged, onMessage }) {
@@ -100,7 +112,7 @@ function RoomManager({ room, onClose, onAttendance, onEdit, onDelete, onChanged,
   const renderMember = (person, isHost = false) => {
     const checkin = checkinByUser.get(person.id);
     return <div className="sg-room-manager-member" key={person.id || 'host'}>
-      <div className="sg-room-manager-person"><Avatar person={person} /><div><strong>{person.name}{isHost && <span className="sg-room-manager-host"><Crown size={11} />Chủ phòng</span>}</strong><span className={`sg-room-manager-presence ${checkin?.checked_in_at ? 'is-present' : ''}`}>{checkin?.checked_in_at ? <><CheckCircle2 size={12} />Đã check-in</> : checkin?.confirmation_status === 'CONFIRMED' ? 'Đã xác nhận sẽ đến' : 'Chưa xác nhận tham gia'}</span></div></div>
+      <div className="sg-room-manager-person"><Avatar person={person} /><div><strong><ProfileName person={person} />{isHost && <span className="sg-room-manager-host"><Crown size={11} />Chủ phòng</span>}</strong><span className={`sg-room-manager-presence ${checkin?.checked_in_at ? 'is-present' : ''}`}>{checkin?.checked_in_at ? <><CheckCircle2 size={12} />Đã check-in</> : checkin?.confirmation_status === 'CONFIRMED' ? 'Đã xác nhận sẽ đến' : 'Chưa xác nhận tham gia'}</span></div></div>
       {!isHost && <div className="sg-room-manager-member-actions">{onMessage && <button type="button" className="sg-attendance-text-button" onClick={() => onMessage(person)}>Nhắn tin</button>}{!closed && <button type="button" className="sg-room-manager-remove" disabled={busy} onClick={() => setRemoveId(removeId === person.id ? null : person.id)}>Gỡ khỏi phòng</button>}</div>}
       {removeId === person.id && <div className="sg-room-manager-confirm"><p>Gỡ <strong>{person.name}</strong> khỏi phòng? Người này sẽ được thông báo; lịch sử tham gia vẫn được giữ.</p><div><button type="button" className="sg-attendance-secondary" disabled={busy} onClick={() => setRemoveId(null)}>Giữ thành viên</button><button type="button" className="sg-attendance-secondary sg-attendance-danger" disabled={busy} onClick={() => updateStatus(person, 'REJECTED')}>Xác nhận gỡ</button></div></div>}
     </div>;
@@ -117,10 +129,10 @@ function RoomManager({ room, onClose, onAttendance, onEdit, onDelete, onChanged,
       <section id={`${id}-panel`} role="tabpanel" aria-labelledby={`${id}-${tab}`} className="sg-room-manager-panel">
         {tab === 'requests' ? closed && expired.length ? <>
           <p className="sg-room-manager-hint">Các yêu cầu này chưa được duyệt trước khi buổi kết thúc. Người gửi không cần đánh giá và không bị ảnh hưởng uy tín.</p>
-          {expired.map((request) => { const person = personInfo(request); return <div className="sg-room-manager-request" key={person.id}><div className="sg-room-manager-person"><Avatar person={person} /><div><strong>{person.name}</strong><span>Yêu cầu đã hết hạn</span></div></div></div>; })}
+          {expired.map((request) => { const person = personInfo(request); return <div className="sg-room-manager-request" key={person.id}><div className="sg-room-manager-person"><Avatar person={person} /><div><strong><ProfileName person={person} /></strong><span>Yêu cầu đã hết hạn</span></div></div></div>; })}
         </> : pending.length ? <>
           <p className="sg-room-manager-hint">{count >= capacity ? 'Phòng đã đủ người. Bạn có thể tăng số chỗ trong phần chỉnh sửa phòng.' : 'Xem thông tin và lời nhắn trước khi duyệt người chơi vào phòng.'}</p>
-          {pending.map((request) => { const person = personInfo(request); return <div className="sg-modal-pending sg-room-manager-request" key={person.id}><div className="sg-room-manager-person"><Avatar person={person} /><div><strong>{person.name}</strong><ReputationBadge reputation={person.reputation} compact />{request.joined_at && <span>Gửi lúc {date(request.joined_at).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>}</div></div>{request.note && <p className="sg-room-manager-note">{request.note}</p>}<div className="sg-room-manager-request-actions"><button type="button" className="sg-attendance-secondary" disabled={busy || closed} onClick={() => updateStatus(person, 'REJECTED')}>Từ chối</button><button type="button" className="sg-primary-button" disabled={busy || closed || count >= capacity} onClick={() => updateStatus(person, 'APPROVED')}><Check size={14} />Duyệt vào</button></div></div>; })}
+          {pending.map((request) => { const person = personInfo(request); return <div className="sg-modal-pending sg-room-manager-request" key={person.id}><div className="sg-room-manager-person"><Avatar person={person} /><div><strong><ProfileName person={person} /></strong><ReputationBadge reputation={person.reputation} compact />{request.joined_at && <span>Gửi lúc {date(request.joined_at).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>}</div></div>{request.note && <p className="sg-room-manager-note">{request.note}</p>}<div className="sg-room-manager-request-actions"><ViewProfileButton person={person} /><button type="button" className="sg-attendance-secondary" disabled={busy || closed} onClick={() => updateStatus(person, 'REJECTED')}>Từ chối</button><button type="button" className="sg-primary-button" disabled={busy || closed || count >= capacity} onClick={() => updateStatus(person, 'APPROVED')}><Check size={14} />Duyệt vào</button></div></div>; })}
         </> : <div className="sg-room-manager-empty"><CheckCircle2 size={24} /><strong>Không có yêu cầu đang chờ</strong><p>Người chơi mới gửi yêu cầu sẽ xuất hiện tại đây.</p><button type="button" className="sg-attendance-text-button" onClick={() => setTab('members')}>Xem thành viên trong phòng</button></div> : <>{renderMember(host, true)}{members.map((person) => renderMember(personInfo(person)))}</>}
       </section>
       <details className="sg-attendance-disclosure sg-room-manager-options"><summary>Tùy chọn khác<ChevronDown size={15} /></summary><div className="sg-attendance-disclosure-content"><p>{closed ? 'Gỡ phòng khỏi danh sách. Lịch sử điểm danh được giữ lại.' : 'Hủy buổi chơi cho tất cả thành viên. Người chơi sẽ nhận thông báo và không bị tính vắng.'}</p>{confirmCancel ? <div className="sg-room-manager-confirm"><p>{closed ? 'Gỡ phòng này khỏi danh sách?' : `Hủy buổi chơi của ${count} thành viên?`}</p><div><button type="button" className="sg-attendance-secondary" disabled={busy} onClick={() => setConfirmCancel(false)}>Quay lại</button><button type="button" className="sg-attendance-secondary sg-attendance-danger" disabled={busy} onClick={deleteRoom}>{closed ? 'Xác nhận gỡ phòng' : 'Xác nhận hủy buổi'}</button></div></div> : <button type="button" className="sg-room-manager-remove" disabled={busy} onClick={() => setConfirmCancel(true)}>{closed ? 'Gỡ phòng' : 'Hủy buổi chơi'}</button>}</div></details>

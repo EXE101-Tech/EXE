@@ -17,6 +17,7 @@ import AdminDashboard from '../features/admin/AdminDashboard.jsx';
 import PrivacyPolicyPage from '../features/legal/PrivacyPolicyPage.jsx';
 import AccountDeletionPage from '../features/legal/AccountDeletionPage.jsx';
 import { SportFilterProvider } from '../shared/context/SportFilterContext.jsx';
+import { UserProfileProvider } from '../shared/context/UserProfileContext.jsx';
 
 function GlobalWrapper({ children }) {
     return (
@@ -50,7 +51,7 @@ function MemberLayout() {
     const { user } = useAuth();
     if (user?.isAdmin) return <Navigate to="/admin" replace />;
     if (user && localStorage.getItem('sportgo-onboarding-pending') === String(user.id)) return <Navigate to="/onboarding" replace />;
-    return <RequiredFeedbackGate key={user.id}><NavbarLayout /></RequiredFeedbackGate>;
+    return <UserProfileProvider><RequiredFeedbackGate key={user.id}><NavbarLayout /></RequiredFeedbackGate></UserProfileProvider>;
 }
 
 function AdminRoute({ children }) {

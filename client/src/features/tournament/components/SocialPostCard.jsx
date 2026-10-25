@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Ban, Flag, Heart, LoaderCircle, MessageCircle, Pencil, Send, Trash2, UserPlus, UserRoundCheck, X } from 'lucide-react';
+import { Ban, Flag, LoaderCircle, MessageCircle, Pencil, Send, Trash2, UserPlus, UserRoundCheck, X } from 'lucide-react';
 import { chatService, moderationService, resolveMediaUrl, socialPostService } from '../../../shared/services/api';
+import ProfileLink from '../../../shared/components/ProfileLink';
+import { ReactionButton, ReactionSummary } from '../../../shared/components/SportReactions';
 
 const normalizeUtcTimestamp = (value) => {
   if (typeof value !== 'string' || !value) return value;
@@ -115,7 +117,8 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
       if (event.type === 'like_changed') {
         updatePostMetrics({
           like_count: event.like_count,
-          ...(Number(event.actor_id) === Number(user?.id) ? { liked_by_me: event.liked } : {}),
+          ...(event.reaction_counts ? { reaction_counts: event.reaction_counts } : {}),
+          ...(Number(event.actor_id) === Number(user?.id) ? { liked_by_me: event.liked, my_reaction: event.actor_reaction ?? null } : {}),
         });
       } else if (event.type === 'comment_created') {
         if (commentsOpen && event.comment) {
@@ -194,6 +197,8 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
           updatePostMetrics({
             like_count: page.like_count,
             liked_by_me: page.liked_by_me,
+            reaction_counts: page.reaction_counts,
+            my_reaction: page.my_reaction,
           });
         }
         setCommentError('');
@@ -244,21 +249,28 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
     }
   };
 
-  const toggleLike = async () => {
+  // `reaction` is a sticker key, or null to remove the current one.
+  const react = async (reaction) => {
     if (isLiking) return;
-    const previousLiked = liked;
-    const previousCount = likeCount;
-    const nextLiked = !liked;
-    const nextCount = Math.max(0, likeCount + (nextLiked ? 1 : -1));
-    updatePostMetrics({ liked_by_me: nextLiked, like_count: nextCount });
+    const previous = { liked_by_me: liked, like_count: likeCount, reaction_counts: post.reaction_counts, my_reaction: post.my_reaction };
+    const previousReaction = liked ? (post.my_reaction || 'like') : null;
+    const counts = { ...(post.reaction_counts || {}) };
+    if (previousReaction) counts[previousReaction] = Math.max(0, (counts[previousReaction] || 1) - 1);
+    if (reaction) counts[reaction] = (counts[reaction] || 0) + 1;
+    updatePostMetrics({
+      liked_by_me: Boolean(reaction),
+      my_reaction: reaction,
+      reaction_counts: counts,
+      like_count: Math.max(0, likeCount + (reaction ? 1 : 0) - (previousReaction ? 1 : 0)),
+    });
     setIsLiking(true);
     setActionError('');
     try {
-      const result = nextLiked ? await socialPostService.like(post.id) : await socialPostService.unlike(post.id);
-      updatePostMetrics({ liked_by_me: result.liked, like_count: result.like_count });
+      const result = reaction ? await socialPostService.like(post.id, reaction) : await socialPostService.unlike(post.id);
+      updatePostMetrics({ liked_by_me: result.liked, like_count: result.like_count, reaction_counts: result.reaction_counts, my_reaction: result.my_reaction });
     } catch (error) {
-      updatePostMetrics({ liked_by_me: previousLiked, like_count: previousCount });
-      setActionError(error.message || 'Không thể cập nhật lượt thích.');
+      updatePostMetrics(previous);
+      setActionError(error.message || 'Không thể cập nhật cảm xúc.');
     } finally {
       setIsLiking(false);
     }
@@ -490,10 +502,10 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
     const replies = repliesByParent.get(comment.id) || [];
     return <div key={comment.id} className={isReply ? 'ml-9 mt-3 border-l border-slate-200 pl-3 dark:border-white/10' : ''}>
       <div className="flex items-start gap-2.5">
-        <Avatar src={comment.author_avatar_url} name={comment.author_name} className={isReply ? 'h-7 w-7 text-[10px]' : 'h-8 w-8 text-xs'} />
+        <ProfileLink userId={comment.author_id} name={comment.author_name} className="shrink-0 rounded-full"><Avatar src={comment.author_avatar_url} name={comment.author_name} className={isReply ? 'h-7 w-7 text-[10px]' : 'h-8 w-8 text-xs'} /></ProfileLink>
         <div className="min-w-0 flex-1 rounded-2xl bg-slate-50 px-3 py-2 dark:bg-white/5">
           <div className="flex items-center justify-between gap-2">
-            <span className="truncate text-xs font-extrabold text-slate-800 dark:text-white">{comment.author_name}</span>
+            <ProfileLink userId={comment.author_id} name={comment.author_name} className="min-w-0 truncate"><span className="truncate text-xs font-extrabold text-slate-800 dark:text-white">{comment.author_name}</span></ProfileLink>
             <div className="flex shrink-0 items-center gap-2">
               {isCommentAuthor && !isEditing && <button type="button" onClick={() => startEditingComment(comment)} title="Sửa bình luận" aria-label="Sửa bình luận" className="text-slate-400 hover:text-emerald-600"><Pencil className="h-3.5 w-3.5" /></button>}
               {(isCommentAuthor || isMine) && <button type="button" onClick={() => removeComment(comment)} title="Xóa bình luận" aria-label="Xóa bình luận" className="text-slate-400 hover:text-rose-500"><Trash2 className="h-3.5 w-3.5" /></button>}
@@ -534,10 +546,10 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
     <article className="sg-panel sg-post-card overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-sm transition-shadow hover:shadow-lg dark:border-white/10 dark:bg-slate-900/80">
       <header className="flex items-center gap-3 px-4 py-4 sm:px-5">
         <div className={`rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500 p-[2px] ${post.author_is_premium ? 'sg-premium-avatar-shell' : ''}`}>
-          <div className="rounded-full bg-white p-[2px] dark:bg-slate-900"><Avatar src={post.author_avatar_url} name={post.author_name} className="h-10 w-10" /></div>
+          <ProfileLink userId={post.author_id} name={post.author_name} className="block rounded-full bg-white p-[2px] dark:bg-slate-900"><Avatar src={post.author_avatar_url} name={post.author_name} className="h-10 w-10" /></ProfileLink>
         </div>
         <div className="min-w-0 flex-1">
-          <p className={`truncate text-sm font-extrabold text-slate-900 dark:text-white ${post.author_is_premium ? 'sg-premium-name' : ''}`}>{post.author_name}</p>
+          <p className={`truncate text-sm font-extrabold text-slate-900 dark:text-white ${post.author_is_premium ? 'sg-premium-name' : ''}`}><ProfileLink userId={post.author_id} name={post.author_name} className="max-w-full truncate">{post.author_name}</ProfileLink></p>
           <time className="text-xs text-slate-500 dark:text-slate-400" dateTime={normalizeUtcTimestamp(post.created_at)}>{formatDate(post.created_at)}</time>
         </div>
         {!isMine && <div className="flex shrink-0 items-center gap-1"><button type="button" onClick={() => report('post', post.id)} title="Báo cáo bài viết" aria-label="Báo cáo bài viết" className="rounded-xl p-2 text-slate-400 hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-400/10"><Flag className="h-4 w-4" /></button><button type="button" onClick={blockAuthor} title="Chặn người dùng" aria-label="Chặn người dùng" className="rounded-xl p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-400/10"><Ban className="h-4 w-4" /></button><button type="button" onClick={connectOrMessage} disabled={friendBusy || post.friendship_status === 'outgoing'} className="inline-flex items-center gap-1.5 rounded-xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-default disabled:opacity-65 dark:bg-white/10 dark:text-slate-200 dark:hover:bg-emerald-400/10 dark:hover:text-emerald-200">
@@ -557,9 +569,8 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
       <div className="px-4 sm:px-5">
         <div className="flex items-center justify-between py-3">
           <div className="flex items-center gap-4">
-            <button type="button" onClick={toggleLike} disabled={isLiking} aria-pressed={liked} className={`inline-flex items-center gap-2 text-sm font-bold transition ${liked ? 'text-rose-600 dark:text-rose-400' : 'text-slate-600 hover:text-rose-600 dark:text-slate-300'}`}>
-              <Heart className={`h-5 w-5 ${liked ? 'fill-current' : ''}`} /> Thích <span className="tabular-nums">{likeCount}</span>
-            </button>
+            <ReactionButton myReaction={liked ? (post.my_reaction || 'like') : null} disabled={isLiking} onReact={react} />
+            <ReactionSummary counts={post.reaction_counts || (likeCount ? { like: likeCount } : {})} total={likeCount} />
             <button type="button" onClick={() => setCommentsOpen((open) => !open)} aria-expanded={commentsOpen} className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-emerald-700 dark:text-slate-300 dark:hover:text-emerald-300">
               <MessageCircle className="h-5 w-5" /> Bình luận <span className="tabular-nums">{commentCount}</span>
             </button>

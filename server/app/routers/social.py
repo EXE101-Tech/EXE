@@ -75,6 +75,28 @@ def _friend_states(db: Session, user_id: int, peer_ids: set[int]) -> dict[int, s
     return states
 
 
+def _post_reactions(db: Session, post_ids, current_user_id: int):
+    """Per-post sticker counts plus the viewer's own pick. A like without a sticker row counts as "like"."""
+    counts, mine = {}, {}
+    if not post_ids:
+        return counts, mine
+    reaction = func.coalesce(models.SocialPostReaction.reaction, "like")
+    rows = db.query(models.SocialPostLike.post_id, reaction, func.count(models.SocialPostLike.id)).outerjoin(
+        models.SocialPostReaction,
+        (models.SocialPostReaction.post_id == models.SocialPostLike.post_id)
+        & (models.SocialPostReaction.user_id == models.SocialPostLike.user_id),
+    ).filter(models.SocialPostLike.post_id.in_(post_ids)).group_by(models.SocialPostLike.post_id, reaction).all()
+    for post_id, kind, count in rows:
+        counts.setdefault(post_id, {})[kind] = count
+    for post_id, kind in db.query(models.SocialPostLike.post_id, reaction).outerjoin(
+        models.SocialPostReaction,
+        (models.SocialPostReaction.post_id == models.SocialPostLike.post_id)
+        & (models.SocialPostReaction.user_id == models.SocialPostLike.user_id),
+    ).filter(models.SocialPostLike.post_id.in_(post_ids), models.SocialPostLike.user_id == current_user_id).all():
+        mine[post_id] = kind
+    return counts, mine
+
+
 def _post_payloads(db: Session, posts: list[models.SocialPost], current_user_id: int):
     if not posts:
         return []
@@ -93,6 +115,7 @@ def _post_payloads(db: Session, posts: list[models.SocialPost], current_user_id:
         ).all()
     }
     friendship_states = _friend_states(db, current_user_id, author_ids)
+    reaction_counts, my_reactions = _post_reactions(db, post_ids, current_user_id)
     payloads = []
     for post in posts:
         profile = post.author.profile if post.author else None
@@ -111,6 +134,8 @@ def _post_payloads(db: Session, posts: list[models.SocialPost], current_user_id:
             "like_count": likes.get(post.id, 0),
             "comment_count": comments.get(post.id, 0),
             "liked_by_me": post.id in liked_ids,
+            "reaction_counts": reaction_counts.get(post.id, {}),
+            "my_reaction": my_reactions.get(post.id),
             "created_at": post.created_at,
             "updated_at": post.updated_at,
         })
@@ -274,12 +299,15 @@ def get_social_post_interactions(
             models.SocialPostLike.user_id == current_user.id,
         ).all()
     }
+    reaction_counts, my_reactions = _post_reactions(db, allowed_ids, current_user.id)
     return [
         {
             "post_id": post_id,
             "like_count": like_counts.get(post_id, 0),
             "comment_count": comment_counts.get(post_id, 0),
             "liked_by_me": post_id in liked_ids,
+            "reaction_counts": reaction_counts.get(post_id, {}),
+            "my_reaction": my_reactions.get(post_id),
         }
         for post_id in post_ids if post_id in allowed_ids
     ]
@@ -474,27 +502,26 @@ def delete_social_post(
 @router.put("/{post_id}/like", response_model=schemas.SocialPostLikeResponse)
 def like_social_post(
     post_id: int,
+    data: Optional[schemas.SocialPostReactionUpdate] = None,
     current_user: models.User = Depends(auth_utils.get_current_user),
     db: Session = Depends(database.get_db),
 ):
     _ensure_interaction_allowed(current_user)
     _post_or_404(db, post_id)
+    kind = data.reaction if data else "like"
     like = db.query(models.SocialPostLike).filter_by(post_id=post_id, user_id=current_user.id).first()
     if not like:
         db.add(models.SocialPostLike(post_id=post_id, user_id=current_user.id))
-        try:
-            db.commit()
-        except IntegrityError:
-            db.rollback()
-    like_count = db.query(func.count(models.SocialPostLike.id)).filter_by(post_id=post_id).scalar() or 0
-    publish_social_event(post_id, {
-        "type": "like_changed",
-        "post_id": post_id,
-        "actor_id": current_user.id,
-        "liked": True,
-        "like_count": like_count,
-    })
-    return {"liked": True, "like_count": like_count}
+    sticker = db.query(models.SocialPostReaction).filter_by(post_id=post_id, user_id=current_user.id).first()
+    if sticker:
+        sticker.reaction = kind
+    else:
+        db.add(models.SocialPostReaction(post_id=post_id, user_id=current_user.id, reaction=kind))
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+    return _publish_reaction(db, post_id, current_user.id, True)
 
 
 @router.delete("/{post_id}/like", response_model=schemas.SocialPostLikeResponse)
@@ -506,16 +533,24 @@ def unlike_social_post(
     _ensure_interaction_allowed(current_user)
     _post_or_404(db, post_id)
     db.query(models.SocialPostLike).filter_by(post_id=post_id, user_id=current_user.id).delete(synchronize_session=False)
+    db.query(models.SocialPostReaction).filter_by(post_id=post_id, user_id=current_user.id).delete(synchronize_session=False)
     db.commit()
+    return _publish_reaction(db, post_id, current_user.id, False)
+
+
+def _publish_reaction(db: Session, post_id: int, user_id: int, liked: bool):
     like_count = db.query(func.count(models.SocialPostLike.id)).filter_by(post_id=post_id).scalar() or 0
+    counts, mine = _post_reactions(db, [post_id], user_id)
     publish_social_event(post_id, {
         "type": "like_changed",
         "post_id": post_id,
-        "actor_id": current_user.id,
-        "liked": False,
+        "actor_id": user_id,
+        "liked": liked,
         "like_count": like_count,
+        "reaction_counts": counts.get(post_id, {}),
+        "actor_reaction": mine.get(post_id),
     })
-    return {"liked": False, "like_count": like_count}
+    return {"liked": liked, "like_count": like_count, "reaction_counts": counts.get(post_id, {}), "my_reaction": mine.get(post_id)}
 
 
 @router.get("/{post_id}/comments", response_model=list[schemas.SocialPostCommentResponse])
@@ -574,6 +609,7 @@ def list_social_post_comment_page(
         post_id=post_id,
         user_id=current_user.id,
     ).first() is not None
+    reaction_counts, my_reactions = _post_reactions(db, [post_id], current_user.id)
     return {
         "items": _comments_payload(db, comments, current_user.id),
         "total_count": total_count,
@@ -582,6 +618,8 @@ def list_social_post_comment_page(
         "oldest_root_id": roots[-1].id if roots else None,
         "like_count": like_count,
         "liked_by_me": liked_by_me,
+        "reaction_counts": reaction_counts.get(post_id, {}),
+        "my_reaction": my_reactions.get(post_id),
     }
 
 

@@ -22,7 +22,8 @@
     "react-i18next": "^17.0.8",
     "react-leaflet": "^5.0.0",
     "react-router-dom": "^7.17.0",
-    "tailwindcss": "^4.3.0"
+    "tailwindcss": "^4.3.0",
+    "three": "^0.170.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
