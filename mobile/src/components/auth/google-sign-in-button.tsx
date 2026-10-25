@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 
+import { GoogleLogo } from '@/components/auth/google-logo';
 import { CommunityRulesModal } from '@/components/moderation/community-rules-modal';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
@@ -114,6 +115,7 @@ export function GoogleSignInButton({ label = 'Google', onError, acceptedTerms = 
   return (
     <View>
       <Button variant="outline" onPress={handlePress} loading={busy}>
+        <GoogleLogo size={20} />
         <Text className="text-base font-bold text-slate-900 dark:text-white">{label}</Text>
       </Button>
       <CommunityRulesModal visible={rulesOpen} onClose={() => setRulesOpen(false)} />

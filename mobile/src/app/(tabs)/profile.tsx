@@ -139,11 +139,12 @@ export default function ProfileScreen() {
         </View>
 
         <View className="bg-white px-5 pb-6 dark:bg-[#111827]">
-          <View className="-mt-10 flex-row items-end gap-4 pb-4">
+          <View className="-mt-10 flex-row items-start gap-4 pb-4">
             <View className="rounded-full border-4 border-white p-0.5 dark:border-[#111827]">
               <Avatar uri={user.profile?.avatar_url} fallback={displayName} size={80} premium={user.isPremium} />
             </View>
-            <View className="flex-1 pb-1">
+            {/* mt-11 clears the avatar's 40px overlap, so the name sits fully below the cover instead of under it. */}
+            <View className="mt-11 flex-1 pb-1">
               <View className="flex-row items-center gap-1.5">
                 <UserName premium={user.isPremium} className="shrink text-xl font-black" numberOfLines={1}>
                   {displayName}

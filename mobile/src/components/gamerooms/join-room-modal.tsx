@@ -131,7 +131,9 @@ export function JoinRoomModal({ room, isLoading = false, onClose, onConfirm }: J
           onChangeText={setNote}
           placeholder="VD: Mình có đem theo vợt và cầu phụ, mình đến đúng giờ nhé!"
           maxLength={500}
-          returnKeyType="done"
+          multiline
+          textAlignVertical="top"
+          className="h-24 py-3"
         />
       </View>
       {isMapOpen && location ? (

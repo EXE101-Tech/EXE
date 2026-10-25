@@ -16,7 +16,7 @@ import { SelectDropdown, type SelectOption } from '@/components/ui/select-dropdo
 import { useCreateGameroomMutation, useUpdateGameroomMutation } from '@/hooks/queries/use-gamerooms';
 import { useCourtsQuery, useSportsQuery } from '@/hooks/queries/use-courts';
 import { isActiveSportName, SPORTS, SPORT_KEY_BY_NAME } from '@/lib/constants';
-import { parseCostInputToVnd, storedCostToInput } from '@/lib/price';
+import { formatCostForApi, parseCostInputToVnd, storedCostToInput } from '@/lib/price';
 import { getVietnamDate, slotStart, toVietnamDateInput, toVietnamTimeInput } from '@/lib/slots';
 import type { MatchResponse } from '@/schemas/gamerooms';
 import { ctaGradient } from '@/theme/colors';
@@ -174,7 +174,7 @@ export function CreateGameroomModal({ visible, onClose, room }: CreateGameroomMo
         title: values.title,
         description: values.description?.trim() || undefined,
         location: values.location?.trim() || undefined,
-        price_info: String(priceVnd / 1000),
+        price_info: formatCostForApi(priceVnd),
         sport_id: Number(values.sportId),
         court_id: values.courtId && values.courtId !== 'none' ? Number(values.courtId) : undefined,
         required_level: values.requiredLevel,

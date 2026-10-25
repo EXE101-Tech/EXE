@@ -218,7 +218,7 @@ function RoomsList({
                 </Text>
               ) : null}
               <Text className="text-xs text-slate-500 dark:text-slate-400">
-                {formatDateTimeVi(room.start_time)} · {room.participants.length}/{room.max_players} người
+                {formatDateTimeVi(room.start_time)} · {room.participants.filter((p) => p.status === 'APPROVED').length}/{room.max_players} người
               </Text>
               {room.description ? (
                 <Text className="text-sm text-slate-700 dark:text-slate-200" numberOfLines={3}>

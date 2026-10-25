@@ -202,9 +202,9 @@ export function GameroomCard({
           </Text>
         ) : null}
 
-        {/* Date/time + location on one row — time gets more width since its text runs longer */}
-        <View className="flex-row gap-1.5">
-          <View className="flex-[1.5] flex-row items-center gap-1.5 rounded-xl bg-slate-50 px-2.5 py-2 dark:bg-white/5">
+        {/* Date/time and location on separate rows, so a long venue address is not cut off */}
+        <View className="gap-1.5">
+          <View className="flex-row items-center gap-1.5 rounded-xl bg-slate-50 px-2.5 py-2 dark:bg-white/5">
             <CalendarClock size={13} color="#3B82F6" />
             <Text className="flex-1 text-xs font-semibold text-slate-700 dark:text-slate-200" numberOfLines={2}>
               {formatDateVi(room.start_time)} · {formatTimeVi(room.start_time)}–{formatTimeVi(room.end_time)}
@@ -214,7 +214,7 @@ export function GameroomCard({
             <Pressable
               onPress={() => setIsMapOpen(true)}
               accessibilityLabel="Xem vị trí trên bản đồ"
-              className="flex-1 flex-row items-center gap-1.5 rounded-xl bg-slate-50 px-2.5 py-2 active:opacity-70 dark:bg-white/5"
+              className="flex-row items-center gap-1.5 rounded-xl bg-slate-50 px-2.5 py-2 active:opacity-70 dark:bg-white/5"
             >
               <MapPin size={13} color="#F43F5E" />
               <Text className="flex-1 text-xs font-semibold text-slate-700 dark:text-slate-200" numberOfLines={2}>
