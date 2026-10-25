@@ -29,8 +29,8 @@ export function TopNavbar() {
         className="h-9 flex-1 flex-row items-center gap-1.5 rounded-full border border-border bg-slate-50 px-3 dark:border-border-dark dark:bg-white/5"
       >
         <Search size={14} color="#94A3B8" />
-        <Text className="text-xs text-slate-400" numberOfLines={1}>
-          Tìm người chơi, CLB, phòng…
+        <Text className="flex-1 text-xs text-slate-400" numberOfLines={1}>
+          Tìm bạn, CLB, phòng
         </Text>
       </TouchableOpacity>
 

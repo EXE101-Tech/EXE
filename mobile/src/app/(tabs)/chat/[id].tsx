@@ -173,7 +173,10 @@ export default function ChatThreadScreen() {
       </View>
 
       {isLoading ? (
-        <LoadingState label="Đang tải tin nhắn…" />
+        // flex-1 keeps the composer pinned to the bottom while loading, same as once messages arrive.
+        <View className="flex-1 items-center justify-center">
+          <LoadingState label="Đang tải tin nhắn…" />
+        </View>
       ) : (
         <FlatList
           className="flex-1"

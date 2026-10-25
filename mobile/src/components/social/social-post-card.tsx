@@ -144,13 +144,6 @@ export function SocialPostCard({ post, currentUserId, canManage = false, onEdit,
           <Text className="text-xs text-slate-500 dark:text-slate-400">{formatPostDate(post.created_at)}</Text>
         </View>
         {!isMine ? (
-          <View className="flex-row items-center gap-1">
-          <Pressable onPress={() => setReportOpen(true)} accessibilityLabel="Báo cáo bài viết" className="rounded-xl p-2">
-            <Flag size={15} color="#D97706" />
-          </Pressable>
-          <Pressable onPress={handleBlock} accessibilityLabel="Chặn người dùng" className="rounded-xl p-2">
-            <Ban size={15} color="#E11D48" />
-          </Pressable>
           <Pressable
             onPress={handleFriend}
             disabled={friendBusy || post.friendship_status === 'outgoing'}
@@ -168,7 +161,6 @@ export function SocialPostCard({ post, currentUserId, canManage = false, onEdit,
               {FRIEND_LABEL[post.friendship_status] ?? 'Kết bạn'}
             </Text>
           </Pressable>
-          </View>
         ) : null}
       </View>
 
@@ -182,14 +174,20 @@ export function SocialPostCard({ post, currentUserId, canManage = false, onEdit,
 
       <View className="flex-row items-center justify-between px-4 py-3">
         <View className="flex-row items-center gap-5">
-          <Pressable onPress={handleLike} disabled={toggleLike.isPending} className="flex-row items-center gap-2">
+          <Pressable
+            onPress={handleLike}
+            disabled={toggleLike.isPending}
+            accessibilityLabel={liked ? 'Bỏ thích' : 'Thích'}
+            className="flex-row items-center gap-2"
+          >
             <Heart size={20} color={liked ? '#E11D48' : '#64748B'} fill={liked ? '#E11D48' : 'transparent'} />
             <Text className={cn('text-sm font-bold', liked ? 'text-rose-600' : 'text-slate-600 dark:text-slate-300')}>
-              Thích {likeCount}
+              {likeCount}
             </Text>
           </Pressable>
           <Pressable
             onPress={() => setCommentsOpen((open) => !open)}
+            accessibilityLabel="Bình luận"
             accessibilityState={{ expanded: commentsOpen }}
             className="flex-row items-center gap-2"
           >
@@ -200,10 +198,20 @@ export function SocialPostCard({ post, currentUserId, canManage = false, onEdit,
                 commentsOpen ? 'text-brand dark:text-brand-dark' : 'text-slate-600 dark:text-slate-300',
               )}
             >
-              Bình luận {commentCount}
+              {commentCount}
             </Text>
           </Pressable>
         </View>
+        {!isMine ? (
+          <View className="flex-row items-center gap-1">
+            <Pressable onPress={() => setReportOpen(true)} accessibilityLabel="Báo cáo bài viết" className="rounded-lg p-2" hitSlop={4}>
+              <Flag size={16} color="#D97706" />
+            </Pressable>
+            <Pressable onPress={handleBlock} accessibilityLabel="Chặn người dùng" className="rounded-lg p-2" hitSlop={4}>
+              <Ban size={16} color="#E11D48" />
+            </Pressable>
+          </View>
+        ) : null}
         {canManage && isMine ? (
           <View className="flex-row items-center gap-1">
             <Pressable onPress={() => onEdit?.(post)} accessibilityLabel="Chỉnh sửa bài viết" className="rounded-lg p-2" hitSlop={4}>

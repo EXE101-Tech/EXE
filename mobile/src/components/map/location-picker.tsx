@@ -1,7 +1,7 @@
 import { Text } from '@/components/ui/text';
 import * as Location from 'expo-location';
 import { Check, CheckCircle2, LocateFixed, Map as MapIcon, MapPin, X } from 'lucide-react-native';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,8 @@ import { showAlert } from '@/stores/dialog-store';
 interface LocationPickerProps {
   value: string;
   onChange: (text: string) => void;
+  /** Field label, shown on the left of the row that holds the clear / GPS / map buttons. */
+  label?: ReactNode;
   placeholder?: string;
   error?: string;
   disabled?: boolean;
@@ -54,7 +56,8 @@ const SEARCH_DEBOUNCE_MS = 350;
 export function LocationPicker({
   value,
   onChange,
-  placeholder = "Nhập tên sân, địa chỉ hoặc bấm 'Map' để chọn...",
+  label,
+  placeholder = 'Tên sân, địa chỉ hoặc bấm Map',
   error,
   disabled = false,
 }: LocationPickerProps) {
@@ -197,21 +200,10 @@ export function LocationPicker({
 
   return (
     <View>
-      <View className="relative justify-center">
-        <Input
-          value={value}
-          onChangeText={handleChangeText}
-          placeholder={placeholder}
-          editable={!disabled}
-          error={error}
-          // Keep the text clear of the buttons on the right: the clear (X) and search-spinner icons only appear
-          // with a value, and the "Đóng map" label is wider than "Map".
-          className={cn('pl-10', value ? 'pr-48' : 'pr-36')}
-        />
-        <View pointerEvents="none" className="absolute left-3.5 top-0 h-12 justify-center">
-          <MapPin size={16} color="#F43F5E" />
-        </View>
-        <View className="absolute right-2 top-0 h-12 flex-row items-center gap-1">
+      {/* Label on the left, the field's tools on the right; the tools wrap to their own right-aligned line on a narrow screen. */}
+      <View className="mb-2 flex-row flex-wrap items-center justify-between gap-x-2 gap-y-1">
+        {label ? <View className="shrink">{label}</View> : null}
+        <View className="ml-auto flex-row items-center gap-1">
           {isSearching ? <ActivityIndicator size="small" color="#94A3B8" /> : null}
           {value ? (
             <Pressable onPress={handleClear} hitSlop={6} accessibilityLabel="Xóa địa chỉ" className="rounded-lg p-1.5">
@@ -238,11 +230,24 @@ export function LocationPicker({
           >
             <MapIcon size={13} color={isMapOpen ? '#fff' : '#64748B'} />
             <Text className={cn('text-xs font-bold', isMapOpen ? 'text-white' : 'text-slate-700 dark:text-slate-300')}>
-              {isMapOpen ? 'Đóng map' : 'Map'}
+              {isMapOpen ? 'Đóng' : 'Map'}
             </Text>
           </Pressable>
         </View>
       </View>
+
+      {/* The whole width is for the address: it wraps onto more lines and the field grows to show all of it. */}
+      <Input
+        value={value}
+        onChangeText={(text) => handleChangeText(text.replace(/\r?\n/g, ' '))}
+        placeholder={placeholder}
+        editable={!disabled}
+        error={error}
+        multiline
+        submitBehavior="blurAndSubmit"
+        textAlignVertical="top"
+        className="h-auto min-h-12 py-3"
+      />
 
       {suggestions.length > 0 ? (
         <View className="mt-1.5 overflow-hidden rounded-2xl border border-border bg-white dark:border-border-dark dark:bg-[#0d1424]">

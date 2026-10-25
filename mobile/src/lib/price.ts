@@ -20,6 +20,15 @@ export function parseCostInputToVnd(value: unknown): number | null {
   return amount;
 }
 
+/**
+ * Cost string for the API as a dotted VND amount ("50.000", "1.500.000"). The server reads the dotted form
+ * as VND on every version, whereas a bare number is thousands on older servers and VND (>= 1000) on newer ones.
+ */
+export function formatCostForApi(vnd: number): string {
+  if (vnd === 0) return '0';
+  return String(vnd).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
 export function parseStoredCostToVnd(value: unknown): number | null {
   if (value === null || value === undefined || value === '') return null;
 

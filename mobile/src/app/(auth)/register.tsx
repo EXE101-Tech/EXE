@@ -33,6 +33,7 @@ type RegisterForm = z.infer<typeof registerSchema>;
 export default function RegisterScreen() {
   const register = useAuthStore((s) => s.register);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formError, setFormError] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
@@ -113,48 +114,63 @@ export default function RegisterScreen() {
           />
         </View>
 
-        <View className="flex-row gap-3">
-          <View className="flex-1">
-            <Text className="mb-1.5 text-sm font-bold text-slate-700 dark:text-slate-200">Mật khẩu</Text>
-            <Controller
-              control={control}
-              name="password"
-              render={({ field }) => (
-                <View className="relative justify-center">
-                  <Input
-                    placeholder="Tối thiểu 6 ký tự"
-                    secureTextEntry={!showPassword}
-                    value={field.value}
-                    onChangeText={field.onChange}
-                    onBlur={field.onBlur}
-                    error={errors.password?.message}
-                    className="pr-11"
-                  />
-                  <Pressable onPress={() => setShowPassword((v) => !v)} className="absolute right-3" hitSlop={8}>
-                    {showPassword ? <EyeOff size={16} color="#94A3B8" /> : <Eye size={16} color="#94A3B8" />}
-                  </Pressable>
-                </View>
-              )}
-            />
-          </View>
-
-          <View className="flex-1">
-            <Text className="mb-1.5 text-sm font-bold text-slate-700 dark:text-slate-200">Xác nhận MK</Text>
-            <Controller
-              control={control}
-              name="confirmPassword"
-              render={({ field }) => (
+        <View>
+          <Text className="mb-1.5 text-sm font-bold text-slate-700 dark:text-slate-200">Mật khẩu</Text>
+          <Controller
+            control={control}
+            name="password"
+            render={({ field }) => (
+              <View className="relative">
                 <Input
-                  placeholder="Nhập lại"
+                  placeholder="Tối thiểu 6 ký tự"
                   secureTextEntry={!showPassword}
                   value={field.value}
                   onChangeText={field.onChange}
                   onBlur={field.onBlur}
-                  error={errors.confirmPassword?.message}
+                  error={errors.password?.message}
+                  className="pr-12"
                 />
-              )}
-            />
-          </View>
+                {/* Pinned to the input (h-12 = 48px), so an error message below it can't shift the icon. */}
+                <Pressable
+                  onPress={() => setShowPassword((v) => !v)}
+                  className="absolute right-4"
+                  style={{ top: 15 }}
+                  hitSlop={8}
+                >
+                  {showPassword ? <EyeOff size={18} color="#94A3B8" /> : <Eye size={18} color="#94A3B8" />}
+                </Pressable>
+              </View>
+            )}
+          />
+        </View>
+
+        <View>
+          <Text className="mb-1.5 text-sm font-bold text-slate-700 dark:text-slate-200">Xác nhận mật khẩu</Text>
+          <Controller
+            control={control}
+            name="confirmPassword"
+            render={({ field }) => (
+              <View className="relative">
+                <Input
+                  placeholder="Nhập lại mật khẩu"
+                  secureTextEntry={!showConfirmPassword}
+                  value={field.value}
+                  onChangeText={field.onChange}
+                  onBlur={field.onBlur}
+                  error={errors.confirmPassword?.message}
+                  className="pr-12"
+                />
+                <Pressable
+                  onPress={() => setShowConfirmPassword((v) => !v)}
+                  className="absolute right-4"
+                  style={{ top: 15 }}
+                  hitSlop={8}
+                >
+                  {showConfirmPassword ? <EyeOff size={18} color="#94A3B8" /> : <Eye size={18} color="#94A3B8" />}
+                </Pressable>
+              </View>
+            )}
+          />
         </View>
 
         {formError ? (
@@ -165,11 +181,19 @@ export default function RegisterScreen() {
 
         <Button label="Hoàn tất Đăng ký" loading={isSubmitting} onPress={handleSubmit(onSubmit)} />
 
-        <Pressable onPress={() => setAcceptedTerms((value) => !value)} className="flex-row items-start gap-2">
-          <View className="mt-0.5 h-5 w-5 items-center justify-center rounded-md border border-border dark:border-border-dark" style={{ backgroundColor: acceptedTerms ? '#537fff' : 'transparent' }}>
-            {acceptedTerms ? <Check size={14} color="#fff" /> : null}
+        <Pressable
+          onPress={() => setAcceptedTerms((value) => !value)}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: acceptedTerms }}
+          className="flex-row items-start gap-3 rounded-xl border border-brand/40 bg-brand/10 p-3 dark:border-brand-dark/50 dark:bg-brand-dark/10"
+        >
+          <View
+            className="mt-0.5 h-6 w-6 items-center justify-center rounded-md border-2 border-brand dark:border-brand-dark"
+            style={{ backgroundColor: acceptedTerms ? '#537fff' : 'transparent' }}
+          >
+            {acceptedTerms ? <Check size={16} color="#fff" /> : null}
           </View>
-          <Text className="flex-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+          <Text className="flex-1 text-sm leading-5 text-slate-700 dark:text-slate-200">
             Tôi đồng ý tuân thủ{' '}
             <Text className="font-bold text-brand dark:text-brand-dark" onPress={() => setRulesOpen(true)}>
               quy tắc cộng đồng SportGo
