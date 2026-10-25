@@ -93,11 +93,11 @@ with sync_playwright() as playwright:
         expect(task(witness)).to_have_count(0)
         witness.get_by_role("dialog").screenshot(path=str(artifacts / "expired-request-mobile.png"))
         witness.get_by_role("button", name="Đóng điểm danh buổi chơi").click()
-        witness.goto(BASE + "/matches?view=mine", wait_until="networkidle")
+        witness.goto(BASE + "/matches?view=joined", wait_until="networkidle")
         expect(witness.get_by_role("button", name="Xem yêu cầu", exact=True)).to_be_visible()
 
         host = user_page("host")
-        host.goto(BASE + "/matches?view=mine", wait_until="networkidle")
+        host.goto(BASE + "/matches?view=hosted", wait_until="networkidle")
         card = host.locator(".sg-room-card").filter(has=host.get_by_role("heading", name="Buổi cần phản hồi 1", exact=True))
         card.get_by_role("button", name="Quản lý phòng", exact=True).click()
         host.get_by_role("tab", name="Yêu cầu đã hết hạn", exact=False).click()

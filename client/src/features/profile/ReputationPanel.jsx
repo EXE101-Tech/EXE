@@ -53,7 +53,7 @@ export default function ReputationPanel({ userId, embedded = false, own = true, 
             <div><CircleMinus size={17} aria-hidden="true" /><strong>Hủy tham gia</strong><span className="sg-reputation-neutral-note">Không trừ điểm</span></div>
             <p><span><strong>{lateCancellations}</strong> lần hủy sát giờ</span><span><strong>{earlyCancellations}</strong> lần hủy sớm</span></p>
           </div>
-          {own && <Link className="sg-reputation-history-link" to="/matches?view=mine"><History size={16} aria-hidden="true" />Xem lịch sử tham gia</Link>}
+          {own && <Link className="sg-reputation-history-link" to="/matches?view=joined"><History size={16} aria-hidden="true" />Xem lịch sử tham gia</Link>}
         </div>
       </div>
       <details className="sg-reputation-details">

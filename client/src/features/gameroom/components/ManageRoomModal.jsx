@@ -9,17 +9,17 @@ const date = (value) => new Date(/(?:Z|[+-]\d\d:\d\d)$/.test(value) ? value : `$
 const schedule = (room) => `${date(room.start_time).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })} · ${date(room.start_time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} – ${date(room.end_time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`;
 const personInfo = (person) => {
   const user = person.user || person;
-  return { id: person.user_id || user.id, name: user.profile?.full_name || user.name || person.name || user.email || 'Người chơi', avatar: resolveMediaUrl(user.profile?.avatar_url || user.avatar || user.avatar_url || person.avatar), reputation: user.reputation };
+  return { id: person.user_id || user.id, name: user.profile?.full_name || user.name || person.name || user.email || 'Người chơi', avatar: resolveMediaUrl(user.profile?.avatar_url || user.avatar || user.avatar_url || person.avatar), reputation: user.reputation, isPremium: Boolean(user.isPremium ?? user.is_premium) };
 };
 
 function Avatar({ person }) {
   const { openProfile } = useUserProfile();
-  return <button type="button" className="sg-room-manager-avatar sg-profile-trigger" onClick={() => openProfile(person.id)} aria-label={`Xem hồ sơ ${person.name}`} disabled={!person.id}>{person.avatar ? <img src={person.avatar} alt="" /> : person.name.charAt(0).toUpperCase()}</button>;
+  return <button type="button" className={`sg-room-manager-avatar sg-profile-trigger ${person.isPremium ? 'sg-premium-avatar' : ''}`} onClick={() => openProfile(person.id)} aria-label={`Xem hồ sơ ${person.name}`} disabled={!person.id}>{person.avatar ? <img src={person.avatar} alt="" /> : person.name.charAt(0).toUpperCase()}</button>;
 }
 
 function ProfileName({ person }) {
   const { openProfile } = useUserProfile();
-  return person.id ? <button type="button" className="sg-profile-name-link" onClick={() => openProfile(person.id)}>{person.name}</button> : person.name;
+  return person.id ? <button type="button" className={`sg-profile-name-link ${person.isPremium ? 'sg-premium-name' : ''}`} onClick={() => openProfile(person.id)}>{person.name}</button> : person.name;
 }
 
 function ViewProfileButton({ person }) {
