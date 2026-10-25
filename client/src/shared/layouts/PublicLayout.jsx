@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { Sun, Moon } from 'lucide-react';
 import { useState, useLayoutEffect } from 'react';
 
@@ -9,6 +9,8 @@ export default function PublicLayout() {
   const [isDark, setIsDark] = useState(() => localStorage.getItem('publicTheme') === 'dark');
 
   const [landingHalloween, setLandingHalloween] = useState(false);
+  // The landing page paints a full-screen 3D scene; the CSS particles underneath would be hidden yet still animated.
+  const onLanding = useLocation().pathname === '/';
 
   // Layout effects run before the landing page's effects, so this listener is in place when it reports.
   useLayoutEffect(() => {
@@ -30,9 +32,9 @@ export default function PublicLayout() {
 
   return (
     <div className="sg-public">
-      <div className="fixed inset-0 z-0 pointer-events-none">
+      {!onLanding && <div className="fixed inset-0 z-0 pointer-events-none">
         <Particles />
-      </div>
+      </div>}
       <div className="relative z-10 h-full w-full">
         <Outlet />
       </div>

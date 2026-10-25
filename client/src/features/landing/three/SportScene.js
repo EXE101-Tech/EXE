@@ -569,38 +569,11 @@ export default class SportScene {
     this.linkMaterial.needsUpdate = true;
   }
 
-  // Halloween night: moon, glowing jack-o'-lanterns around the court and a flock of bats.
+  // Halloween night: glowing jack-o'-lanterns around the court and a flock of bats.
   // Built on first use so the default mode pays nothing for it.
   buildHalloween() {
     this.spooky = new THREE.Group();
     this.scene.add(this.spooky);
-
-    const moonTexture = this.track(canvasTexture(256, 256, (ctx, w, h) => {
-      const halo = ctx.createRadialGradient(w / 2, h / 2, w * 0.18, w / 2, h / 2, w / 2);
-      halo.addColorStop(0, 'rgba(255, 214, 150, .55)');
-      halo.addColorStop(1, 'rgba(255, 214, 150, 0)');
-      ctx.fillStyle = halo;
-      ctx.fillRect(0, 0, w, h);
-      const disc = ctx.createRadialGradient(w * 0.44, h * 0.42, 4, w / 2, h / 2, w * 0.2);
-      disc.addColorStop(0, '#fff7e0');
-      disc.addColorStop(1, '#f5c97a');
-      ctx.fillStyle = disc;
-      ctx.beginPath();
-      ctx.arc(w / 2, h / 2, w * 0.2, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = 'rgba(190, 130, 70, .28)';
-      for (const [x, y, r] of [[0.45, 0.44, 0.035], [0.56, 0.53, 0.025], [0.47, 0.58, 0.018], [0.58, 0.41, 0.015]]) {
-        ctx.beginPath();
-        ctx.arc(w * x, h * y, w * r, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }));
-    this.moon = new THREE.Sprite(this.track(new THREE.SpriteMaterial({ map: moonTexture, fog: false, depthWrite: false, toneMapped: false })));
-    this.moon.scale.setScalar(14);
-    // Drawn last: it writes no depth, so the far floor grid would otherwise paint over it.
-    this.moon.renderOrder = 10;
-    this.moon.position.set(-16, 18, -32);
-    this.spooky.add(this.moon);
 
     // Jack-o'-lantern: ribbed orange body with a carved face that glows (face sits at +Z, see lookAt below).
     const body = this.track(new THREE.SphereGeometry(0.5, 40, 28));
@@ -645,12 +618,8 @@ export default class SportScene {
       this.spooky.add(pumpkin);
       return pumpkin;
     });
-    this.pumpkinLights = [[-4.3, -5.5], [4.2, 3.8]].map(([x, z]) => {
-      const light = new THREE.PointLight('#ff8a1f', 8, 7, 2);
-      light.position.set(x, 0.6, z);
-      this.spooky.add(light);
-      return light;
-    });
+    // No extra point lights: each one adds per-pixel cost on the whole floor and forces a shader
+    // recompile when the mode is toggled. The carved faces glow through their emissive map instead.
 
     // Bats: a body and two scalloped wings that flap around the body.
     const wingShape = new THREE.Shape();
@@ -694,19 +663,8 @@ export default class SportScene {
   animateHalloween(time) {
     if (!this.spooky?.visible) return;
     const t = this.reducedMotion ? 0 : time;
-    // The camera mostly looks down at the court, so the moon rides along in the upper corner of the view.
-    const forward = new THREE.Vector3();
-    this.camera.getWorldDirection(forward);
-    const right = new THREE.Vector3().crossVectors(forward, this.camera.up).normalize();
-    const wide = this.camera.aspect > 1.1;
-    // Place it on the horizon line just under the top edge; it must stay above the floor or the grid covers it.
-    const flat = new THREE.Vector3(forward.x, 0, forward.z).normalize();
-    const elevation = Math.asin(forward.y) + THREE.MathUtils.degToRad(this.camera.fov / 2 - 10);
-    this.moon.position.copy(this.camera.position).addScaledVector(flat, 40).addScaledVector(right, wide ? 13 : 3);
-    this.moon.position.y = Math.max(3, this.camera.position.y + Math.tan(elevation) * 40);
     const flicker = 1.35 + Math.sin(t * 9) * 0.12 + Math.sin(t * 23) * 0.08;
     this.pumpkinMaterial.emissiveIntensity = flicker;
-    this.pumpkinLights.forEach((light, index) => { light.intensity = 7 + Math.sin(t * 11 + index) * 1.5; });
     // Carved faces turn toward the viewer.
     const look = new THREE.Vector3();
     for (const pumpkin of this.pumpkins) {
