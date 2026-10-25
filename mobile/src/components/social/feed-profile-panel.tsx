@@ -69,7 +69,7 @@ export function FeedProfilePanel() {
           <Text className="text-sm font-black text-white">Chơi theo cách của bạn</Text>
         </View>
         <Text className="text-xs leading-5 text-[#b1bdd4]">
-          Khám phá những lợi ích giúp bạn kết nối với cộng đồng dễ hơn.
+          Khám phá những lợi ích giúp bạn kết nối cộng đồng dễ hơn.
         </Text>
         <Text className="mt-1 text-xs font-bold text-[#b8b1ff]">Khám phá Premium →</Text>
       </Pressable>

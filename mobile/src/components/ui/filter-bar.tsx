@@ -41,10 +41,8 @@ export function FilterBar({ items, actions, activeCount = 0 }: FilterBarProps) {
           accessibilityState={{ expanded: open }}
           className="h-12 min-w-0 flex-1 flex-row items-center justify-center gap-2 rounded-2xl border border-border bg-slate-50 px-3 active:opacity-80 dark:border-border-dark dark:bg-white/5"
         >
+          {/* Icon only: the "Bộ lọc" label got truncated ("…") next to the two action buttons; the a11y label keeps it. */}
           <Filter size={18} color="#94A3B8" />
-          <Text className="shrink text-base font-black text-slate-700 dark:text-slate-100" numberOfLines={1}>
-            Bộ lọc
-          </Text>
           {activeCount > 0 ? (
             <View className="h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1.5 dark:bg-brand-dark">
               <Text className="text-[11px] font-black text-white">{activeCount}</Text>

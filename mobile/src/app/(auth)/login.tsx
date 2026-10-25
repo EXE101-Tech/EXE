@@ -1,10 +1,10 @@
 import { Text } from '@/components/ui/text';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, router } from 'expo-router';
-import { Eye, EyeOff, Zap } from 'lucide-react-native';
+import { Eye, EyeOff } from 'lucide-react-native';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Pressable, View } from 'react-native';
+import { Image, Pressable, View } from 'react-native';
 import { GoogleSignInButton } from '@/components/auth/google-sign-in-button';
 import { Button } from '@/components/ui/button';
 import { ScreenContainer } from '@/components/brand/screen-container';
@@ -12,6 +12,8 @@ import { Input } from '@/components/ui/input';
 import { homeHref } from '@/lib/routes';
 import { userLoginSchema, type UserLogin } from '@/schemas/auth';
 import { useAuthStore } from '@/stores/auth-store';
+
+const LOGO = require('../../../assets/images/logo.png');
 
 export default function LoginScreen() {
   const login = useAuthStore((s) => s.login);
@@ -45,7 +47,7 @@ export default function LoginScreen() {
           className="h-14 w-14 items-center justify-center rounded-2xl bg-brand/10 dark:bg-brand-dark/10"
           style={{ shadowColor: '#537fff', shadowOpacity: 0.35, shadowRadius: 14, shadowOffset: { width: 0, height: 0 } }}
         >
-          <Zap size={26} color="#537fff" />
+          <Image source={LOGO} style={{ width: 30, height: 44 }} resizeMode="contain" />
         </View>
         <View className="items-center">
           <Text className="text-2xl font-black text-slate-900 dark:text-white">Đăng nhập</Text>
