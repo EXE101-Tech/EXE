@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Ban, Flag, Heart, LoaderCircle, MessageCircle, Pencil, Send, Trash2, UserPlus, UserRoundCheck, X } from 'lucide-react';
 import { chatService, moderationService, resolveMediaUrl, socialPostService } from '../../../shared/services/api';
+import ProfileLink from '../../../shared/components/ProfileLink';
 
 const normalizeUtcTimestamp = (value) => {
   if (typeof value !== 'string' || !value) return value;
@@ -490,10 +491,10 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
     const replies = repliesByParent.get(comment.id) || [];
     return <div key={comment.id} className={isReply ? 'ml-9 mt-3 border-l border-slate-200 pl-3 dark:border-white/10' : ''}>
       <div className="flex items-start gap-2.5">
-        <Avatar src={comment.author_avatar_url} name={comment.author_name} className={isReply ? 'h-7 w-7 text-[10px]' : 'h-8 w-8 text-xs'} />
+        <ProfileLink userId={comment.author_id} name={comment.author_name} className="shrink-0 rounded-full"><Avatar src={comment.author_avatar_url} name={comment.author_name} className={isReply ? 'h-7 w-7 text-[10px]' : 'h-8 w-8 text-xs'} /></ProfileLink>
         <div className="min-w-0 flex-1 rounded-2xl bg-slate-50 px-3 py-2 dark:bg-white/5">
           <div className="flex items-center justify-between gap-2">
-            <span className="truncate text-xs font-extrabold text-slate-800 dark:text-white">{comment.author_name}</span>
+            <ProfileLink userId={comment.author_id} name={comment.author_name} className="min-w-0 truncate"><span className="truncate text-xs font-extrabold text-slate-800 dark:text-white">{comment.author_name}</span></ProfileLink>
             <div className="flex shrink-0 items-center gap-2">
               {isCommentAuthor && !isEditing && <button type="button" onClick={() => startEditingComment(comment)} title="Sửa bình luận" aria-label="Sửa bình luận" className="text-slate-400 hover:text-emerald-600"><Pencil className="h-3.5 w-3.5" /></button>}
               {(isCommentAuthor || isMine) && <button type="button" onClick={() => removeComment(comment)} title="Xóa bình luận" aria-label="Xóa bình luận" className="text-slate-400 hover:text-rose-500"><Trash2 className="h-3.5 w-3.5" /></button>}
@@ -534,10 +535,10 @@ export default function SocialPostCard({ post, user, canManage = false, onEdit, 
     <article className="sg-panel sg-post-card overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-sm transition-shadow hover:shadow-lg dark:border-white/10 dark:bg-slate-900/80">
       <header className="flex items-center gap-3 px-4 py-4 sm:px-5">
         <div className={`rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500 p-[2px] ${post.author_is_premium ? 'sg-premium-avatar-shell' : ''}`}>
-          <div className="rounded-full bg-white p-[2px] dark:bg-slate-900"><Avatar src={post.author_avatar_url} name={post.author_name} className="h-10 w-10" /></div>
+          <ProfileLink userId={post.author_id} name={post.author_name} className="block rounded-full bg-white p-[2px] dark:bg-slate-900"><Avatar src={post.author_avatar_url} name={post.author_name} className="h-10 w-10" /></ProfileLink>
         </div>
         <div className="min-w-0 flex-1">
-          <p className={`truncate text-sm font-extrabold text-slate-900 dark:text-white ${post.author_is_premium ? 'sg-premium-name' : ''}`}>{post.author_name}</p>
+          <p className={`truncate text-sm font-extrabold text-slate-900 dark:text-white ${post.author_is_premium ? 'sg-premium-name' : ''}`}><ProfileLink userId={post.author_id} name={post.author_name} className="max-w-full truncate">{post.author_name}</ProfileLink></p>
           <time className="text-xs text-slate-500 dark:text-slate-400" dateTime={normalizeUtcTimestamp(post.created_at)}>{formatDate(post.created_at)}</time>
         </div>
         {!isMine && <div className="flex shrink-0 items-center gap-1"><button type="button" onClick={() => report('post', post.id)} title="Báo cáo bài viết" aria-label="Báo cáo bài viết" className="rounded-xl p-2 text-slate-400 hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-400/10"><Flag className="h-4 w-4" /></button><button type="button" onClick={blockAuthor} title="Chặn người dùng" aria-label="Chặn người dùng" className="rounded-xl p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-400/10"><Ban className="h-4 w-4" /></button><button type="button" onClick={connectOrMessage} disabled={friendBusy || post.friendship_status === 'outgoing'} className="inline-flex items-center gap-1.5 rounded-xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-default disabled:opacity-65 dark:bg-white/10 dark:text-slate-200 dark:hover:bg-emerald-400/10 dark:hover:text-emerald-200">

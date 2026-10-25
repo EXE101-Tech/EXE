@@ -367,6 +367,36 @@ class OwnerScheduleItem(BaseModel):
     note: Optional[str] = None
 
 
+class PublicUserSport(BaseModel):
+    sport_id: int
+    sport_name: Optional[str] = None
+    skill_level: Optional[str] = None
+    games_played: int = 0
+
+
+class PublicFriendshipState(BaseModel):
+    id: Optional[int] = None
+    status: Literal["none", "friends", "outgoing", "incoming"] = "none"
+
+
+class PublicUserProfile(BaseModel):
+    id: int
+    name: str
+    avatar_url: Optional[str] = None
+    cover_url: Optional[str] = None
+    bio: Optional[str] = None
+    district: Optional[str] = None
+    is_premium: bool = False
+    member_since: Optional[datetime] = None
+    games_played: int = 0
+    hosted_games: int = 0
+    teams_joined: int = 0
+    sports: List[PublicUserSport] = []
+    reputation: dict
+    is_self: bool = False
+    friendship: PublicFriendshipState
+
+
 class UserStatsResponse(BaseModel):
     games_played: int = 0
     games_by_sport: Dict[int, int] = Field(default_factory=dict)

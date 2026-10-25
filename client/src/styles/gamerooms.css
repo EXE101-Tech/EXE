@@ -25,8 +25,8 @@
 .sg-match-post-players > span { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--sg-muted); }
 .sg-match-post-players strong { color: var(--sg-text); }
 .sg-match-post-avatars { display: flex; align-items: center; padding-left: 5px; }
-.sg-match-post-avatars > span { display: grid; place-items: center; width: 30px; height: 30px; margin-left: -5px; overflow: hidden; border: 2px solid var(--sg-panel); border-radius: 50%; background: #e6edff; color: #4563b7; font-size: 10px; font-weight: 750; }
-.sg-match-post-avatars > span:nth-child(2n) { background: #e3f0ed; color: #397d69; }
+.sg-match-post-avatars > span, .sg-match-post-avatars > button { display: grid; place-items: center; width: 30px; height: 30px; margin-left: -5px; overflow: hidden; border: 2px solid var(--sg-panel); border-radius: 50%; background: #e6edff; color: #4563b7; font-size: 10px; font-weight: 750; }
+.sg-match-post-avatars > :nth-child(2n) { background: #e3f0ed; color: #397d69; }
 .sg-match-post-avatars img { width: 100%; height: 100%; object-fit: cover; }
 .sg-match-post-host { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; padding: 13px 0 16px; font-size: 11px; color: var(--sg-muted); }
 .sg-match-post-host strong { color: var(--sg-text); font-weight: 650; }
@@ -109,3 +109,13 @@
   .sg-room-manager-member { align-items: flex-start; }
   .sg-room-manager-person { flex: 1; }
 }
+
+/* Clickable names/avatars that open another member's public profile */
+.sg-profile-trigger { padding: 0; cursor: pointer; transition: transform .15s ease, box-shadow .15s ease; }
+.sg-profile-trigger:not(:disabled):hover { transform: translateY(-1px); box-shadow: 0 0 0 2px rgba(94, 135, 247, .45); position: relative; z-index: 1; }
+.sg-profile-trigger:focus-visible, .sg-profile-name-link:focus-visible { outline: 2px solid #5e87f7; outline-offset: 2px; }
+/* :where keeps this reset weaker than each spot's own styling (e.g. avatar chips). */
+:where(.sg-profile-name-link) { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; }
+.sg-profile-name-link { cursor: pointer; }
+.sg-profile-name-link:hover { color: #5e87f7; text-decoration: underline; text-underline-offset: 3px; }
+.sg-user-profile-modal .sg-reputation-heading h2 { font-size: 17px; }

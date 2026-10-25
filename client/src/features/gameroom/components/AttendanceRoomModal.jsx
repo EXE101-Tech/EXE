@@ -3,6 +3,7 @@ import { CalendarDays, Check, CheckCircle2, ChevronDown, ClipboardCheck, Clock3,
 import { attendanceService, gameRoomService } from '../../../shared/services/api';
 import { formatStoredCost } from '../../../shared/utils/price';
 import AttendanceHistory from './AttendanceHistory';
+import ProfileLink from '../../../shared/components/ProfileLink';
 
 const date = (value) => value ? new Date(/(?:Z|[+-]\d\d:\d\d)$/.test(value) ? value : `${value}Z`) : null;
 const time = (value) => date(value)?.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) || 'Chưa có';
@@ -58,7 +59,7 @@ function Participants({ state, ended, closed, isHost, busy, run }) {
       const canVote = ended && !closed && !isSelf && state.can_peer_confirm;
       const canWithdraw = ended && !closed && !isSelf && ['ATTENDED', 'ABSENT'].includes(myReport);
       return <div className={`sg-attendance-person ${present ? 'is-checked-in' : ''} ${isSelf ? 'is-self' : ''}`} role="group" aria-label={isSelf ? `Thông tin của bạn: ${person.name}` : person.name} key={person.user_id}>
-      <div className="sg-attendance-person-identity"><span className="sg-attendance-person-avatar" aria-hidden="true">{initials}</span><div className="sg-attendance-person-info"><strong>{person.name}{isSelf && <span className="sg-attendance-person-you">Bạn</span>}{person.role === 'HOST' && <small><Crown size={11} aria-hidden="true" />Chủ phòng</small>}</strong>
+      <div className="sg-attendance-person-identity"><span className="sg-attendance-person-avatar" aria-hidden="true">{initials}</span><div className="sg-attendance-person-info"><strong>{isSelf ? person.name : <ProfileLink userId={person.user_id} name={person.name}>{person.name}</ProfileLink>}{isSelf && <span className="sg-attendance-person-you">Bạn</span>}{person.role === 'HOST' && <small><Crown size={11} aria-hidden="true" />Chủ phòng</small>}</strong>
         {present && <p className="sg-attendance-person-time">Check-in lúc {hour(person.checked_in_at)}</p>}
         {!person.has_commitment && <p className="sg-attendance-person-missing">Chưa xác nhận trước buổi</p>}
         {ended && <><p>{person.self_attended == null ? 'Chưa gửi xác nhận sau buổi' : person.self_attended ? person.supplemental_attendance ? 'Đã khai báo có mặt bổ sung' : 'Xác nhận có mặt' : 'Xác nhận không có mặt'}</p><span className={`sg-attendance-person-result ${person.disputed ? 'is-conflicting' : person.outcome === 'ATTENDED' ? 'is-success' : ''}`}>{person.disputed ? 'Phản hồi chưa khớp' : person.outcome === 'ATTENDED' && person.supplemental_attendance ? 'Tham dự đã xác minh bổ sung' : OUTCOME[person.outcome]}</span></>}

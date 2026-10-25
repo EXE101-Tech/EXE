@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useChat } from '../context/ChatContext';
 import { useAuth } from '../context/AuthContext';
 import { chatService, resolveMediaUrl } from '../services/api';
+import ProfileLink from './ProfileLink';
 
 const toContact = (conversation) => ({
   conversationId: conversation.id,
@@ -401,7 +402,7 @@ function ChatPanel() {
           {selected && <button onClick={() => { setSelected(null); setMessages([]); setHasOlderMessages(false); }} aria-label="Quay lại" className="sg-chat-header-action p-1"><ArrowLeft className="w-4 h-4" /></button>}
           <div className="sg-chat-title-icon p-2 rounded-xl"><MessageSquare className="w-5 h-5" /></div>
           <div className="min-w-0">
-            <h2 className="sg-chat-title truncate text-base font-extrabold tracking-tight">{selected?.name || t('bottomNav.chat', 'Chat')}</h2>
+            <h2 className="sg-chat-title truncate text-base font-extrabold tracking-tight">{selected ? <ProfileLink userId={selected.userId} name={selected.name} className="max-w-full truncate">{selected.name}</ProfileLink> : t('bottomNav.chat', 'Chat')}</h2>
             {selected && <div className="mt-0.5 flex items-center gap-2 text-[10px] leading-4">
               <span className={`sg-chat-subtitle ${selectedFriendshipStatus === 'accepted' ? 'is-accepted' : ''}`}>{selectedFriendshipLabel}</span>
               {selectedFriendshipStatus === 'none' && <button type="button" disabled={friendActionId === selectedFriendActionKey} onClick={updateSelectedFriendship} className="sg-chat-inline-action inline-flex items-center gap-1 font-bold disabled:opacity-50"><UserPlus className="h-3 w-3" />Kết bạn</button>}
@@ -445,15 +446,15 @@ function ChatPanel() {
             ))}
             {activeTab === 'friends' && incomingRequests.map((request) => (
               <div key={`request-${request.id}`} className="sg-chat-row flex items-center gap-3 px-4 py-3.5">
-                <div className="sg-chat-avatar sg-chat-avatar-soft flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl font-bold">{request.user.avatar_url ? <img src={resolveMediaUrl(request.user.avatar_url)} alt="" className="h-full w-full object-cover" /> : request.user.name.charAt(0).toUpperCase()}</div>
-                <div className="min-w-0 flex-1"><span className="sg-chat-name block truncate text-sm font-bold">{request.user.name}</span><p className="sg-chat-preview text-xs">Lời mời kết bạn</p></div>
+                <ProfileLink userId={request.user.id} name={request.user.name} className="sg-chat-avatar sg-chat-avatar-soft flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl font-bold">{request.user.avatar_url ? <img src={resolveMediaUrl(request.user.avatar_url)} alt="" className="h-full w-full object-cover" /> : request.user.name.charAt(0).toUpperCase()}</ProfileLink>
+                <div className="min-w-0 flex-1"><ProfileLink userId={request.user.id} name={request.user.name} className="block max-w-full truncate"><span className="sg-chat-name block truncate text-sm font-bold">{request.user.name}</span></ProfileLink><p className="sg-chat-preview text-xs">Lời mời kết bạn</p></div>
                 <button type="button" disabled={friendActionId === request.id} onClick={() => runFriendAction(request.id, () => chatService.acceptFriendRequest(request.id))} className="sg-chat-action-button rounded-lg px-2.5 py-2 text-xs font-bold disabled:opacity-50"><Check className="mr-1 inline h-3.5 w-3.5" />Chấp nhận</button>
               </div>
             ))}
             {activeTab === 'friends' && searchQuery.trim().length >= 2 && visiblePeople.map((person) => (
               <div key={`person-${person.id}`} className="sg-chat-row flex items-center gap-3 px-4 py-3.5">
-                <div className="sg-chat-avatar sg-chat-avatar-soft flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl font-bold">{person.avatar_url ? <img src={resolveMediaUrl(person.avatar_url)} alt="" className="h-full w-full object-cover" /> : person.name.charAt(0).toUpperCase()}</div>
-                <div className="min-w-0 flex-1"><span className="sg-chat-name block truncate text-sm font-bold">{person.name}</span><p className="sg-chat-preview text-xs">{person.friendship_status === 'accepted' ? 'Bạn bè' : person.friendship_status === 'incoming' ? 'Đã gửi lời mời cho bạn' : person.friendship_status === 'outgoing' ? 'Đã gửi lời mời' : 'Người dùng SportGo'}</p></div>
+                <ProfileLink userId={person.id} name={person.name} className="sg-chat-avatar sg-chat-avatar-soft flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl font-bold">{person.avatar_url ? <img src={resolveMediaUrl(person.avatar_url)} alt="" className="h-full w-full object-cover" /> : person.name.charAt(0).toUpperCase()}</ProfileLink>
+                <div className="min-w-0 flex-1"><ProfileLink userId={person.id} name={person.name} className="block max-w-full truncate"><span className="sg-chat-name block truncate text-sm font-bold">{person.name}</span></ProfileLink><p className="sg-chat-preview text-xs">{person.friendship_status === 'accepted' ? 'Bạn bè' : person.friendship_status === 'incoming' ? 'Đã gửi lời mời cho bạn' : person.friendship_status === 'outgoing' ? 'Đã gửi lời mời' : 'Người dùng SportGo'}</p></div>
                 {person.friendship_status === 'none' && <button type="button" disabled={friendActionId === person.id} onClick={() => runFriendAction(person.id, () => chatService.sendFriendRequest(person.id))} className="sg-chat-action-button rounded-lg px-3 py-2 text-xs font-bold disabled:opacity-50"><UserPlus className="mr-1 inline h-3.5 w-3.5" />Kết bạn</button>}
                 {person.friendship_status === 'incoming' && <button type="button" disabled={friendActionId === person.friendship_id} onClick={() => runFriendAction(person.friendship_id, () => chatService.acceptFriendRequest(person.friendship_id))} className="sg-chat-action-button rounded-lg px-2.5 py-2 text-xs font-bold disabled:opacity-50"><Check className="mr-1 inline h-3.5 w-3.5" />Chấp nhận</button>}
                 {person.friendship_status === 'outgoing' && <span className="sg-chat-request-state text-xs font-semibold"><UserCheck className="mr-1 inline h-4 w-4" />Đã gửi</span>}

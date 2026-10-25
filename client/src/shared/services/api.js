@@ -278,4 +278,8 @@ export const reputationService = {
   get: (userId) => apiClient.get(`/reputation/users/${userId}`),
 };
 
+export const userProfileService = {
+  get: (userId) => apiClient.get(`/users/${userId}/public-profile`),
+};
+
 export default apiClient;

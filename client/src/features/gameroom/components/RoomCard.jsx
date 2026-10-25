@@ -3,12 +3,14 @@ import { CalendarDays, Clock3, MapPin, MessageCircle, Users } from 'lucide-react
 import { formatCostAmount } from '../../../shared/utils/price';
 import ViewLocationModal from '../../../shared/components/ViewLocationModal';
 import ReputationBadge from '../../../shared/components/ReputationBadge';
+import { useUserProfile } from '../../../shared/context/UserProfileContext';
 
 const levels = { Beginner: 'Mới chơi', Intermediate: 'Trung bình', Advanced: 'Khá / Giỏi', Expert: 'Chuyên nghiệp' };
 const sports = { badminton: ['🏸', 'Cầu lông'], 'cầu lông': ['🏸', 'Cầu lông'], football: ['⚽', 'Bóng đá'], 'bóng đá': ['⚽', 'Bóng đá'], pickleball: ['🏓', 'Pickleball'] };
 const date = (value) => value ? new Date(/(?:Z|[+-]\d\d:\d\d)$/.test(value) ? value : `${value}Z`) : null;
 
 export default function RoomCard({ room, currentUserId, onJoin, onDecline, onChat, onManage, onAttendance }) {
+  const { openProfile } = useUserProfile();
   const [mapOpen, setMapOpen] = useState(false);
   const [clock, setClock] = useState(Date.now);
   useEffect(() => {
@@ -43,8 +45,8 @@ export default function RoomCard({ room, currentUserId, onJoin, onDecline, onCha
       <div className="sg-match-post-location"><MapPin size={17} /><p>{room.location || 'Địa điểm chưa cập nhật'}</p>{room.location && <button type="button" onClick={() => setMapOpen(true)} aria-label="Xem vị trí sân trên bản đồ">Bản đồ</button>}</div>
       {room.description && <p className="sg-match-post-description">{room.description}</p>}
       <div className="sg-match-post-key-info"><div className="sg-match-post-price"><strong>{formatCostAmount(room.price_info)}</strong><span>mỗi người</span></div><div className="sg-match-post-level"><span>Trình độ</span><strong>{levels[room.required_level] || room.required_level || 'Mọi trình độ'}</strong></div></div>
-      <div className="sg-match-post-players"><div className="sg-match-post-avatars" aria-label={`${count} người đã tham gia`}>{players.slice(0, 5).map((person) => <span key={person.id} title={person.name}>{person.avatar ? <img src={person.avatar} alt={person.name} /> : <span>{person.name.charAt(0).toUpperCase()}</span>}</span>)}{players.length > 5 && <span>+{players.length - 5}</span>}</div><span><Users size={14} /><strong>{count}/{capacity}</strong> người</span></div>
-      <div className="sg-match-post-host"><span>Chủ phòng: <strong>{hostName}</strong></span><ReputationBadge reputation={room.host?.reputation} compact /></div>
+      <div className="sg-match-post-players"><div className="sg-match-post-avatars" aria-label={`${count} người đã tham gia`}>{players.slice(0, 5).map((person) => <button type="button" className="sg-profile-trigger" key={person.id} title={`Xem hồ sơ ${person.name}`} aria-label={`Xem hồ sơ ${person.name}`} onClick={() => openProfile(person.id)}>{person.avatar ? <img src={person.avatar} alt="" /> : <span>{person.name.charAt(0).toUpperCase()}</span>}</button>)}{players.length > 5 && <span>+{players.length - 5}</span>}</div><span><Users size={14} /><strong>{count}/{capacity}</strong> người</span></div>
+      <div className="sg-match-post-host"><span>Chủ phòng: <button type="button" className="sg-profile-name-link" onClick={() => openProfile(room.host_id)}><strong>{hostName}</strong></button></span><ReputationBadge reputation={room.host?.reputation} compact /></div>
       {requestExpired && <p className="sg-room-request-expired">Yêu cầu tham gia đã hết hạn. Bạn chưa được duyệt vào buổi chơi này.</p>}
       <div className="sg-match-post-actions">
         {!isHost && <button type="button" className="sg-match-post-chat" onClick={() => onChat?.(room)} aria-label="Nhắn tin cho chủ phòng"><MessageCircle size={17} /></button>}
