@@ -106,16 +106,19 @@ function FieldLabel({
   iconColor = '#94A3B8',
   required,
   hint,
+  compact,
   children,
 }: {
   icon?: LucideIcon;
   iconColor?: string;
   required?: boolean;
   hint?: string;
+  /** No bottom margin, for a label placed inside another row (e.g. next to the location tools). */
+  compact?: boolean;
   children: string;
 }) {
   return (
-    <View className="mb-2 flex-row flex-wrap items-center gap-1.5">
+    <View className={`${compact ? '' : 'mb-2 '}flex-row flex-wrap items-center gap-1.5`}>
       {Icon ? <Icon size={13} color={iconColor} /> : null}
       <Text className="text-xs font-extrabold uppercase tracking-wide text-slate-500 dark:text-slate-400">
         {children}
@@ -282,11 +285,15 @@ export function CreateGameroomModal({ visible, onClose, room }: CreateGameroomMo
             name="title"
             render={({ field }) => (
               <Input
-                placeholder="VD: Kèo Cầu lông giao lưu tối thứ 4 trình Trung bình, có bao cầu…"
+                placeholder="VD: Kèo Cầu lông tối thứ 4"
                 value={field.value}
-                onChangeText={field.onChange}
+                onChangeText={(text) => field.onChange(text.replace(/\r?\n/g, ' '))}
                 onBlur={field.onBlur}
                 error={errors.title?.message}
+                multiline
+                submitBehavior="blurAndSubmit"
+                textAlignVertical="top"
+                className="h-auto min-h-12 py-3"
               />
             )}
           />
@@ -311,15 +318,16 @@ export function CreateGameroomModal({ visible, onClose, room }: CreateGameroomMo
         </View>
 
         <View>
-          <FieldLabel icon={MapPin} iconColor="#F43F5E" required>
-            Địa điểm / sân thi đấu
-          </FieldLabel>
           <Controller
             control={control}
             name="location"
             render={({ field }) => (
               <LocationPicker
-                placeholder="Nhập tên sân, địa chỉ hoặc bấm 'Map' để chọn trên bản đồ..."
+                label={
+                  <FieldLabel icon={MapPin} iconColor="#F43F5E" required compact>
+                    Địa điểm / sân thi đấu
+                  </FieldLabel>
+                }
                 value={field.value ?? ''}
                 onChange={field.onChange}
                 error={errors.location?.message}

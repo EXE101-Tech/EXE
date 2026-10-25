@@ -2,7 +2,21 @@ import { Text } from '@/components/ui/text';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Linking from 'expo-linking';
 import * as ImagePicker from 'expo-image-picker';
-import { Crown, Eye, ImagePlus, LogOut, MapPin, Pencil, Trash2, Trophy, Users } from 'lucide-react-native';
+import {
+  BookOpen,
+  Crown,
+  Eye,
+  FileText,
+  ImagePlus,
+  LogOut,
+  MapPin,
+  Pencil,
+  ShieldCheck,
+  Trash2,
+  Trophy,
+  Users,
+  type LucideIcon,
+} from 'lucide-react-native';
 import { useState } from 'react';
 import { Image, TouchableOpacity, View } from 'react-native';
 import { storageApi } from '@/api/storage';
@@ -23,6 +37,43 @@ import { ACCOUNT_DELETION_URL, PRIVACY_POLICY_URL } from '@/lib/legal';
 import { UserName } from '@/components/ui/user-name';
 
 const LEVEL_RANK: Record<string, number> = { Beginner: 1, Intermediate: 2, Advanced: 3, Expert: 4 };
+
+/** One cell of the legal/account grid: same size for all four so the rows line up (labels may wrap to 2 lines). */
+function AccountLink({
+  label,
+  icon: Icon,
+  onPress,
+  danger = false,
+}: {
+  label: string;
+  icon: LucideIcon;
+  onPress: () => void;
+  danger?: boolean;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      accessibilityRole="button"
+      className={
+        danger
+          ? 'min-h-12 flex-1 flex-row items-center justify-center gap-1.5 rounded-xl border border-rose-500/40 bg-rose-500/5 px-2 py-2'
+          : 'min-h-12 flex-1 flex-row items-center justify-center gap-1.5 rounded-xl border border-border bg-slate-50 px-2 py-2 dark:border-border-dark dark:bg-white/5'
+      }
+    >
+      <Icon size={14} color={danger ? '#DC2626' : '#537fff'} />
+      <Text
+        className={
+          danger
+            ? 'shrink text-center text-xs font-bold text-rose-600 dark:text-rose-400'
+            : 'shrink text-center text-xs font-bold text-brand dark:text-brand-dark'
+        }
+        numberOfLines={2}
+      >
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+}
 
 export default function ProfileScreen() {
   const user = useAuthStore((s) => s.user);
@@ -191,20 +242,15 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
 
-          <View className="mt-4 flex-row flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-4 dark:border-border-dark">
-            <TouchableOpacity onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}>
-              <Text className="text-xs font-bold text-brand dark:text-brand-dark">Chính sách quyền riêng tư</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setRulesOpen(true)}>
-              <Text className="text-xs font-bold text-brand dark:text-brand-dark">Quy tắc cộng đồng</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => Linking.openURL(ACCOUNT_DELETION_URL)}>
-              <Text className="text-xs font-bold text-brand dark:text-brand-dark">Yêu cầu xóa tài khoản</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={confirmDeleteAccount} className="ml-auto flex-row items-center gap-1">
-              <Trash2 size={13} color="#DC2626" />
-              <Text className="text-xs font-bold text-rose-600 dark:text-rose-400">Xóa tài khoản</Text>
-            </TouchableOpacity>
+          <View className="mt-4 gap-2 border-t border-border pt-4 dark:border-border-dark">
+            <View className="flex-row gap-2">
+              <AccountLink label="Chính sách quyền riêng tư" icon={ShieldCheck} onPress={() => Linking.openURL(PRIVACY_POLICY_URL)} />
+              <AccountLink label="Quy tắc cộng đồng" icon={BookOpen} onPress={() => setRulesOpen(true)} />
+            </View>
+            <View className="flex-row gap-2">
+              <AccountLink label="Yêu cầu xóa tài khoản" icon={FileText} onPress={() => Linking.openURL(ACCOUNT_DELETION_URL)} />
+              <AccountLink label="Xóa tài khoản" icon={Trash2} onPress={confirmDeleteAccount} danger />
+            </View>
           </View>
 
           {statsLoading ? (

@@ -46,15 +46,18 @@ function FieldLabel({
   icon: Icon,
   iconColor = '#94A3B8',
   required,
+  compact,
   children,
 }: {
   icon?: typeof MapPin;
   iconColor?: string;
   required?: boolean;
+  /** No bottom margin, for a label placed inside another row (e.g. next to the location tools). */
+  compact?: boolean;
   children: string;
 }) {
   return (
-    <View className="mb-2 flex-row items-center gap-1.5">
+    <View className={`${compact ? '' : 'mb-2 '}flex-row items-center gap-1.5`}>
       {Icon ? <Icon size={14} color={iconColor} /> : null}
       <Text className="text-sm font-bold text-slate-700 dark:text-slate-200">
         {children}
@@ -277,15 +280,17 @@ export function CreateTeamModal({ visible, onClose, team }: CreateTeamModalProps
         </View>
 
         <View>
-          <FieldLabel icon={MapPin} iconColor="#F43F5E" required>
-            Khu vực hoạt động
-          </FieldLabel>
           <Controller
             control={control}
             name="location"
             render={({ field }) => (
               <LocationPicker
-                placeholder="Quận / thành phố hoặc chọn trên map..."
+                label={
+                  <FieldLabel icon={MapPin} iconColor="#F43F5E" required compact>
+                    Khu vực hoạt động
+                  </FieldLabel>
+                }
+                placeholder="Quận / thành phố hoặc bấm Map"
                 value={field.value}
                 onChange={field.onChange}
                 error={errors.location?.message}
