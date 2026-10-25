@@ -987,6 +987,8 @@ class SocialPostResponse(BaseModel):
     like_count: int = 0
     comment_count: int = 0
     liked_by_me: bool = False
+    reaction_counts: Dict[str, int] = Field(default_factory=dict)
+    my_reaction: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -994,6 +996,12 @@ class SocialPostResponse(BaseModel):
 class SocialPostLikeResponse(BaseModel):
     liked: bool
     like_count: int
+    reaction_counts: Dict[str, int] = Field(default_factory=dict)
+    my_reaction: Optional[str] = None
+
+
+class SocialPostReactionUpdate(BaseModel):
+    reaction: Literal["like", "fire", "bolt", "gg", "trophy", "haha", "toang"] = "like"
 
 
 class SocialPostInteractionResponse(BaseModel):
@@ -1001,6 +1009,8 @@ class SocialPostInteractionResponse(BaseModel):
     like_count: int
     comment_count: int
     liked_by_me: bool
+    reaction_counts: Dict[str, int] = Field(default_factory=dict)
+    my_reaction: Optional[str] = None
 
 
 class SocialPostCommentContent(BaseModel):
@@ -1056,6 +1066,8 @@ class SocialPostCommentPageResponse(BaseModel):
     oldest_root_id: Optional[int] = None
     like_count: int = 0
     liked_by_me: bool = False
+    reaction_counts: Dict[str, int] = Field(default_factory=dict)
+    my_reaction: Optional[str] = None
 
 
 class SocialPostCommentReactionResponse(BaseModel):

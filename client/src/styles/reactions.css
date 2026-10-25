@@ -1,0 +1,64 @@
+/* SportGo sticker reactions on posts */
+.sg-sticker { display: block; flex: none; filter: drop-shadow(0 2px 3px rgba(15, 23, 42, .18)); }
+
+.sg-reaction { position: relative; display: inline-flex; align-items: center; gap: 2px; }
+.sg-reaction-trigger {
+  display: inline-flex; align-items: center; gap: 7px; padding: 6px 8px; margin-left: -8px;
+  border-radius: 12px; font-size: 14px; font-weight: 700; color: var(--sg-muted, #64748b);
+  transition: background .15s ease, color .15s ease;
+}
+.sg-reaction-trigger:not(:disabled):hover { background: rgba(100, 130, 190, .12); color: #e11d48; }
+.sg-reaction-trigger.is-active:not(:disabled):hover { background: rgba(100, 130, 190, .12); }
+.sg-reaction-trigger:disabled { cursor: default; }
+.sg-reaction-more {
+  display: grid; place-items: center; width: 28px; height: 28px; border-radius: 9px;
+  color: var(--sg-muted, #64748b); transition: background .15s ease, color .15s ease, transform .15s ease;
+}
+.sg-reaction-more:not(:disabled):hover { background: rgba(100, 130, 190, .12); color: #f59e0b; transform: rotate(-8deg) scale(1.08); }
+
+.sg-reaction-picker {
+  position: absolute; bottom: calc(100% + 8px); left: -10px; z-index: 40;
+  display: flex; align-items: flex-end; gap: 2px; padding: 6px 8px;
+  border: 1px solid var(--sg-line, rgba(35, 52, 82, .12)); border-radius: 999px;
+  background: var(--sg-panel, #fff); box-shadow: 0 14px 38px rgba(2, 8, 22, .28);
+  animation: sg-reaction-bar-in .2s cubic-bezier(.22, 1.2, .36, 1) both;
+  transform-origin: 30px 100%;
+}
+/* Invisible bridge so moving the mouse from button to bar keeps it open. */
+.sg-reaction-picker::after { content: ''; position: absolute; left: 0; right: 0; top: 100%; height: 12px; }
+
+.sg-reaction-option {
+  position: relative; padding: 3px; border-radius: 50%;
+  animation: sg-reaction-option-in .34s cubic-bezier(.22, 1.4, .36, 1) both; animation-delay: var(--delay, 0ms);
+  transition: transform .16s cubic-bezier(.22, 1.4, .36, 1);
+}
+.sg-reaction-option:not(:disabled):hover, .sg-reaction-option:focus-visible { transform: translateY(-7px) scale(1.32); z-index: 1; }
+.sg-reaction-option.is-selected::before {
+  content: ''; position: absolute; left: 50%; bottom: -3px; width: 5px; height: 5px; margin-left: -2.5px;
+  border-radius: 50%; background: currentColor; color: #5e87f7;
+}
+.sg-reaction-option-label {
+  position: absolute; left: 50%; bottom: calc(100% + 4px); transform: translateX(-50%) scale(.85);
+  padding: 3px 8px; border-radius: 999px; background: rgba(15, 23, 42, .88); color: #fff;
+  font-size: 10px; font-weight: 800; white-space: nowrap; pointer-events: none; opacity: 0;
+  transition: opacity .12s ease, transform .12s ease;
+}
+.sg-reaction-option:hover .sg-reaction-option-label, .sg-reaction-option:focus-visible .sg-reaction-option-label { opacity: 1; transform: translateX(-50%) scale(.78); }
+
+.sg-reaction-pop { animation: sg-reaction-pop .5s cubic-bezier(.22, 1.6, .36, 1) both; }
+
+.sg-reaction-summary { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--sg-muted, #64748b); }
+.sg-reaction-summary-stack { display: inline-flex; }
+.sg-reaction-summary-stack > .sg-sticker + .sg-sticker { margin-left: -6px; }
+
+@keyframes sg-reaction-bar-in { from { opacity: 0; transform: translateY(8px) scale(.85); } to { opacity: 1; transform: none; } }
+@keyframes sg-reaction-option-in { from { opacity: 0; transform: translateY(14px) scale(.4); } to { opacity: 1; transform: none; } }
+@keyframes sg-reaction-pop { 0% { transform: scale(.3) rotate(-25deg); } 60% { transform: scale(1.35) rotate(8deg); } 100% { transform: none; } }
+
+@media (max-width: 480px) {
+  .sg-reaction-picker { gap: 0; padding: 5px 6px; }
+  .sg-reaction-option .sg-sticker { width: 34px; height: 34px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sg-reaction-picker, .sg-reaction-option, .sg-reaction-pop { animation: none; }
+}
