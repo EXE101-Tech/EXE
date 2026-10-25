@@ -793,7 +793,7 @@ class AttendanceTests(unittest.TestCase):
         state = attendance.room_state(self.db, room, self.host)
         self.assertTrue(state["checkin_available"])
         self.assertEqual(state["window_closes_at"], closes_at)
-        self.assertTrue(state["feedback_open"])
+        self.assertTrue(state["peer_window_open"])
         result = attendance.open_checkin(self.db, room, self.host)
         self.assertEqual(result["expires_at"], closes_at)
         attendance.check_in(self.db, room, self.player, result["code"])
@@ -804,41 +804,43 @@ class AttendanceTests(unittest.TestCase):
             attendance.open_checkin(self.db, room, self.host)
         self.assertEqual(error.exception.status_code, 409)
 
-    def test_feedback_and_peer_confirmation_run_from_start_to_thirty_minutes_after_end(self):
+    def test_peer_confirmation_closes_thirty_minutes_after_end_while_self_reports_stay_open(self):
         room = self.room()
         self.approve(room, self.player)
         self.approve(room, self.witness)
+        self.confirm(room, self.witness)
         self.stamp = room.start_time - timedelta(seconds=1)
         with self.assertRaises(HTTPException) as error:
             self.report(room, self.player)
         self.assertEqual(error.exception.status_code, 409)
-        self.assertEqual(attendance.room_state(self.db, room, self.player)["participants"], [])
 
-        # During the game both host and players can report and confirm each other.
+        # From the start: "I was there" and peer confirmation both work during the game.
         self.stamp = room.start_time + timedelta(minutes=10)
         self.report(room, self.player)
         self.report(room, self.witness)
         self.peer(room, self.witness, self.player)
-        attendance.report_host(self.db, room, self.host, self.player.id, "ATTENDED")
-        self.assertTrue(attendance.room_state(self.db, room, self.witness)["can_peer_confirm"])
-        self.assertFalse(attendance.room_state(self.db, room, self.host)["feedback_required"])
+        self.assertTrue(attendance.room_state(self.db, room, self.witness)["peer_window_open"])
+        self.assertFalse(attendance.room_state(self.db, room, self.player)["feedback_required"])
 
-        # The reminder only appears after the end, while the window is still open.
-        self.stamp = room.end_time + timedelta(minutes=5)
-        self.assertTrue(attendance.room_state(self.db, room, self.host)["feedback_required"])
-        self.assertEqual(attendance.required_feedback(self.db, self.host.id)["room"]["match_id"], room.id)
-
+        # Peer confirmation closes at end + 30 minutes; the host and players can still submit their results.
         self.stamp = room.end_time + timedelta(minutes=30)
-        for action in (lambda: self.report(room, self.host),
-                       lambda: self.peer(room, self.host, self.player),
-                       lambda: attendance.report_host(self.db, room, self.host, self.witness.id, "ABSENT")):
-            with self.assertRaises(HTTPException) as error:
-                action()
-            self.assertEqual(error.exception.status_code, 409)
-        state = attendance.room_state(self.db, room, self.host)
-        self.assertFalse(state["feedback_open"])
-        self.assertFalse(state["feedback_required"])
-        self.assertIsNone(attendance.required_feedback(self.db, self.host.id)["room"])
+        self.assertFalse(attendance.room_state(self.db, room, self.host)["peer_window_open"])
+        with self.assertRaises(HTTPException) as error:
+            self.peer(room, self.host, self.player)
+        self.assertEqual(error.exception.status_code, 409)
+        attendance.report_host(self.db, room, self.host, self.witness.id, "ABSENT")
+        self.db.commit()
+        self.report(room, self.host, occurred=True, attended=True)
+        self.assertIsNone(attendance.required_feedback(self.db, self.player.id)["room"])
+
+    def test_feedback_reminder_only_after_the_end_for_players_who_have_not_reported(self):
+        room = self.room()
+        self.approve(room, self.player)
+        self.stamp = room.end_time - timedelta(minutes=1)
+        self.assertFalse(attendance.room_state(self.db, room, self.player)["feedback_required"])
+        self.stamp = room.end_time + timedelta(minutes=1)
+        self.assertTrue(attendance.room_state(self.db, room, self.player)["feedback_required"])
+        self.assertEqual(attendance.required_feedback(self.db, self.player.id)["room"]["match_id"], room.id)
 
     def test_old_room_policies_use_the_new_checkin_window(self):
         room = self.room()

@@ -98,10 +98,9 @@ def expire_join_requests(db):
     return len(requests)
 
 
-def feedback_required(room, participant, record, policy=None):
-    # The prompt blocks the app, so it only appears between the end and the close of the window.
+def feedback_required(room, participant, record):
     return bool(
-        room.end_time <= now() < window_closes_at(room, policy) and room.status != "CANCELLED" and participant
+        room.end_time <= now() and room.status != "CANCELLED" and participant
         and participant.status == "APPROVED"
         and (not record or record.confirmation_status in ("CONFIRMED", "UNCONFIRMED"))
         and (not record or record.self_occurred is None or record.self_attended is None)
@@ -119,9 +118,7 @@ def required_feedback(db, user_id):
         or_(record.id.is_(None), record.confirmation_status.in_(("CONFIRMED", "UNCONFIRMED"))),
     )
     current = now()
-    # Once the window has closed nothing can be submitted, so the task is dropped.
-    grace = timedelta(minutes=default_policy()["after_end_minutes"])
-    pending = active.filter(models.Match.end_time <= current, models.Match.end_time > current - grace,
+    pending = active.filter(models.Match.end_time <= current,
                             or_(record.self_occurred.is_(None), record.self_attended.is_(None)))
     count = pending.count()
     first = pending.order_by(models.Match.end_time, models.Match.id).first() if count else None
@@ -464,16 +461,23 @@ def refresh_verification(db, room):
         session.verification_status = "UNVERIFIED"
 
 
-def _feedback_open(db, room):
+def _started(room):
+    # Self-reports and host absence marks have no closing time; they just wait for the game to start.
     if now() < room.start_time:
-        raise HTTPException(409, "Xác nhận mở từ giờ bắt đầu buổi chơi")
+        raise HTTPException(409, "Chỉ ghi nhận sau khi buổi chơi bắt đầu")
+
+
+def _peer_window_open(db, room):
+    # Peer confirmation is the only feedback with a deadline: it runs from the start to the window close.
+    if now() < room.start_time:
+        raise HTTPException(409, "Xác nhận chéo mở từ giờ bắt đầu buổi chơi")
     if now() >= window_closes_at(room, session_for(db, room).policy):
-        raise HTTPException(409, "Đã hết thời gian xác nhận (30 phút sau khi buổi chơi kết thúc)")
+        raise HTTPException(409, "Đã hết thời gian xác nhận chéo")
 
 
 def report_self(db, room, user, occurred, attended):
     require_participant(db, room, user.id, approved=True)
-    _feedback_open(db, room)
+    _started(room)
     if room.status == "CANCELLED":
         raise HTTPException(409, "Buổi chơi đã bị hủy")
     _snapshot_peer_roster(db, room)
@@ -493,7 +497,7 @@ def report_self(db, room, user, occurred, attended):
 def report_host(db, room, user, user_id, attendance):
     if room.host_id != user.id:
         raise HTTPException(403, "Chỉ chủ phòng mới ghi nhận điểm danh")
-    _feedback_open(db, room)
+    _started(room)
     if room.status == "CANCELLED":
         raise HTTPException(409, "Buổi chơi đã bị hủy")
     _snapshot_peer_roster(db, room)
@@ -603,7 +607,7 @@ def report_peer(db, room, user, user_id, attended=None, *, report=None):
         raise HTTPException(422, "Lựa chọn xác nhận không hợp lệ")
     require_participant(db, room, user.id, approved=True)
     require_participant(db, room, user_id, approved=True)
-    _feedback_open(db, room)
+    _peer_window_open(db, room)
     if room.status == "CANCELLED":
         raise HTTPException(409, "Buổi chơi đã bị hủy")
     if user.id == user_id:
@@ -832,9 +836,9 @@ def room_state(db, room, user):
         "terms_version": terms_version(room, policy),
         "confirmation_deadline": confirmation_deadline(room, policy),
         "window_closes_at": window_closes_at(room, policy),
-        "feedback_open": room.start_time <= now() < window_closes_at(room, policy) and room.status != "CANCELLED",
+        "peer_window_open": room.start_time <= now() < window_closes_at(room, policy) and room.status != "CANCELLED",
         "can_manage": can_manage,
-        "feedback_required": feedback_required(room, mine_participant, records.get(user.id), policy),
+        "feedback_required": feedback_required(room, mine_participant, records.get(user.id)),
         "low_attendance": low_attendance,
         "checkin_progress": progress,
         "can_peer_confirm": bool(mine_participant and mine_participant.status == "APPROVED"

@@ -7,7 +7,7 @@ Phạm vi: web trong `client/` và API. Xác nhận/check-in/uy tín cơ bản k
 1. Chủ phòng tạo buổi, người chơi xin tham gia hoặc nhận lời mời, chủ phòng duyệt.
 2. Chủ phòng mở **Điểm danh**, người chơi mở **Xác nhận & check-in**. Mỗi người đọc lịch, địa điểm, chi phí, tích đồng ý và chọn **Tôi sẽ tham gia**. Được duyệt chưa phải đã xác nhận tham gia.
 3. Trong khoảng check-in (từ giờ bắt đầu đến 30 phút sau giờ kết thúc, để người chơi xong vẫn kịp nhập mã), chủ phòng đã cam kết mở mã 6 số, đưa cho người có mặt. Người chơi đã cam kết nhập mã bằng tài khoản của mình.
-4. Từ giờ bắt đầu đến 30 phút sau giờ kết thúc (cả chủ phòng lẫn người chơi), người tham gia phản hồi buổi có diễn ra và bản thân có mặt không, rồi xác nhận những người mình trực tiếp gặp tại sân. Mỗi người cần ít nhất 2 người khác xác nhận; phòng thực tế chỉ có 2 người dùng ngưỡng 1. Có thể tính chủ phòng, không tính chính mình. Giao diện hiện tiến độ và tên người đã xác nhận.
+4. Từ giờ bắt đầu, người tham gia phản hồi buổi có diễn ra và bản thân có mặt không, rồi xác nhận những người mình trực tiếp gặp tại sân. Mỗi người cần ít nhất 2 người khác xác nhận; phòng thực tế chỉ có 2 người dùng ngưỡng 1. Có thể tính chủ phòng, không tính chính mình. Giao diện hiện tiến độ và tên người đã xác nhận.
    Người đã được duyệt nhưng chưa xác nhận trước buổi hoặc chưa nhập mã vẫn có thể đến chơi. Sau buổi, chọn **Gửi khai báo bổ sung**, rồi nhận đủ xác nhận chéo. Kết quả ghi rõ **Tham dự đã xác minh bổ sung**; không tạo lại cam kết trước buổi hoặc check-in bằng mã.
 5. Người chơi xem kết quả/lý do trong **Tìm trận → Buổi tôi đã tham gia → Xem kết quả**. Thông báo điểm danh cũng mở trực tiếp màn này.
 6. Quản trị viên vào **Điểm danh & uy tín**, đối chiếu bằng chứng, chọn kết quả và ghi lý do. Người bị báo vắng được thông báo và có thể phản hồi tiếp.
@@ -47,11 +47,11 @@ Quy định được chụp khi tạo phòng (phòng cũ: khi có thao tác mớ
 | --- | --- | --- |
 | `ATTENDANCE_CONFIRM_AFTER_START_MINUTES` | 30 phút sau giờ bắt đầu | 0–120 |
 | `ATTENDANCE_LATE_CANCEL_MINUTES` | 120 phút trước giờ bắt đầu | 0–1440 |
-| `ATTENDANCE_AFTER_END_MINUTES` | 30 phút sau giờ kết thúc. Check-in, phản hồi, báo vắng và xác nhận chéo mở từ giờ bắt đầu đến mốc này rồi đóng hẳn | 0–120 |
+| `ATTENDANCE_AFTER_END_MINUTES` | 30 phút sau giờ kết thúc. Check-in bằng mã và xác nhận chéo mở từ giờ bắt đầu đến mốc này rồi đóng hẳn. Phản hồi của người chơi và báo vắng của chủ phòng không có hạn đóng | 0–120 |
 | `ATTENDANCE_REQUIRED_WITNESSES` | 1 người ngoài chủ phòng | 1–10 |
 | `REPUTATION_MINIMUM_SAMPLES` | 5 kết quả đủ điều kiện | 1–100 |
 
-Hạn cam kết không muộn hơn giờ kết thúc. Hủy đúng mốc 120 phút là hủy sớm; sau mốc đó là hủy sát giờ. Không cam kết kịp hạn không tạo hình phạt. Mã mới có thời hạn cố định 1 phút, áp dụng cả khi mở mã trong phòng cũ có quy định 10 phút; không còn dùng biến `ATTENDANCE_CODE_TTL_MINUTES`. Mã hết hạn muộn nhất lúc đóng (kết thúc + 30 phút). Sau mốc này không nhận thêm phản hồi hay xác nhận chéo; ai chưa đủ bằng chứng thì buổi giữ `UNVERIFIED`, không trừ uy tín. Màn nhắc phản hồi chỉ hiện trong 30 phút sau khi kết thúc. Phòng cũ còn lưu `checkin_before_minutes` cũng dùng khung giờ mới; mở mã mới vô hiệu mã cũ và không lặp lại ngay mã trước. Sai 5 lần khóa nhập 5 phút theo tài khoản/phòng. Mã chỉ trả một lần khi mở, database giữ hash kèm salt, không lưu mã trong audit/API đọc.
+Hạn cam kết không muộn hơn giờ kết thúc. Hủy đúng mốc 120 phút là hủy sớm; sau mốc đó là hủy sát giờ. Không cam kết kịp hạn không tạo hình phạt. Mã mới có thời hạn cố định 1 phút, áp dụng cả khi mở mã trong phòng cũ có quy định 10 phút; không còn dùng biến `ATTENDANCE_CODE_TTL_MINUTES`. Mã hết hạn muộn nhất lúc đóng (kết thúc + 30 phút). Sau mốc này không nhận thêm check-in hay xác nhận chéo; ai chưa đủ bằng chứng thì buổi giữ `UNVERIFIED`, không trừ uy tín. Phản hồi của người chơi và báo vắng của chủ phòng vẫn nhận sau mốc này. Màn nhắc phản hồi chỉ hiện sau khi buổi kết thúc. Phòng cũ còn lưu `checkin_before_minutes` cũng dùng khung giờ mới; mở mã mới vô hiệu mã cũ và không lặp lại ngay mã trước. Sai 5 lần khóa nhập 5 phút theo tài khoản/phòng. Mã chỉ trả một lần khi mở, database giữ hash kèm salt, không lưu mã trong audit/API đọc.
 
 ## Công thức và đo lường
 
