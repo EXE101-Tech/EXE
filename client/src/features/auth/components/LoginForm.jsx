@@ -4,6 +4,7 @@ import { Zap, CheckCircle, Eye, EyeOff } from 'lucide-react';
 
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useTranslation } from 'react-i18next';
+import TermsCheckbox from './TermsCheckbox';
 
 function LoginForm({ onShowRegister }) {
   const { t } = useTranslation();
@@ -17,6 +18,7 @@ function LoginForm({ onShowRegister }) {
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   useEffect(() => {
     googleCallbackRef.current = async (code) => {
@@ -27,19 +29,21 @@ function LoginForm({ onShowRegister }) {
       setErrors({});
       setIsLoading(true);
       try {
-        const result = await loginWithGoogle(code);
+        const result = await loginWithGoogle(code, acceptedTerms);
         const destination = result?.is_new_user ? '/onboarding' : (result?.user?.isAdmin ? '/admin' : '/home');
         if (result?.is_new_user) localStorage.setItem('sportgo-onboarding-pending', String(result.user.id));
         setIsSuccess(true);
         setTimeout(() => navigate(destination), 1500);
       } catch (err) {
-        setErrors({ general: err.message || t('auth.invalidCredentials') });
+        // 428: a new Google account needs the consent first. Existing accounts never see this.
+        if (err.status === 428) setErrors({ terms: 'Tick đồng ý quy tắc cộng đồng để tạo tài khoản SportGo bằng Google.' });
+        else setErrors({ general: err.message || t('auth.invalidCredentials') });
       } finally {
         setIsLoading(false);
       }
     };
     return () => { googleCallbackRef.current = null; };
-  }, [loginWithGoogle, navigate, t]);
+  }, [acceptedTerms, loginWithGoogle, navigate, t]);
 
   useEffect(() => {
     if (!googleClientId) return undefined;
@@ -220,6 +224,7 @@ function LoginForm({ onShowRegister }) {
           <div className="flex-1 h-px bg-slate-300 dark:bg-white/30" />
         </div>
         <div className="w-full">
+          <TermsCheckbox className="mb-3" checked={acceptedTerms} onChange={(value) => { setAcceptedTerms(value); setErrors((current) => ({ ...current, terms: '' })); }} error={errors.terms} />
           {googleClientId ? (
             <button
               type="button"

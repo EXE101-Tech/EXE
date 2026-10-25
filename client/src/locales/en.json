@@ -263,6 +263,12 @@
       "finale": {
         "title": "Ready to play?",
         "text": "Create a free account and find your first game today."
+      },
+      "mode": {
+        "label": "Page mode",
+        "halloween": "Halloween",
+        "default": "Default",
+        "eyebrow": "🎃 Halloween night"
       }
     }
   }

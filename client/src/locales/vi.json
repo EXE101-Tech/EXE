@@ -263,6 +263,12 @@
       "finale": {
         "title": "Sẵn sàng ra sân?",
         "text": "Tạo tài khoản miễn phí và tìm trận đầu tiên của bạn ngay hôm nay."
+      },
+      "mode": {
+        "label": "Chế độ trang",
+        "halloween": "Halloween",
+        "default": "Mặc định",
+        "eyebrow": "🎃 Đêm Halloween"
       }
     }
   }

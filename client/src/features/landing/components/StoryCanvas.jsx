@@ -8,8 +8,10 @@ const clamp = (value, min = 0, max = 1) => Math.min(max, Math.max(min, value));
  * The scene receives a float beat (0 = first section centred). Copy blocks marked
  * `[data-story-copy]` stay fully visible through their chapter's beats and fade between chapters.
  */
-export default function StoryCanvas({ storyRef, onChapterChange }) {
+export default function StoryCanvas({ storyRef, onChapterChange, halloween = false }) {
   const canvasRef = useRef(null);
+  const sceneRef = useRef(null);
+  const halloweenRef = useRef(halloween);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -84,7 +86,8 @@ export default function StoryCanvas({ storyRef, onChapterChange }) {
     import('../three/SportScene').then(({ default: SportScene }) => {
       if (disposed) return;
       try {
-        scene = new SportScene(canvas, { dark: document.documentElement.classList.contains('dark'), lowPower, reducedMotion });
+        scene = new SportScene(canvas, { dark: document.documentElement.classList.contains('dark'), lowPower, reducedMotion, halloween: halloweenRef.current });
+        sceneRef.current = scene;
         onResize();
       } catch {
         setFailed(true);
@@ -102,8 +105,15 @@ export default function StoryCanvas({ storyRef, onChapterChange }) {
       window.removeEventListener('pointermove', onPointer);
       theme.disconnect();
       scene?.dispose();
+      sceneRef.current = null;
     };
   }, [storyRef, onChapterChange]);
+
+  // Switching mode only re-colours the running scene; it does not rebuild it.
+  useEffect(() => {
+    halloweenRef.current = halloween;
+    sceneRef.current?.setMode(halloween);
+  }, [halloween]);
 
   return <>
     <canvas ref={canvasRef} className={`sg-story-canvas ${failed ? 'is-hidden' : ''}`} aria-hidden="true" />

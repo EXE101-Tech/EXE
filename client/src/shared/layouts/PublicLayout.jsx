@@ -1,14 +1,25 @@
 import { Outlet } from 'react-router-dom';
 import { Sun, Moon } from 'lucide-react';
 import { useState, useLayoutEffect } from 'react';
+
+// The landing page reports its Halloween mode here; that mode is always dark, so the theme is forced.
 import Particles from '../../features/landing/components/Particles.jsx';
 
 export default function PublicLayout() {
   const [isDark, setIsDark] = useState(() => localStorage.getItem('publicTheme') === 'dark');
 
+  const [landingHalloween, setLandingHalloween] = useState(false);
+
+  // Layout effects run before the landing page's effects, so this listener is in place when it reports.
   useLayoutEffect(() => {
-    document.documentElement.classList.toggle('dark', isDark);
-  }, [isDark]);
+    const onLandingMode = (event) => setLandingHalloween(Boolean(event.detail));
+    window.addEventListener('sportgo:landing-mode', onLandingMode);
+    return () => window.removeEventListener('sportgo:landing-mode', onLandingMode);
+  }, []);
+
+  useLayoutEffect(() => {
+    document.documentElement.classList.toggle('dark', isDark || landingHalloween);
+  }, [isDark, landingHalloween]);
 
   const toggleTheme = () => {
     const newDark = !isDark;
@@ -29,6 +40,8 @@ export default function PublicLayout() {
       {/* Floating Theme Toggle for Public Pages */}
       <button 
         onClick={toggleTheme}
+        disabled={landingHalloween}
+        title={landingHalloween ? 'Halloween luôn là chế độ tối' : 'Đổi giao diện sáng/tối'}
         className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 w-10 h-10 sm:w-12 sm:h-12 rounded-full glass-panel flex items-center justify-center text-slate-700 dark:text-white hover:scale-110 transition-transform group shadow-[0_0_15px_var(--theme-glow)]"
         title="Toggle Theme"
       >

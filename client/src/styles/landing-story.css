@@ -159,3 +159,60 @@ html.dark .sg-story-vignette {
 @media (prefers-reduced-motion: reduce) {
   .sg-story-live, .sg-story-stickers span, .sg-story-scroll-hint span::after { animation: none; }
 }
+
+/* Mode switch (Halloween / default), bottom-left so it never meets the theme toggle. */
+.sg-story.sg-story-mode {
+  position: fixed; left: clamp(12px, 2vw, 24px); bottom: clamp(12px, 2vw, 24px); z-index: 60;
+  display: flex; gap: 2px; padding: 4px; border-radius: 999px;
+  border: 1px solid var(--story-line); background: var(--story-glass); backdrop-filter: blur(14px);
+  transition: opacity .4s ease;
+}
+.sg-story-mode button {
+  display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 999px;
+  font-size: 12px; font-weight: 800; color: var(--story-muted); transition: background .2s ease, color .2s ease;
+}
+.sg-story-mode button.is-active { color: #fff; background: linear-gradient(110deg, var(--story-accent), var(--story-accent-2)); box-shadow: 0 6px 18px rgba(0, 0, 0, .25); }
+
+/* Halloween palette: always a night scene, regardless of the light/dark theme. */
+html[data-landing-mode="halloween"] .sg-story,
+html[data-landing-mode="halloween"] .sg-story-vignette {
+  --story-ink: #fff4e6;
+  --story-muted: #d9c3e8;
+  --story-accent: #ff8a1f;
+  --story-accent-2: #c084fc;
+  --story-glass: rgba(26, 10, 38, .58);
+  --story-line: rgba(255, 170, 100, .2);
+}
+html[data-landing-mode="halloween"] .sg-story-vignette {
+  background:
+    radial-gradient(120% 90% at 50% 50%, transparent 50%, rgba(10, 3, 16, .85) 100%),
+    linear-gradient(180deg, rgba(10, 3, 16, .55), transparent 20%, transparent 78%, rgba(10, 3, 16, .75));
+}
+html[data-landing-mode="halloween"] .sg-story-cta { background: linear-gradient(110deg, #ff7a1a, #a855f7); box-shadow: 0 12px 34px rgba(255, 122, 26, .35); }
+html[data-landing-mode="halloween"] .sg-story-live { background: #ff8a1f; box-shadow: 0 0 0 0 rgba(255, 138, 31, .6); }
+html[data-landing-mode="halloween"] .sg-story-rail button.is-active { color: #ff8a1f; }
+
+@media (max-width: 767px) {
+  /* The copy card sits at the bottom on phones, so the switch moves under the header. */
+  .sg-story.sg-story-mode { left: 12px; top: 70px; bottom: auto; }
+  .sg-story-mode button { padding: 6px 11px; font-size: 11px; }
+}
+
+/* Login / register Halloween backdrop: the page itself is forced dark while this mode is on. */
+.sg-auth-halloween { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.sg-auth-moon {
+  position: absolute; left: 76%; top: 6%; width: 170px; height: 170px; border-radius: 50%;
+  background: radial-gradient(circle at 40% 38%, #fff4d6 0 38%, #f5c97a 70%, rgba(245, 201, 122, 0) 72%);
+  box-shadow: 0 0 80px 20px rgba(255, 190, 110, .28);
+  opacity: .85;
+}
+.sg-auth-moon::before, .sg-auth-moon::after { content: ''; position: absolute; border-radius: 50%; background: rgba(190, 130, 70, .22); }
+.sg-auth-moon::before { width: 34px; height: 34px; left: 40%; top: 44%; }
+.sg-auth-moon::after { width: 22px; height: 22px; left: 58%; top: 58%; }
+.sg-auth-float, .sg-auth-bat { position: absolute; display: block; }
+.sg-auth-float { animation: sg-auth-bob 6s ease-in-out infinite; filter: drop-shadow(0 6px 14px rgba(255, 122, 26, .35)); }
+.sg-auth-float svg, .sg-auth-bat svg { width: 100%; height: 100%; display: block; }
+.sg-auth-bat { animation: sg-auth-fly 9s ease-in-out infinite; }
+@keyframes sg-auth-bob { 0%, 100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-14px) rotate(4deg); } }
+@keyframes sg-auth-fly { 0% { transform: translate(-30px, 0); } 50% { transform: translate(30px, -18px); } 100% { transform: translate(-30px, 0); } }
+@media (prefers-reduced-motion: reduce) { .sg-auth-float, .sg-auth-bat { animation: none; } }

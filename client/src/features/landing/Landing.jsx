@@ -4,6 +4,8 @@ import { ArrowRight, Sparkles, Menu, ShieldCheck, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import brandLogo from '../../../icons/logo.png';
 import StoryCanvas from './components/StoryCanvas';
+import useHalloweenMode from '../../shared/hooks/useHalloweenMode';
+import { HalloweenModeSwitch } from '../../shared/components/HalloweenModeSwitch';
 import { SportSticker } from '../../shared/components/SportReactions';
 
 function LandingPage() {
@@ -16,6 +18,7 @@ function LandingPage() {
   const [activeChapter, setActiveChapter] = useState(0);
   const chapters = t('landing.story.chapters', { returnObjects: true });
   const handleChapterChange = useCallback((index) => setActiveChapter(index), []);
+  const [halloween, chooseMode] = useHalloweenMode();
 
   // Scroll so the chapter's first beat is centred (see StoryCanvas for the beat model).
   const scrollToChapter = (index) => {
@@ -147,7 +150,8 @@ function LandingPage() {
       </header>
 
       {/* Fixed layers stay outside the fading wrapper: its transform would turn position:fixed into absolute. */}
-      <StoryCanvas storyRef={storyRef} onChapterChange={handleChapterChange} />
+      <StoryCanvas storyRef={storyRef} onChapterChange={handleChapterChange} halloween={halloween} />
+      <HalloweenModeSwitch halloween={halloween} onChoose={chooseMode} className={isExiting ? 'opacity-0' : ''} />
       {/* Chapter rail, also outside the fading wrapper so it stays pinned. */}
       <nav className={`sg-story sg-story-rail ${isExiting ? 'opacity-0' : ''}`} aria-label={t('landing.story.scrollHint')}>
         {chapters.map((label, index) => <button key={label} type="button" className={activeChapter === index ? 'is-active' : ''} aria-current={activeChapter === index ? 'step' : undefined} onClick={() => scrollToChapter(index)}><span>{label}</span></button>)}
@@ -174,7 +178,7 @@ function LandingPage() {
         <section id="hero" data-chapter="0" className="sg-story-section">
           <div className="sg-story-sticky">
             <div data-story-copy className="sg-story-copy is-left sg-story-hero">
-              <p className="sg-story-eyebrow"><span className="sg-story-live" />{t('landing.story.sports.badminton')} · {t('landing.story.sports.pickleball')} · {t('landing.story.sports.football')}</p>
+              <p className="sg-story-eyebrow"><span className="sg-story-live" />{halloween && <>{t('landing.story.mode.eyebrow')} · </>}{t('landing.story.sports.badminton')} · {t('landing.story.sports.pickleball')} · {t('landing.story.sports.football')}</p>
               <h1 className="sg-story-brand">Sport<span>Go</span></h1>
               <h2 className="sg-story-title">{t('landing.hero.heroTitle')}</h2>
               <p className="sg-story-text">{t('landing.hero.subtitle')}</p>

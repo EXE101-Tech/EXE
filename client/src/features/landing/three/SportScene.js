@@ -6,10 +6,13 @@ import * as THREE from 'three';
 
 const COURT = { width: 6.1, length: 13.4 };
 const SPORT_COLORS = [new THREE.Color('#38bdf8'), new THREE.Color('#a3e635'), new THREE.Color('#f8fafc')];
+// Halloween keeps one colour per sport but in pumpkin orange, witch purple and bone white.
+const HALLOWEEN_COLORS = [new THREE.Color('#ff8a1f'), new THREE.Color('#c084fc'), new THREE.Color('#fde8c8')];
 // Court surface per sport: badminton blue, pickleball deep blue, football turf.
 const COURT_SURFACES = {
   dark: ['#0b3a52', '#123d6b', '#14532d'].map((hex) => new THREE.Color(hex)),
   light: ['#2b6c8f', '#2f5f9e', '#2f7a46'].map((hex) => new THREE.Color(hex)),
+  halloween: ['#2b1238', '#25123f', '#173322'].map((hex) => new THREE.Color(hex)),
 };
 
 const clamp = (value, min = 0, max = 1) => Math.min(max, Math.max(min, value));
@@ -138,7 +141,7 @@ function drawCard(ctx, w, h, { accent, title, value, caption, initials, bar }) {
 }
 
 export default class SportScene {
-  constructor(canvas, { dark = true, lowPower = false, reducedMotion = false } = {}) {
+  constructor(canvas, { dark = true, lowPower = false, reducedMotion = false, halloween = false } = {}) {
     this.canvas = canvas;
     this.lowPower = lowPower;
     this.reducedMotion = reducedMotion;
@@ -164,7 +167,8 @@ export default class SportScene {
     this.buildBeams();
     this.buildCards();
     this.buildNetwork();
-    this.setTheme(dark);
+    this.dark = dark;
+    this.setMode(halloween);
   }
 
   track(...items) {
@@ -523,21 +527,202 @@ export default class SportScene {
 
   setTheme(dark) {
     this.dark = dark;
-    const background = new THREE.Color(dark ? '#050a18' : '#dbe8fb');
+    this.applyPalette();
+  }
+
+  // Halloween is always a night scene, whatever the page theme.
+  setMode(halloween) {
+    this.halloween = halloween;
+    if (halloween && !this.spooky) this.buildHalloween();
+    if (this.spooky) this.spooky.visible = halloween;
+    this.applyPalette();
+  }
+
+  applyPalette() {
+    const spooky = Boolean(this.halloween);
+    const dark = this.dark || spooky;
+    this.night = dark;
+    this.lineColors = spooky ? HALLOWEEN_COLORS : SPORT_COLORS;
+    this.courtLines.forEach((group, index) => {
+      group.children[0].material.color.copy(this.lineColors[index]);
+      group.userData.kitchen?.color.copy(this.lineColors[index]);
+    });
+    this.grid.material.color.set(spooky ? '#ff9a5a' : '#ffffff');
+    this.rim.color.set(spooky ? '#a855f7' : '#38bdf8');
+    this.warm.color.set(spooky ? '#ff7a1a' : '#f472b6');
+    this.hemi.color.set(spooky ? '#c4a1ff' : '#9cc7ff');
+    for (const beam of this.beams) beam.material.color.set(spooky ? '#c084fc' : '#7cc4ff');
+    const background = new THREE.Color(spooky ? '#0d0614' : dark ? '#050a18' : '#dbe8fb');
     this.scene.background = background;
     this.scene.fog.color.copy(background);
-    this.floorMaterial.color.set(dark ? '#081226' : '#c9daf3');
-    this.courtMaterial.emissive.set(dark ? '#07263a' : '#0d3550');
+    this.floorMaterial.color.set(spooky ? '#120a1c' : dark ? '#081226' : '#c9daf3');
+    this.courtMaterial.emissive.set(spooky ? '#1a0a24' : dark ? '#07263a' : '#0d3550');
     this.grid.material.opacity = dark ? 0.18 : 0.3;
     this.hemi.intensity = dark ? 0.9 : 1.6;
     this.particleMaterial.blending = dark ? THREE.AdditiveBlending : THREE.NormalBlending;
-    this.particleMaterial.color.set(dark ? '#7dd3fc' : '#3b82f6');
+    this.particleMaterial.color.set(spooky ? '#ffa94d' : dark ? '#7dd3fc' : '#3b82f6');
     this.particleMaterial.needsUpdate = true;
     // Additive glow vanishes on a light sky, so switch the network to solid blue there.
-    this.nodeMesh.material.color.set(dark ? '#e0f2fe' : '#1d4ed8');
-    this.linkMaterial.color.set(dark ? '#38bdf8' : '#2563eb');
+    this.nodeMesh.material.color.set(spooky ? '#ffd29a' : dark ? '#e0f2fe' : '#1d4ed8');
+    this.linkMaterial.color.set(spooky ? '#c084fc' : dark ? '#38bdf8' : '#2563eb');
     this.linkMaterial.blending = dark ? THREE.AdditiveBlending : THREE.NormalBlending;
     this.linkMaterial.needsUpdate = true;
+  }
+
+  // Halloween night: moon, glowing jack-o'-lanterns around the court and a flock of bats.
+  // Built on first use so the default mode pays nothing for it.
+  buildHalloween() {
+    this.spooky = new THREE.Group();
+    this.scene.add(this.spooky);
+
+    const moonTexture = this.track(canvasTexture(256, 256, (ctx, w, h) => {
+      const halo = ctx.createRadialGradient(w / 2, h / 2, w * 0.18, w / 2, h / 2, w / 2);
+      halo.addColorStop(0, 'rgba(255, 214, 150, .55)');
+      halo.addColorStop(1, 'rgba(255, 214, 150, 0)');
+      ctx.fillStyle = halo;
+      ctx.fillRect(0, 0, w, h);
+      const disc = ctx.createRadialGradient(w * 0.44, h * 0.42, 4, w / 2, h / 2, w * 0.2);
+      disc.addColorStop(0, '#fff7e0');
+      disc.addColorStop(1, '#f5c97a');
+      ctx.fillStyle = disc;
+      ctx.beginPath();
+      ctx.arc(w / 2, h / 2, w * 0.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(190, 130, 70, .28)';
+      for (const [x, y, r] of [[0.45, 0.44, 0.035], [0.56, 0.53, 0.025], [0.47, 0.58, 0.018], [0.58, 0.41, 0.015]]) {
+        ctx.beginPath();
+        ctx.arc(w * x, h * y, w * r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }));
+    this.moon = new THREE.Sprite(this.track(new THREE.SpriteMaterial({ map: moonTexture, fog: false, depthWrite: false, toneMapped: false })));
+    this.moon.scale.setScalar(14);
+    // Drawn last: it writes no depth, so the far floor grid would otherwise paint over it.
+    this.moon.renderOrder = 10;
+    this.moon.position.set(-16, 18, -32);
+    this.spooky.add(this.moon);
+
+    // Jack-o'-lantern: ribbed orange body with a carved face that glows (face sits at +Z, see lookAt below).
+    const body = this.track(new THREE.SphereGeometry(0.5, 40, 28));
+    const position = body.getAttribute('position');
+    for (let i = 0; i < position.count; i += 1) {
+      const x = position.getX(i);
+      const z = position.getZ(i);
+      const ribs = 1 - 0.07 * (1 - Math.abs(Math.cos(Math.atan2(z, x) * 4)));
+      position.setXYZ(i, x * ribs, position.getY(i) * 0.82, z * ribs);
+    }
+    body.computeVertexNormals();
+    const face = this.track(canvasTexture(512, 256, (ctx, w, h) => {
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = '#ffd36b';
+      const cx = w * 0.25;
+      const eye = (x) => { ctx.beginPath(); ctx.moveTo(x - 20, 112); ctx.lineTo(x + 20, 112); ctx.lineTo(x, 80); ctx.closePath(); ctx.fill(); };
+      eye(cx - 34);
+      eye(cx + 34);
+      ctx.beginPath();
+      ctx.moveTo(cx - 8, 128); ctx.lineTo(cx + 8, 128); ctx.lineTo(cx, 116); ctx.closePath(); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(cx - 60, 140);
+      const teeth = [[-46, 160], [-34, 148], [-20, 166], [-6, 150], [8, 166], [22, 150], [36, 164], [48, 146], [60, 140]];
+      for (const [dx, y] of teeth) ctx.lineTo(cx + dx, y);
+      ctx.quadraticCurveTo(cx, 198, cx - 60, 140);
+      ctx.fill();
+    }));
+    const stem = this.track(new THREE.CylinderGeometry(0.04, 0.06, 0.18, 8));
+    const stemMaterial = this.track(new THREE.MeshStandardMaterial({ color: '#4d3b1f', roughness: 0.9 }));
+    this.pumpkinMaterial = this.track(new THREE.MeshStandardMaterial({ color: '#ff7a1a', roughness: 0.55, emissive: '#ffb347', emissiveMap: face, emissiveIntensity: 1.6 }));
+    const spots = [[-4.3, -5.5, 0.9], [4.4, -3.2, 0.7], [-4.6, 1.6, 0.6], [4.2, 3.8, 0.85], [-3.9, 6.8, 0.7], [3.6, 7.6, 0.55], [0, -8.6, 1.1], [-1.8, 8.9, 0.6]];
+    this.pumpkins = spots.map(([x, z, size]) => {
+      const pumpkin = new THREE.Group();
+      const mesh = new THREE.Mesh(body, this.pumpkinMaterial);
+      const top = new THREE.Mesh(stem, stemMaterial);
+      top.position.y = 0.45;
+      top.rotation.z = 0.2;
+      pumpkin.add(mesh, top);
+      pumpkin.position.set(x, 0.41 * size, z);
+      pumpkin.scale.setScalar(size);
+      this.spooky.add(pumpkin);
+      return pumpkin;
+    });
+    this.pumpkinLights = [[-4.3, -5.5], [4.2, 3.8]].map(([x, z]) => {
+      const light = new THREE.PointLight('#ff8a1f', 8, 7, 2);
+      light.position.set(x, 0.6, z);
+      this.spooky.add(light);
+      return light;
+    });
+
+    // Bats: a body and two scalloped wings that flap around the body.
+    const wingShape = new THREE.Shape();
+    wingShape.moveTo(0, 0);
+    wingShape.quadraticCurveTo(0.25, 0.22, 0.62, 0.12);
+    wingShape.quadraticCurveTo(0.5, 0.02, 0.48, -0.08);
+    wingShape.quadraticCurveTo(0.38, 0.0, 0.3, -0.07);
+    wingShape.quadraticCurveTo(0.22, 0.0, 0.14, -0.06);
+    wingShape.quadraticCurveTo(0.08, -0.02, 0, -0.05);
+    const wing = this.track(new THREE.ShapeGeometry(wingShape));
+    const batMaterial = this.track(new THREE.MeshBasicMaterial({ color: '#120818', side: THREE.DoubleSide }));
+    const batBody = this.track(new THREE.SphereGeometry(0.07, 10, 8));
+    const count = this.lowPower ? 8 : 16;
+    this.bats = Array.from({ length: count }, (_, index) => {
+      const bat = new THREE.Group();
+      bat.add(new THREE.Mesh(batBody, batMaterial));
+      // Each wing lies flat (span along ±X) inside a hinge that rotates about the bat's forward (Z) axis.
+      const [left, right] = [1, -1].map((side) => {
+        const hinge = new THREE.Group();
+        const mesh = new THREE.Mesh(wing, batMaterial);
+        mesh.rotation.x = -Math.PI / 2;
+        mesh.scale.x = side;
+        hinge.add(mesh);
+        bat.add(hinge);
+        return hinge;
+      });
+      bat.userData = {
+        left, right,
+        radius: 5 + (index % 5) * 1.6,
+        height: 3.5 + ((index * 37) % 50) / 10,
+        speed: (0.25 + ((index * 13) % 10) / 30) * (index % 2 ? 1 : -1),
+        phase: (index / count) * Math.PI * 2,
+        flap: 9 + (index % 4) * 1.5,
+      };
+      bat.scale.setScalar(0.9 + (index % 3) * 0.25);
+      this.spooky.add(bat);
+      return bat;
+    });
+  }
+
+  animateHalloween(time) {
+    if (!this.spooky?.visible) return;
+    const t = this.reducedMotion ? 0 : time;
+    // The camera mostly looks down at the court, so the moon rides along in the upper corner of the view.
+    const forward = new THREE.Vector3();
+    this.camera.getWorldDirection(forward);
+    const right = new THREE.Vector3().crossVectors(forward, this.camera.up).normalize();
+    const wide = this.camera.aspect > 1.1;
+    // Place it on the horizon line just under the top edge; it must stay above the floor or the grid covers it.
+    const flat = new THREE.Vector3(forward.x, 0, forward.z).normalize();
+    const elevation = Math.asin(forward.y) + THREE.MathUtils.degToRad(this.camera.fov / 2 - 10);
+    this.moon.position.copy(this.camera.position).addScaledVector(flat, 40).addScaledVector(right, wide ? 13 : 3);
+    this.moon.position.y = Math.max(3, this.camera.position.y + Math.tan(elevation) * 40);
+    const flicker = 1.35 + Math.sin(t * 9) * 0.12 + Math.sin(t * 23) * 0.08;
+    this.pumpkinMaterial.emissiveIntensity = flicker;
+    this.pumpkinLights.forEach((light, index) => { light.intensity = 7 + Math.sin(t * 11 + index) * 1.5; });
+    // Carved faces turn toward the viewer.
+    const look = new THREE.Vector3();
+    for (const pumpkin of this.pumpkins) {
+      look.set(this.camera.position.x, pumpkin.position.y, this.camera.position.z);
+      pumpkin.lookAt(look);
+    }
+    for (const bat of this.bats) {
+      const { left, right, radius, height, speed, phase, flap } = bat.userData;
+      const angle = phase + t * speed;
+      bat.position.set(Math.cos(angle) * radius, height + Math.sin(t * 1.3 + phase) * 0.6, Math.sin(angle) * radius);
+      // Point the bat's Z axis along its velocity on the circle.
+      bat.rotation.set(0, Math.atan2(-Math.sin(angle) * speed, Math.cos(angle) * speed), Math.sin(t * 2 + phase) * 0.15);
+      const beat = Math.sin(t * flap + phase) * 0.8;
+      left.rotation.z = beat;
+      right.rotation.z = -beat;
+    }
   }
 
   setPointer(x, y) {
@@ -618,7 +803,7 @@ export default class SportScene {
     this.trailMaterial.opacity = flying * 0.85;
 
     // Sport colour on court lines.
-    const color = SPORT_COLORS[0].clone().lerp(SPORT_COLORS[1], clamp(sport)).lerp(SPORT_COLORS[2], clamp(sport - 1));
+    const color = this.lineColors[0].clone().lerp(this.lineColors[1], clamp(sport)).lerp(this.lineColors[2], clamp(sport - 1));
     this.glowMaterial.color.copy(color);
     // Court markings, surface, net height and goals follow the active sport.
     const weights = [1 - clamp(sport), clamp(1 - Math.abs(sport - 1)), clamp(sport - 1)];
@@ -627,7 +812,7 @@ export default class SportScene {
       group.children[0].material.opacity = weights[index];
       if (group.userData.kitchen) group.userData.kitchen.opacity = 0.14 * weights[index];
     });
-    const surfaces = this.dark ? COURT_SURFACES.dark : COURT_SURFACES.light;
+    const surfaces = this.halloween ? COURT_SURFACES.halloween : this.night ? COURT_SURFACES.dark : COURT_SURFACES.light;
     this.courtMaterial.color.copy(surfaces[0]).lerp(surfaces[1], clamp(sport)).lerp(surfaces[2], clamp(sport - 1));
     // Net: 1.55 m badminton → 0.91 m pickleball, gone for football and while the trio orbits.
     const netHeight = (1 - 0.41 * clamp(sport)) * (1 - weights[2]) * (1 - networkIn);
@@ -677,7 +862,7 @@ export default class SportScene {
       const target = new THREE.Vector3(sway, 0, sway * 0.6);
       const dir = target.sub(beam.userData.origin).normalize();
       beam.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), dir);
-      beam.material.opacity = this.dark ? 0.05 + finale * 0.16 : 0.015 + finale * 0.05;
+      beam.material.opacity = this.night ? 0.05 + finale * 0.16 : 0.015 + finale * 0.05;
     }
     this.rim.intensity = 30 + finale * 40;
 
@@ -692,6 +877,7 @@ export default class SportScene {
     positions.needsUpdate = true;
     this.particleMaterial.size = 0.16 * (1 + Math.min(1.5, Math.abs(velocity) * 10));
 
+    this.animateHalloween(time);
     this.renderer.render(this.scene, this.camera);
   }
 
