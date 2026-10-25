@@ -45,6 +45,11 @@ export function buildAttendanceHistory(events, viewerId) {
       case 'JOIN_REQUESTED': title = `${actor} gửi yêu cầu tham gia`; kind = 'member'; break;
       case 'JOIN_REQUEST_EXPIRED': title = `Yêu cầu tham gia của ${subject} hết hạn khi buổi chơi kết thúc`; kind = 'member'; break;
       case 'INVITE_ACCEPTED': title = `${actor} nhận lời mời tham gia`; kind = 'member'; break;
+      case 'WAITLIST_JOINED': title = `${actor} đăng ký chơi dự bị`; kind = 'member'; break;
+      case 'SEAT_HELD': title = `Giữ chỗ tạm cho ${subject}`; description = details.deadline ? `Xác nhận trước ${asDate(details.deadline).toLocaleString('vi-VN')}.` : ''; kind = 'member'; break;
+      case 'SEAT_OFFERED': title = `Gửi lời mời nhận chỗ cho ${subject}`; kind = 'member'; break;
+      case 'SEAT_HOLD_EXPIRED': title = `Chỗ giữ tạm của ${subject} đã hết hạn`; description = 'Suất đã mở lại. Không tính bùng kèo hoặc trừ uy tín.'; kind = 'member'; break;
+      case 'INVITE_EXPIRED': title = `Lời mời nhận chỗ của ${subject} đã hết hạn`; description = 'Chuyển lượt cho người tiếp theo, không ảnh hưởng uy tín.'; kind = 'member'; break;
       case 'MEMBERSHIP_UPDATED':
         if (details.status === 'APPROVED') title = `${actor} duyệt ${subject} vào phòng`;
         else if (details.status === 'REJECTED') title = details.previous_status === 'PENDING'

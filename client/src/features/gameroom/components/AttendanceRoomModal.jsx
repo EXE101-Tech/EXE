@@ -3,13 +3,14 @@ import { CalendarDays, Check, CheckCircle2, ChevronDown, ClipboardCheck, Clock3,
 import { attendanceService, gameRoomService } from '../../../shared/services/api';
 import { formatStoredCost } from '../../../shared/utils/price';
 import AttendanceHistory from './AttendanceHistory';
+import { responseTimeLeft } from '../../../shared/utils/roomTiming';
 
 const date = (value) => value ? new Date(/(?:Z|[+-]\d\d:\d\d)$/.test(value) ? value : `${value}Z`) : null;
 const time = (value) => date(value)?.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) || 'Chưa có';
 const hour = (value) => date(value)?.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) || '';
 const day = (value) => date(value)?.toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit' }) || '';
 const VERIFICATION = { UNVERIFIED: 'Đang chờ xác nhận kết quả', OCCURRED: 'Buổi chơi đã được xác nhận', CANCELLED: 'Buổi chơi đã hủy', DISPUTED: 'Phản hồi về buổi chơi chưa khớp' };
-const CONFIRMATION = { UNCONFIRMED: 'Chưa xác nhận tham gia', CONFIRMED: 'Đã xác nhận tham gia', CANCELLED: 'Đã hủy tham gia', DECLINED: 'Đã rời phòng', REMOVED: 'Đã được gỡ khỏi phòng' };
+const CONFIRMATION = { UNCONFIRMED: 'Chưa xác nhận tham gia', CONFIRMED: 'Đã xác nhận tham gia', CANCELLED: 'Đã hủy tham gia', DECLINED: 'Đã rời phòng', REMOVED: 'Đã được gỡ khỏi phòng', EXPIRED: 'Đã hết hạn giữ chỗ' };
 const OUTCOME = { ATTENDED: 'Tham dự đã xác minh', NO_SHOW: 'Vắng không báo', EXCUSED: 'Không ảnh hưởng uy tín', UNVERIFIED: 'Đang chờ đối chiếu' };
 
 function Disclosure({ title, children, className = '' }) {
@@ -178,6 +179,7 @@ export default function AttendanceRoomModal({ roomId, onClose, onChanged, requir
   const closed = state?.status === 'CANCELLED' || (state?.removed && !ended);
   const isHost = state && mine?.user_id === state.host_id;
   const isApproved = mine?.membership_status === 'APPROVED';
+  const isInvitation = mine?.membership_status === 'PENDING' && ['AUTO', 'WAITLIST'].includes(mine?.invite_source);
   const requestExpired = mine?.membership_status === 'EXPIRED' || (ended && mine?.membership_status === 'PENDING');
   const confirmed = mine?.confirmation_status === 'CONFIRMED';
   const checkedIn = !!mine?.checked_in_at;
@@ -232,7 +234,9 @@ export default function AttendanceRoomModal({ roomId, onClose, onChanged, requir
   let action;
   if (state) {
     if (closed) action = <><h4>{state.low_attendance?.cancelled_for_low_attendance ? 'Buổi chơi đã hủy vì thiếu người' : 'Buổi chơi đã được hủy'}</h4><p>Bạn không cần check-in hay gửi xác nhận. Buổi này không làm giảm uy tín của bạn.</p></>;
-    else if (requestExpired) action = <><h4>Yêu cầu tham gia đã hết hạn</h4><p>Buổi chơi đã kết thúc trước khi yêu cầu của bạn được duyệt. Bạn không được ghi nhận tham gia, không cần đánh giá và không bị ảnh hưởng uy tín.</p></>;
+    else if (requestExpired) action = <><h4>{mine?.response_deadline ? 'Đã hết hạn giữ chỗ' : 'Yêu cầu tham gia đã hết hạn'}</h4><p>{mine?.response_deadline ? 'Bạn chưa nhận chỗ/xác nhận trong thời hạn nên suất đã mở lại. Bạn không bị tính bùng kèo, không cần đánh giá và không bị trừ uy tín. Có thể đăng ký lại từ danh sách phòng nếu còn chỗ.' : 'Buổi chơi đã kết thúc trước khi yêu cầu của bạn được duyệt. Bạn không được ghi nhận tham gia, không cần đánh giá và không bị ảnh hưởng uy tín.'}</p></>;
+    else if (isInvitation) action = <><h4>Có suất chơi dành cho bạn</h4><p>Kiểm tra lịch, sân và chi phí ở trên. {mine.response_deadline && <>Nhận chỗ trước <strong>{time(mine.response_deadline)}</strong>. </>}Hết hạn sẽ chuyển lượt; không nhận lời mời không ảnh hưởng uy tín.</p>{mine.response_deadline && <p className="sg-seat-summary"><strong>{responseTimeLeft(mine.response_deadline, serverNow)}</strong> để nhận chỗ.</p>}<form className="sg-attendance-form" onSubmit={(event) => { event.preventDefault(); run(() => gameRoomService.respondInvite(roomId, 'ACCEPT', { accepted_policy: accepted, terms_version: state.terms_version }), 'Đã nhận chỗ và xác nhận sẽ đến.'); }}><label className="sg-attendance-consent"><input type="checkbox" required checked={accepted} onChange={(event) => setAccepted(event.target.checked)} /><span>Tôi đã đọc thông tin buổi chơi và xác nhận sẽ đến.</span></label><button className="sg-primary-button" disabled={busy || !accepted || !canConfirm}>Nhận chỗ & xác nhận</button><button type="button" className="sg-attendance-secondary" disabled={busy} onClick={() => run(() => gameRoomService.respondInvite(roomId, 'REJECT'), 'Đã từ chối lời mời. Uy tín không bị ảnh hưởng.')}>Từ chối lời mời</button></form></>;
+    else if (mine?.membership_status === 'WAITLISTED') action = <><h4>Bạn đang trong danh sách dự bị</h4><p>Khi có suất trống, SportGo sẽ gửi lời mời có thời hạn để bạn chủ động nhận chỗ. Dưới 30 phút trước giờ chơi, chủ phòng xử lý trực tiếp.</p><button type="button" className="sg-attendance-secondary" disabled={busy} onClick={() => run(() => gameRoomService.leave(roomId, 'Rút đăng ký dự bị'), 'Đã rút đăng ký dự bị.')}>Rút đăng ký dự bị</button></>;
     else if (mine?.membership_status === 'PENDING') action = <><h4>Đang chờ chủ phòng duyệt</h4><p>Sau khi được duyệt, bạn có thể xác nhận tham gia và check-in tại sân.</p></>;
     else if (!isApproved) action = <><h4>{CONFIRMATION[mine?.confirmation_status] || 'Bạn chưa tham gia buổi này'}</h4><p>{mine?.cancellation_reason || 'Bạn có thể xem lại thông tin và lịch sử của mình bên dưới.'}</p></>;
     else if (!requiredCount && ended && state.low_attendance?.approved_count < 2 && state.verification_status === 'UNVERIFIED') action = <><h4>Buổi chơi chưa đủ người để đối chiếu</h4><p>Phòng chỉ có {state.low_attendance.approved_count} người đã được duyệt nên chưa thể xác minh tham dự. {isHost ? 'Nếu buổi không diễn ra, hãy hủy vì thiếu người ở phía trên để kết thúc điểm danh.' : 'Chủ phòng có thể hủy vì thiếu người để kết thúc điểm danh.'} Buổi này chưa được tính vào uy tín.</p></>;
@@ -249,11 +253,11 @@ export default function AttendanceRoomModal({ roomId, onClose, onChanged, requir
       {hasReport && mine.self_attended && !mine.disputed && <div className="sg-attendance-next">Bạn đã được <strong>{mine.peer_confirmations?.length || 0}/{mine.required_peer_confirmations || 2} người khác</strong> xác nhận có mặt. {mine.outcome === 'UNVERIFIED' && 'Kết quả được ghi nhận khi đủ xác nhận chéo và buổi đã được xác minh.'}</div>}
     </>;
     else if (!confirmed) action = <>
-      <h4>{canConfirm ? 'Bạn sẽ tham gia buổi này chứ?' : 'Bạn chưa xác nhận trước buổi'}</h4><p>{canConfirm ? 'Kiểm tra lịch, địa điểm và chi phí ở trên trước khi xác nhận.' : 'Bạn đã được duyệt nên vẫn có thể đến sân. Sau buổi, hãy khai báo có mặt để người cùng chơi xác nhận bổ sung. Chưa xác nhận không tự động bị tính vắng.'}</p>
+      <h4>{canConfirm ? 'Bạn sẽ tham gia buổi này chứ?' : mine?.response_deadline ? 'Hạn giữ chỗ đã kết thúc' : 'Bạn chưa xác nhận trước buổi'}</h4><p>{canConfirm ? 'Kiểm tra lịch, địa điểm và chi phí ở trên trước khi xác nhận.' : mine?.response_deadline ? 'Suất sẽ mở lại vì đã hết hạn xác nhận. Trạng thái đang được cập nhật; bạn không bị tính bùng kèo hoặc trừ uy tín.' : 'Bạn đã được duyệt nên vẫn có thể đến sân. Sau buổi, hãy khai báo có mặt để người cùng chơi xác nhận bổ sung. Chưa xác nhận không tự động bị tính vắng.'}</p>
       {canConfirm && <form className="sg-attendance-form" onSubmit={(event) => { event.preventDefault(); run(() => attendanceService.confirm(roomId, state.terms_version), 'Đã xác nhận tham gia.'); }}>
         <label className="sg-attendance-consent"><input type="checkbox" checked={accepted} onChange={(event) => setAccepted(event.target.checked)} required /><span>Tôi đã đọc thông tin buổi chơi và sẽ đến tham gia.</span></label>
-        <div className="sg-attendance-submit-row"><button type="submit" className="sg-primary-button" disabled={busy || !accepted}>Tôi sẽ tham gia</button><small>Xác nhận trước {time(state.confirmation_deadline)}</small></div>
-        <p className="sg-attendance-small">Nếu không thể đến, hãy hủy tham gia để chủ phòng biết. Hủy sát giờ được ghi nhận riêng. Vắng không báo được tự tính vào uy tín khi đủ điều kiện.</p>
+        <div className="sg-attendance-submit-row"><button type="submit" className="sg-primary-button" disabled={busy || !accepted}>Tôi sẽ tham gia</button><small>Xác nhận trước {time(state.confirmation_deadline)}{mine?.response_deadline && <><br />{responseTimeLeft(mine.response_deadline, serverNow)}</>}</small></div>
+        <p className="sg-attendance-small">{mine?.response_deadline ? 'Chỗ đang được giữ tạm đến hạn trên. Hết hạn chưa xác nhận, suất sẽ mở lại; bạn không bị tính bùng kèo hoặc trừ uy tín.' : 'Nếu không thể đến, hãy hủy tham gia để chủ phòng biết. Hủy sát giờ được ghi nhận riêng. Vắng không báo được tự tính vào uy tín khi đủ điều kiện.'}</p>
       </form>}
     </>;
     else if (isHost && allCheckedIn) action = <><h4><CheckCircle2 size={22} />Mọi người đã check-in đầy đủ</h4><p>Đã ghi nhận {state.checkin_progress.checked_in}/{state.checkin_progress.total} người. Mã check-in đã đóng.</p><div className="sg-attendance-next">Sau {hour(state.end_time)}, quay lại để xác nhận kết quả buổi chơi.</div></>;

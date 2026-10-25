@@ -161,7 +161,7 @@ def confirmation_deadline(room, policy):
 
 
 def confirm(db, room, user, accepted_terms_version=None):
-    require_participant(db, room, user.id, approved=True)
+    participant = require_participant(db, room, user.id, approved=True)
     session = session_for(db, room)
     _available(room, session)
     if accepted_terms_version and accepted_terms_version != terms_version(room, session.policy):
@@ -169,7 +169,8 @@ def confirm(db, room, user, accepted_terms_version=None):
     record = record_for(db, room, user.id)
     if record.confirmation_status == "CONFIRMED":
         return record
-    if now() >= confirmation_deadline(room, session.policy):
+    deadline = participant.response_deadline or confirmation_deadline(room, session.policy)
+    if now() >= deadline:
         raise HTTPException(409, "Đã hết hạn xác nhận tham gia; không ghi nhận cam kết hồi tố")
     if record.confirmation_status != "CONFIRMED":
         record.confirmation_status = "CONFIRMED"
@@ -178,6 +179,7 @@ def confirm(db, room, user, accepted_terms_version=None):
         record.cancelled_at = None
         record.cancellation_reason = None
         record.late_cancellation = False
+        participant.response_deadline = None
         event(db, room, user.id, "CONFIRMED", user.id, terms=record.terms)
     return record
 
@@ -739,6 +741,9 @@ def _record_payload(record, participant, session, peers, viewer_id):
     return {
         "user_id": participant.user_id, "name": display_name(participant.user),
         "membership_status": participant.status, "role": participant.role,
+        "response_deadline": participant.response_deadline,
+        "expected_arrival_at": participant.expected_arrival_at,
+        "invite_source": participant.invite_source,
         "confirmation_status": record.confirmation_status if record else "UNCONFIRMED",
         "confirmed_at": record.confirmed_at if record else None,
         "cancelled_at": record.cancelled_at if record else None,
@@ -811,7 +816,8 @@ def room_state(db, room, user):
                    "required_peer_confirmations": 2, "two_person_peer_confirmations": 1,
                    "allow_supplemental_attendance": True}, "mine": mine,
         "terms_version": terms_version(room, policy),
-        "confirmation_deadline": confirmation_deadline(room, policy),
+        "confirmation_deadline": (mine_participant.response_deadline if mine_participant and mine_participant.response_deadline
+                                  else confirmation_deadline(room, policy)),
         "can_manage": can_manage,
         "feedback_required": feedback_required(room, mine_participant, records.get(user.id)),
         "low_attendance": low_attendance,

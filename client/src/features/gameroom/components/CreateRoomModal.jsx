@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X, Gamepad2, Trophy, MapPin, Calendar, Clock, Users, DollarSign, AlignLeft, Sparkles, AlertCircle } from 'lucide-react';
 import { sportService } from '../../../shared/services/api';
 import { parseCostInputToVnd, storedCostToInput } from '../../../shared/utils/price';
 import { isActiveSport } from '../../../shared/constants/sports';
 import LocationPicker from '../../../shared/components/LocationPicker';
+import { useAuth } from '../../../shared/context/AuthContext';
 
 const SPORT_EMOJI = { badminton: '🏸', football: '⚽', pickleball: '🏓' };
 
@@ -42,9 +43,11 @@ const defaultFormData = () => ({
     max_players: 6,
     price_info: '',
     description: '',
+    seat_holds_enabled: false,
 });
 
 function CreateRoomModal({ isOpen, onClose, onSubmit, initialRoom = null, isLoading = false }) {
+  const { user } = useAuth();
   const [formData, setFormData] = useState(defaultFormData);
 
   const [error, setError] = useState('');
@@ -52,36 +55,40 @@ function CreateRoomModal({ isOpen, onClose, onSubmit, initialRoom = null, isLoad
 
   useEffect(() => {
     if (!isOpen) return;
-    setError('');
-    if (initialRoom) {
-      const start = getTimeParts(initialRoom.start_time);
-      const end = getTimeParts(initialRoom.end_time);
-      setFormData({
-        title: initialRoom.title || '',
-        sportName: initialRoom.sportName || initialRoom.sport?.name || 'Cầu lông',
-        sport_id: Number(initialRoom.sport_id) || '',
-        required_level: initialRoom.required_level || 'Intermediate',
-        location: initialRoom.location || '',
-        date: start.date,
-        start_time: start.time,
-        end_time: end.time,
-        max_players: Number(initialRoom.max_players) || 2,
-        price_info: storedCostToInput(initialRoom.price_info),
-        description: initialRoom.description || '',
-        court_id: initialRoom.court_id || '',
-      });
-    } else {
-      setFormData(defaultFormData());
-    }
-    sportService.getAll().then((items) => {
-      const available = items.filter((item) => item.id != null && isActiveSport(item));
-      setSports(available);
-      setFormData((current) => {
-        if (available.some((item) => item.id === Number(current.sport_id))) return current;
-        const first = available[0];
-        return first ? { ...current, sport_id: first.id, sportName: first.name } : current;
-      });
-    }).catch((err) => setError(err.message || 'Không tải được danh sách môn thể thao'));
+    const timer = window.setTimeout(() => {
+      setError('');
+      if (initialRoom) {
+        const start = getTimeParts(initialRoom.start_time);
+        const end = getTimeParts(initialRoom.end_time);
+        setFormData({
+          title: initialRoom.title || '',
+          sportName: initialRoom.sportName || initialRoom.sport?.name || 'Cầu lông',
+          sport_id: Number(initialRoom.sport_id) || '',
+          required_level: initialRoom.required_level || 'Intermediate',
+          location: initialRoom.location || '',
+          date: start.date,
+          start_time: start.time,
+          end_time: end.time,
+          max_players: Number(initialRoom.max_players) || 2,
+          price_info: storedCostToInput(initialRoom.price_info),
+          description: initialRoom.description || '',
+          court_id: initialRoom.court_id || '',
+          seat_holds_enabled: Boolean(initialRoom.seat_holds_enabled),
+        });
+      } else {
+        setFormData(defaultFormData());
+      }
+      sportService.getAll().then((items) => {
+        const available = items.filter((item) => item.id != null && isActiveSport(item));
+        setSports(available);
+        setFormData((current) => {
+          if (available.some((item) => item.id === Number(current.sport_id))) return current;
+          const first = available[0];
+          return first ? { ...current, sport_id: first.id, sportName: first.name } : current;
+        });
+      }).catch((err) => setError(err.message || 'Không tải được danh sách môn thể thao'));
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [isOpen, initialRoom]);
 
   if (!isOpen) return null;
@@ -133,7 +140,7 @@ function CreateRoomModal({ isOpen, onClose, onSubmit, initialRoom = null, isLoad
         max_players: Number(formData.max_players),
         price_info: priceVnd.toLocaleString('vi-VN'),
       });
-    } catch (err) {
+    } catch {
       setError('Ngày hoặc giờ không hợp lệ, vui lòng kiểm tra lại');
     }
   };
@@ -344,6 +351,12 @@ function CreateRoomModal({ isOpen, onClose, onSubmit, initialRoom = null, isLoad
               className="w-full px-4 py-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:border-[#589470] dark:focus:border-[#DBE64C] focus:outline-none text-sm font-normal text-slate-900 dark:text-white transition-all custom-scrollbar"
             />
           </div>
+
+          {(user?.isPremium || initialRoom?.seat_holds_enabled) && <div className="sg-seat-hold-notice">
+            <label className="sg-attendance-consent"><input type="checkbox" checked={formData.seat_holds_enabled} disabled={Boolean(initialRoom)} onChange={(event) => setFormData((current) => ({ ...current, seat_holds_enabled: event.target.checked }))} /><span><strong>Nhắc chốt kèo & tìm người thay · Premium</strong></span></label>
+            <p>Nhắc xác nhận trước 4 giờ và trước hạn 30 phút. Hạn giữ chỗ thông thường là 2 giờ trước buổi chơi. Người được duyệt muộn có ít nhất 15 phút; còn 30–60 phút có 5 phút.</p>
+            <p>Hết hạn chưa xác nhận, suất mở lại và ưu tiên mời người dự bị. Dưới 30 phút dừng mời tự động. Quy định được giữ theo phòng từ lúc tạo.</p>
+          </div>}
 
           {/* Submit Footer */}
           <div className="sg-modal-footer flex items-center justify-end gap-3 p-6 pt-3 shrink-0">

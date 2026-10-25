@@ -17,6 +17,7 @@ from app.routers import auth, courts, gamerooms, bookings, teams, lfg, owner, ch
 from app.routers import attendance as attendance_router
 from app.auto_room_invites import process_auto_room_invites
 from app.team_fee_reminders import process_team_fee_reminders
+from app.seat_holds import process_seat_holds
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,7 @@ async def _auto_room_invite_worker():
     while True:
         db = SessionLocal()
         try:
+            process_seat_holds(db)
             process_auto_room_invites(db)
             process_team_fee_reminders(db)
         except Exception:

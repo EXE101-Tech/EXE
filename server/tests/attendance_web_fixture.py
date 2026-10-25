@@ -70,6 +70,41 @@ def state():
     return {"identities": identities, "room_id": room_id}
 
 
+@app.post("/test/seat-hold-room")
+def seat_hold_room(minutes: int = Query(180, ge=1, le=360), approved: bool = True):
+    with database.SessionLocal() as db:
+        original = db.get(models.Match, room_id)
+        attendance.cancel_room(db, original, identities["host"]["id"])
+        host = db.get(models.User, identities["host"]["id"])
+        host.premium_until = clock["now"] + timedelta(days=7)
+        db.flush()
+        room = matches.create_match(db, host.id, schemas.MatchCreate(
+            title="Kèo thử giữ chỗ và dự bị", sport_id=original.sport_id, max_players=2,
+            location="Sân Thảo Điền, Quận 2", price_info="50000", required_level="Beginner",
+            start_time=clock["now"] + timedelta(minutes=minutes),
+            end_time=clock["now"] + timedelta(minutes=minutes + 90), seat_holds_enabled=True))
+        if approved:
+            matches.join_match(db, room.id, identities["player"]["id"], accepted_hold_policy=True,
+                               expected_arrival_at=clock["now"] + timedelta(minutes=5))
+            matches.update_match_participant_status(db, room.id, identities["player"]["id"], "APPROVED")
+        attendance.confirm(db, room, host, room.terms_version)
+        db.commit()
+        memory_cache.clear()
+        return {"room_id": room.id, "server_time": clock["now"]}
+
+
+@app.post("/test/seat-hold-cycle")
+def seat_hold_cycle():
+    from app.seat_holds import process_seat_holds
+    from app.auto_room_invites import process_auto_room_invites
+    with database.SessionLocal() as db:
+        process_seat_holds(db)
+        process_auto_room_invites(db)
+        db.commit()
+        memory_cache.clear()
+    return {"ok": True}
+
+
 @app.post("/test/finish")
 def finish():
     with database.SessionLocal() as db:

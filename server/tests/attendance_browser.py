@@ -79,7 +79,7 @@ with sync_playwright() as playwright:
             for page in (player, witness):
                 page.goto(BASE + "/matches", wait_until="networkidle")
                 page.get_by_role("button", name="Tham gia ngay", exact=True).click()
-                page.get_by_role("button", name="Xác Nhận Tham Gia", exact=True).click()
+                page.get_by_role("button", name="Gửi yêu cầu", exact=True).click()
                 expect(page.get_by_role("button", name="Đang chờ duyệt", exact=True)).to_be_visible()
 
             host.reload(wait_until="networkidle")

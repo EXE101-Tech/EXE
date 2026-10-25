@@ -1,11 +1,17 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X, Sparkles, Trophy, MapPin, Calendar, Users, AlertTriangle, ShieldCheck, MessageSquare } from 'lucide-react';
 import { formatStoredCost } from '../../../shared/utils/price';
 import ViewLocationModal from '../../../shared/components/ViewLocationModal';
+import { responseTimeLeft } from '../../../shared/utils/roomTiming';
 
 function JoinRoomModal({ isOpen, onClose, onConfirm, room, isLoading = false }) {
   const [note, setNote] = useState('');
   const [isViewMapOpen, setIsViewMapOpen] = useState(false);
+  const [accepted, setAccepted] = useState(false);
+  const [arrival, setArrival] = useState('');
+  const [localClock, setClock] = useState(Date.now);
+  const clock = localClock + (room?.clockOffset || 0);
+  useEffect(() => { if (!isOpen) return; const timer = window.setInterval(() => setClock(Date.now()), 1000); return () => window.clearInterval(timer); }, [isOpen]);
 
   if (!isOpen || !room) return null;
 
@@ -51,15 +57,19 @@ function JoinRoomModal({ isOpen, onClose, onConfirm, room, isLoading = false }) 
   )).length + 1;
 
   const timeStr = formatDateTime(start_time, end_time);
+  const needsArrival = room.seat_holds_enabled && !room.isAutoInvite && new Date(start_time).getTime() - clock < 30 * 60000;
+  const expired = room.responseDeadline && new Date(`${room.responseDeadline.replace(/Z$/, '')}Z`).getTime() <= clock;
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onConfirm(room.id, note);
+    onConfirm(room.id, note, { accepted_hold_policy: accepted, terms_version: room.terms_version,
+      expected_arrival_at: arrival ? new Date(arrival).toISOString() : null, isWaitlist: Boolean(room.isWaitlist) });
   };
 
   return (
     <div className="sg-modal-backdrop fixed inset-0 z-[1050] flex items-center justify-center p-4 animate-in fade-in duration-200 overflow-y-auto">
       <div 
+        role="dialog" aria-modal="true" aria-labelledby="join-room-title"
         className="sg-modal-card relative my-8 flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
@@ -70,7 +80,7 @@ function JoinRoomModal({ isOpen, onClose, onConfirm, room, isLoading = false }) 
               <Sparkles className="w-6 h-6 stroke-[2.5]" />
             </div>
             <div>
-              <h3 className="text-xl font-black">{room.isAutoInvite ? 'Xác nhận lời mời' : 'Xác Nhận Tham Gia Phòng'}</h3>
+              <h3 id="join-room-title" className="text-xl font-black">{room.isWaitlist ? 'Đăng ký chơi dự bị' : room.isAutoInvite ? 'Xác nhận lời mời' : 'Gửi yêu cầu tham gia phòng'}</h3>
               <p className="text-xs opacity-90">{room.isAutoInvite ? 'Bạn được mời tự động vì cùng khu vực hoạt động' : 'Gia nhập nhóm và chuẩn bị thi đấu'}</p>
             </div>
           </div>
@@ -154,6 +164,15 @@ function JoinRoomModal({ isOpen, onClose, onConfirm, room, isLoading = false }) 
             />
           </div>
 
+          {room.seat_holds_enabled && <div className="sg-seat-hold-notice">
+            {room.isAutoInvite ? <p><strong>Nhận chỗ đồng thời xác nhận sẽ đến.</strong> {room.responseDeadline && `Hạn nhận chỗ: ${new Date(`${room.responseDeadline.replace(/Z$/, '')}Z`).toLocaleString('vi-VN')}.`} Hết hạn sẽ chuyển lượt, không ảnh hưởng uy tín.</p> : <p><strong>Phòng có hạn giữ chỗ.</strong> Sau khi được duyệt, xác nhận trước 2 giờ trước buổi chơi để giữ suất. Nếu được duyệt muộn, bạn có ít nhất 15 phút; còn 30–60 phút có 5 phút. Hết hạn chưa xác nhận, chỗ sẽ mở lại và không tính bùng kèo.</p>}
+            {room.isWaitlist && <p>Đăng ký dự bị chưa phải cam kết tham gia. Khi có suất, bạn nhận lời mời có hạn 15 phút hoặc 5 phút tùy thời gian còn lại. Dưới 30 phút, chủ phòng quyết định trực tiếp.</p>}
+            <label className="sg-attendance-consent"><input type="checkbox" required checked={accepted} onChange={(event) => setAccepted(event.target.checked)} /><span>{room.isAutoInvite ? 'Tôi đã đọc giờ chơi, địa điểm, chi phí và xác nhận sẽ đến.' : 'Tôi đã đọc và đồng ý quy định giữ chỗ có thời hạn.'}</span></label>
+          </div>}
+          {needsArrival && <label className="sg-seat-arrival">Dự kiến đến sân lúc<input type="datetime-local" required value={arrival} onChange={(event) => setArrival(event.target.value)} /><small>Buổi sắp bắt đầu. Chủ phòng cần biết giờ bạn đến trước khi duyệt.</small></label>}
+          {room.isAutoInvite && room.responseDeadline && <p className="sg-seat-summary"><strong>{responseTimeLeft(room.responseDeadline, clock)}</strong> để nhận chỗ.</p>}
+          {expired && <p role="alert">Lời mời đã hết hạn. Hãy đóng và tải lại danh sách phòng.</p>}
+
           {/* Modal Footer */}
           <div className="sg-modal-footer flex items-center justify-end gap-3 border-t pt-3">
             <button
@@ -165,11 +184,11 @@ function JoinRoomModal({ isOpen, onClose, onConfirm, room, isLoading = false }) 
             </button>
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || expired || (room.seat_holds_enabled && !accepted)}
               className="sg-modal-primary flex items-center gap-2 rounded-xl px-6 py-2.5 text-xs font-black shadow-lg active:scale-95 transition-all"
             >
               <ShieldCheck className="w-4 h-4" />
-              <span>{isLoading ? 'Đang xử lý...' : room.isAutoInvite ? 'Nhận lời mời' : 'Xác Nhận Tham Gia'}</span>
+              <span>{isLoading ? 'Đang xử lý...' : room.isWaitlist ? 'Đăng ký dự bị' : room.isAutoInvite ? room.seat_holds_enabled ? 'Nhận chỗ & xác nhận' : 'Nhận lời mời' : 'Gửi yêu cầu'}</span>
             </button>
           </div>
         </form>

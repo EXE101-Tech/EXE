@@ -1,5 +1,9 @@
 # Attendance confirmation and reputation (issue #44)
 
+Phòng Premium mới có thể bật giữ chỗ có hạn và dự bị. Xem [SEAT_HOLDS.md](SEAT_HOLDS.md)
+về hạn xác nhận trước buổi, nhắc tự động, hết hạn không phạt và migration cần chạy.
+Những phòng này dùng hạn riêng cho từng người thay cho hạn xác nhận thông thường bên dưới.
+
 Phạm vi: web trong `client/` và API. Xác nhận/check-in/uy tín cơ bản không yêu cầu Premium.
 
 ## Luồng sử dụng
