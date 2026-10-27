@@ -13,6 +13,13 @@ import {
   useUpdateAttendanceMutation,
 } from '@/hooks/queries/use-gamerooms';
 import { isPremiumUser } from '@/lib/premium';
+import {
+  availableSeats,
+  formatDeadline,
+  isInviteParticipant,
+  isStartingSoon,
+  needsArrivalTime,
+} from '@/lib/seat-holds';
 import { isFutureTime } from '@/lib/slots';
 import { cn } from '@/lib/utils';
 import type { MatchAttendanceStatus, MatchParticipantResponse, MatchResponse } from '@/schemas/gamerooms';
@@ -71,13 +78,18 @@ export function GameroomManageModal({ visible, roomId, onClose, onEdit }: Gamero
   const deleteRoom = useDeleteGameroomMutation();
 
   const members = (room?.participants ?? []).filter((p) => p.role !== 'HOST');
-  const pending = members.filter((p) => p.status === 'PENDING');
+  // Invitations sent to players (auto invites, standby invites) are answered by the player, not approved by the host.
+  const pending = members.filter((p) => p.status === 'PENDING' && !isInviteParticipant(p));
+  const standby = members.filter((p) => p.status === 'WAITLISTED' || isInviteParticipant(p));
   const approved = members.filter((p) => p.status === 'APPROVED');
   const approvedCount = approved.length + 1; // the host always occupies a seat
+  const holds = room?.seat_holds_enabled ?? false;
+  const summary = room?.roster_summary;
 
   const hasEnded = room ? !isFutureTime(room.end_time) && room.status !== 'CANCELLED' : false;
   const isClosed = room ? CLOSED_STATUSES.includes(room.status) || hasEnded : false;
-  const isFull = room ? approvedCount >= room.max_players : false;
+  // Seats reserved for pending invitations also count as taken in a seat-hold room.
+  const isFull = room ? (holds ? availableSeats(room) <= 0 : approvedCount >= room.max_players) : false;
   const busy = setStatus.isPending || setAttendance.isPending;
 
   const handleStatus = (userId: number, status: 'APPROVED' | 'REJECTED') =>
@@ -172,6 +184,13 @@ export function GameroomManageModal({ visible, roomId, onClose, onEdit }: Gamero
         </Text>
       </View>
 
+      {holds ? (
+        <Text className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+          <Text className="text-xs font-black text-brand dark:text-brand-dark">{summary?.confirmed ?? 0} đã xác nhận</Text>
+          {` · ${summary?.waiting_confirmation ?? 0} chờ xác nhận · ${summary?.invited ?? 0} suất đang mời · ${summary?.waitlisted ?? 0} dự bị`}
+        </Text>
+      ) : null}
+
       <View>
         <SectionTitle icon={Clock}>{`Danh sách chờ duyệt (${pending.length})`}</SectionTitle>
         {pending.length === 0 ? (
@@ -182,36 +201,102 @@ export function GameroomManageModal({ visible, roomId, onClose, onEdit }: Gamero
           <View className="gap-2.5">
             {pending.map((participant) => (
               <PersonRow key={participant.id} participant={participant}>
-                <Text className="mt-0.5 text-[11px] font-medium text-amber-600 dark:text-amber-400">
-                  {participant.invite_source === 'AUTO' ? 'Đã mời tự động, chờ phản hồi' : 'Vừa xin gia nhập'}
-                </Text>
-                {participant.invite_source !== 'AUTO' ? (
-                  <View className="mt-2 flex-row gap-2">
-                    <Pressable
-                      disabled={busy || isClosed}
-                      onPress={() => handleStatus(participant.user_id, 'REJECTED')}
-                      className="flex-row items-center gap-1 rounded-xl bg-rose-500/10 px-3 py-1.5"
-                      style={{ opacity: busy || isClosed ? 0.5 : 1 }}
-                    >
-                      <UserX size={13} color="#E11D48" />
-                      <Text className="text-xs font-bold text-rose-600 dark:text-rose-400">Từ chối</Text>
-                    </Pressable>
-                    <Pressable
-                      disabled={busy || isClosed || isFull}
-                      onPress={() => handleStatus(participant.user_id, 'APPROVED')}
-                      className="flex-row items-center gap-1 rounded-xl bg-brand px-3 py-1.5 dark:bg-brand-dark"
-                      style={{ opacity: busy || isClosed || isFull ? 0.5 : 1 }}
-                    >
-                      <Check size={13} color="#fff" />
-                      <Text className="text-xs font-bold text-white">Duyệt vào</Text>
-                    </Pressable>
-                  </View>
+                <Text className="mt-0.5 text-[11px] font-medium text-amber-600 dark:text-amber-400">Vừa xin gia nhập</Text>
+                {participant.expected_arrival_at ? (
+                  <Text className="mt-0.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                    Dự kiến đến: {formatDeadline(participant.expected_arrival_at)}
+                  </Text>
                 ) : null}
+                {(() => {
+                  const waitingArrival = !!room && needsArrivalTime(room, participant);
+                  const disabled = busy || isClosed || isFull || waitingArrival;
+                  return (
+                    <View className="mt-2 flex-row gap-2">
+                      <Pressable
+                        disabled={busy || isClosed}
+                        onPress={() => handleStatus(participant.user_id, 'REJECTED')}
+                        className="flex-row items-center gap-1 rounded-xl bg-rose-500/10 px-3 py-1.5"
+                        style={{ opacity: busy || isClosed ? 0.5 : 1 }}
+                      >
+                        <UserX size={13} color="#E11D48" />
+                        <Text className="text-xs font-bold text-rose-600 dark:text-rose-400">Từ chối</Text>
+                      </Pressable>
+                      <Pressable
+                        disabled={disabled}
+                        onPress={() => handleStatus(participant.user_id, 'APPROVED')}
+                        className="flex-row items-center gap-1 rounded-xl bg-brand px-3 py-1.5 dark:bg-brand-dark"
+                        style={{ opacity: disabled ? 0.5 : 1 }}
+                      >
+                        <Check size={13} color="#fff" />
+                        <Text className="text-xs font-bold text-white">
+                          {waitingArrival ? 'Chờ cập nhật giờ đến' : 'Duyệt vào'}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  );
+                })()}
               </PersonRow>
             ))}
           </View>
         )}
       </View>
+
+      {holds || standby.length > 0 ? (
+        <View>
+          <SectionTitle icon={Clock}>{`Dự bị & lời mời (${standby.length})`}</SectionTitle>
+          {holds ? (
+            <Text className="mb-2.5 text-[11px] leading-4 text-slate-500 dark:text-slate-400">
+              Người dự bị được ưu tiên theo thứ tự đăng ký; mỗi suất chỉ giữ cho một lời mời. Dưới 30 phút trước giờ
+              chơi, bạn xem giờ dự kiến đến rồi duyệt trực tiếp.
+            </Text>
+          ) : null}
+          {standby.length === 0 ? (
+            <Text className="rounded-2xl border border-dashed border-border p-5 text-center text-xs text-slate-400 dark:border-border-dark">
+              Chưa có người dự bị hay lời mời nào.
+            </Text>
+          ) : (
+            <View className="gap-2.5">
+              {standby.map((participant) => {
+                const invited = participant.status !== 'WAITLISTED';
+                const waitingArrival = needsArrivalTime(room, participant);
+                const canApproveStandby = !invited && !isClosed && isStartingSoon(room);
+                const disabled = busy || isFull || waitingArrival;
+                return (
+                  <PersonRow key={participant.id} participant={participant}>
+                    <Text className="mt-0.5 text-[11px] font-medium text-violet-600 dark:text-violet-300">
+                      {invited
+                        ? `${participant.invite_source === 'AUTO' ? 'Đã mời tự động' : 'Đã mời từ danh sách dự bị'}${
+                            participant.response_deadline
+                              ? ` · hạn ${formatDeadline(participant.response_deadline)}`
+                              : ', chờ phản hồi'
+                          }`
+                        : 'Đang dự bị'}
+                    </Text>
+                    {participant.expected_arrival_at ? (
+                      <Text className="mt-0.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                        Dự kiến đến: {formatDeadline(participant.expected_arrival_at)}
+                      </Text>
+                    ) : null}
+                    {canApproveStandby ? (
+                      <Pressable
+                        disabled={disabled}
+                        onPress={() => handleStatus(participant.user_id, 'APPROVED')}
+                        className="mt-2 flex-row items-center gap-1 self-start rounded-xl bg-brand px-3 py-1.5 dark:bg-brand-dark"
+                        style={{ opacity: disabled ? 0.5 : 1 }}
+                      >
+                        <Check size={13} color="#fff" />
+                        <Text className="text-xs font-bold text-white">
+                          {waitingArrival ? 'Chờ cập nhật giờ đến' : 'Duyệt người dự bị'}
+                        </Text>
+                      </Pressable>
+                    ) : null}
+                  </PersonRow>
+                );
+              })}
+            </View>
+          )}
+        </View>
+      ) : null}
 
       <View>
         <SectionTitle icon={ShieldCheck}>{`Thành viên chính thức (${approvedCount})`}</SectionTitle>
@@ -239,6 +324,11 @@ export function GameroomManageModal({ visible, roomId, onClose, onEdit }: Gamero
               <Text className="mt-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
                 ✔ Thành viên chính thức
               </Text>
+              {participant.response_deadline ? (
+                <Text className="mt-0.5 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                  Chờ xác nhận trước {formatDeadline(participant.response_deadline)}
+                </Text>
+              ) : null}
               {hasEnded ? (
                 <View className="mt-2 flex-row flex-wrap items-center gap-1.5">
                   <Text className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Kết quả:</Text>

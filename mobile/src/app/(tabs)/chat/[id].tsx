@@ -2,14 +2,16 @@ import { Text } from '@/components/ui/text';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Ban, Check, Flag, Send, UserPlus } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, FlatList, Pressable, TextInput, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { chatApi } from '@/api/chat';
 import { moderationApi } from '@/api/moderation';
 import { resolveMediaUrl } from '@/api/resolve-media-url';
 import { LoadingState } from '@/components/brand/loading-state';
+import { TAB_BAR_HEIGHT } from '@/components/navigation/bottom-tab-bar';
 import { Avatar } from '@/components/ui/avatar';
+import { useKeyboardInset } from '@/hooks/use-keyboard';
 import {
   useAcceptFriendRequestMutation,
   useMessagesQuery,
@@ -31,6 +33,9 @@ export default function ChatThreadScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const conversationId = Number(id);
   const currentUserId = useAuthStore((s) => s.user?.id);
+
+  const insets = useSafeAreaInsets();
+  const { inset: keyboardInset, onLayout: onKeyboardLayout } = useKeyboardInset(TAB_BAR_HEIGHT + insets.bottom);
 
   const { data, isLoading } = useMessagesQuery(conversationId);
   const sendMessage = useSendMessageMutation(conversationId);
@@ -120,7 +125,11 @@ export default function ChatThreadScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-bg dark:bg-bg-dark" edges={['top', 'left', 'right']}>
+    <SafeAreaView
+      className="flex-1 bg-bg dark:bg-bg-dark"
+      edges={['top', 'left', 'right']}
+      onLayout={onKeyboardLayout}
+    >
       <View className="flex-row items-center gap-3 border-b border-border px-4 py-3 dark:border-border-dark">
         <Pressable onPress={() => router.replace('/chat')} hitSlop={8}>
           <ArrowLeft size={22} color="#94A3B8" />
@@ -230,7 +239,8 @@ export default function ChatThreadScreen() {
         />
       )}
 
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      {/* Lifted above the keyboard by the part of it that reaches over the room the tab bar leaves below this screen. */}
+      <View style={{ paddingBottom: keyboardInset }}>
         <View className="flex-row items-center gap-2 border-t border-border px-4 py-3 dark:border-border-dark">
           <TextInput
             value={text}
@@ -248,7 +258,7 @@ export default function ChatThreadScreen() {
             <Send size={17} color="#fff" />
           </Pressable>
         </View>
-      </KeyboardAvoidingView>
+      </View>
       {data ? <ReportModal visible={reportOpen} targetType="user" targetId={data.other_user.id} onClose={() => setReportOpen(false)} onSubmitted={() => showAlert('Đã gửi báo cáo', 'Quản trị viên SportGo sẽ xem xét báo cáo này.')} /> : null}
     </SafeAreaView>
   );

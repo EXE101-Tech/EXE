@@ -12,6 +12,7 @@ import { useGameroomsQuery, useJoinGameroomMutation } from '@/hooks/queries/use-
 import { useJoinTeamMutation, useTeamsQuery } from '@/hooks/queries/use-teams';
 import { SPORTS } from '@/lib/constants';
 import { isPremiumUser } from '@/lib/premium';
+import { availableSeats, type JoinConsent } from '@/lib/seat-holds';
 import { formatDateVi, formatTimeVi, isFutureTime } from '@/lib/slots';
 import type { MatchResponse } from '@/schemas/gamerooms';
 import { useAuthStore } from '@/stores/auth-store';
@@ -76,9 +77,15 @@ export function FeedSuggestions() {
       const isHost = room.host_id === currentUserId;
       // Rooms I am in, or already asked to join, are no longer suggestions (an auto-invite still needs my answer).
       const involved = room.participants.some(
-        (p) => p.user_id === currentUserId && (p.status === 'APPROVED' || (p.status === 'PENDING' && p.invite_source !== 'AUTO')),
+        (p) =>
+          p.user_id === currentUserId &&
+          (p.status === 'APPROVED' ||
+            p.status === 'WAITLISTED' ||
+            (p.status === 'PENDING' && p.invite_source !== 'AUTO' && p.invite_source !== 'WAITLIST')),
       );
-      return room.status === 'OPEN' && isFutureTime(room.end_time) && !isHost && !involved;
+      // In a seat-hold room, seats reserved for invitations are not free to join, so it is not a suggestion either.
+      const hasSeat = !room.seat_holds_enabled || availableSeats(room) > 0;
+      return room.status === 'OPEN' && isFutureTime(room.end_time) && !isHost && !involved && hasSeat;
     })
     .slice(0, MAX_ITEMS);
   const discoverTeams = (teams ?? []).filter((team) => !team.is_member && !team.is_captain).slice(0, MAX_ITEMS);
@@ -108,10 +115,10 @@ export function FeedSuggestions() {
     });
   };
 
-  const confirmJoinRoom = (note: string) => {
+  const confirmJoinRoom = (note: string, consent?: JoinConsent) => {
     if (!joiningRoom) return;
     joinRoom.mutate(
-      { id: joiningRoom.id, note },
+      { id: joiningRoom.id, note, consent },
       {
         onSuccess: () => {
           setJoiningRoom(null);
@@ -132,7 +139,9 @@ export function FeedSuggestions() {
       >
         {openRooms.map((room) => {
           const emoji = SPORTS.find((s) => s.name.toLowerCase() === room.sport.name.toLowerCase())?.emoji ?? '🏅';
-          const left = Math.max(0, room.max_players - room.participants.filter((p) => p.status === 'APPROVED').length);
+          const left = room.seat_holds_enabled
+            ? availableSeats(room)
+            : Math.max(0, room.max_players - room.participants.filter((p) => p.status === 'APPROVED').length);
           return (
             <Pressable
               key={room.id}

@@ -15,6 +15,10 @@ export const matchParticipantResponseSchema = z.object({
   invite_source: z.string().nullable().optional(),
   invited_at: z.string().nullable().optional(),
   invite_round: z.number().nullable().optional(),
+  /** Seat-hold rooms only: the time by which an approved seat / an invitation must be confirmed. */
+  response_deadline: z.string().nullable().optional(),
+  hold_policy_accepted: z.boolean().optional(),
+  expected_arrival_at: z.string().nullable().optional(),
   joined_at: z.string(),
   user: userResponseSchema,
 });
@@ -35,6 +39,19 @@ export const matchResponseSchema = z.object({
   max_players: z.number(),
   status: z.string(),
   is_priority: z.boolean().default(false),
+  /** Premium hosts can turn on timed seat holds and a waitlist (set on the web). Older servers omit all of these. */
+  seat_holds_enabled: z.boolean().default(false),
+  terms_version: z.string().nullable().optional(),
+  roster_summary: z
+    .object({
+      approved: z.number().optional(),
+      confirmed: z.number().optional(),
+      waiting_confirmation: z.number().optional(),
+      invited: z.number().optional(),
+      waitlisted: z.number().optional(),
+      available: z.number().optional(),
+    })
+    .nullish(),
   created_at: z.string(),
   host: userResponseSchema,
   sport: sportResponseSchema,

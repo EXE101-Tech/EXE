@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { gameroomsApi, type GameroomFilters } from '@/api/gamerooms';
+import type { InviteConsent, JoinConsent } from '@/lib/seat-holds';
 import type { MatchAttendanceStatus, MatchCreateInput, RoomSearchPreferenceInput } from '@/schemas/gamerooms';
 import { useAuthStore } from '@/stores/auth-store';
 import { queryKeys } from './keys';
@@ -67,7 +68,18 @@ export function useDeleteGameroomMutation() {
 export function useJoinGameroomMutation() {
   const invalidate = useInvalidateGameroomLists();
   return useMutation({
-    mutationFn: ({ id, note }: { id: number; note?: string }) => gameroomsApi.join(id, note),
+    mutationFn: ({ id, note, consent }: { id: number; note?: string; consent?: JoinConsent }) =>
+      gameroomsApi.join(id, note, consent),
+    onSuccess: (_res, { id }) => invalidate(id),
+  });
+}
+
+/** Standby registration for a seat-hold room that has no free seat. */
+export function useWaitlistGameroomMutation() {
+  const invalidate = useInvalidateGameroomLists();
+  return useMutation({
+    mutationFn: ({ id, note, consent }: { id: number; note?: string; consent?: JoinConsent }) =>
+      gameroomsApi.joinWaitlist(id, note, consent),
     onSuccess: (_res, { id }) => invalidate(id),
   });
 }
@@ -75,7 +87,18 @@ export function useJoinGameroomMutation() {
 export function useRespondInviteMutation() {
   const invalidate = useInvalidateGameroomLists();
   return useMutation({
-    mutationFn: ({ id, action }: { id: number; action: 'ACCEPT' | 'REJECT' }) => gameroomsApi.respondInvite(id, action),
+    mutationFn: ({ id, action, consent }: { id: number; action: 'ACCEPT' | 'REJECT'; consent?: InviteConsent }) =>
+      gameroomsApi.respondInvite(id, action, consent),
+    onSuccess: (_res, { id }) => invalidate(id),
+  });
+}
+
+/** Confirms the caller's seat in a seat-hold room before its deadline. */
+export function useConfirmSeatMutation() {
+  const invalidate = useInvalidateGameroomLists();
+  return useMutation({
+    mutationFn: ({ id, termsVersion }: { id: number; termsVersion: string }) =>
+      gameroomsApi.confirmSeat(id, termsVersion),
     onSuccess: (_res, { id }) => invalidate(id),
   });
 }
