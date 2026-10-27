@@ -11,21 +11,24 @@ import { CreateGameroomModal } from '@/components/gamerooms/create-gameroom-moda
 import { GameroomCard } from '@/components/gamerooms/gameroom-card';
 import { AutoSearchModal } from '@/components/gamerooms/auto-search-modal';
 import { GameroomManageModal } from '@/components/gamerooms/gameroom-manage-modal';
-import { JoinRoomModal } from '@/components/gamerooms/join-room-modal';
+import { JoinRoomModal, type JoinMode } from '@/components/gamerooms/join-room-modal';
 import { Button } from '@/components/ui/button';
 import { FilterActionButton, FilterBar } from '@/components/ui/filter-bar';
 import type { SelectOption } from '@/components/ui/select-dropdown';
 import { useStartConversationMutation } from '@/hooks/queries/use-chat';
 import { useSportsQuery } from '@/hooks/queries/use-courts';
 import {
+  useConfirmSeatMutation,
   useGameroomsQuery,
   useJoinGameroomMutation,
   useLeaveGameroomMutation,
   useMyGameroomsQuery,
   useRespondInviteMutation,
+  useWaitlistGameroomMutation,
 } from '@/hooks/queries/use-gamerooms';
 import { isActiveSportName, LOCATION_FILTER_OPTIONS, SKILL_REQUIREMENT_OPTIONS, SPORT_KEY_BY_NAME } from '@/lib/constants';
 import { parseStoredCostToVnd } from '@/lib/price';
+import type { JoinConsent } from '@/lib/seat-holds';
 import { createSportExperienceMap, sortBySportExperience } from '@/lib/sport-experience';
 import type { MatchResponse } from '@/schemas/gamerooms';
 import { useAuthStore } from '@/stores/auth-store';
@@ -72,6 +75,8 @@ export default function GameroomsScreen() {
   const { data: rooms, isLoading, isError, refetch, isRefetching } = showMine ? myRoomsQuery : allRoomsQuery;
   const { data: sports } = useSportsQuery();
   const joinRoom = useJoinGameroomMutation();
+  const joinWaitlist = useWaitlistGameroomMutation();
+  const confirmSeat = useConfirmSeatMutation();
   const leaveRoom = useLeaveGameroomMutation();
   const respondInvite = useRespondInviteMutation();
   const startConversation = useStartConversationMutation();
@@ -80,7 +85,12 @@ export default function GameroomsScreen() {
   const [editingRoom, setEditingRoom] = useState<MatchResponse | null>(null);
   const [isAutoSearchOpen, setIsAutoSearchOpen] = useState(false);
   const [managingRoomId, setManagingRoomId] = useState<number | null>(null);
-  const [joiningRoom, setJoiningRoom] = useState<MatchResponse | null>(null);
+  // One popup for every way of taking a seat; the room is re-read from the list so a refetch updates its rules.
+  const [joinModal, setJoinModal] = useState<{ room: MatchResponse; mode: JoinMode } | null>(null);
+  const modalRoom = joinModal ? ((rooms ?? []).find((r) => r.id === joinModal.room.id) ?? joinModal.room) : null;
+  const modalDeadline = modalRoom
+    ? modalRoom.participants.find((p) => p.user_id === currentUserId)?.response_deadline
+    : null;
 
   // ?sport=<key> comes from the search screen; picking a sport in the dropdown overrides it.
   const routeSportId = params.sport
@@ -180,28 +190,61 @@ export default function GameroomsScreen() {
     setEditingRoom(null);
   };
 
-  const confirmJoin = (note: string) => {
-    if (!joiningRoom) return;
-    joinRoom.mutate(
-      { id: joiningRoom.id, note },
-      {
-        onSuccess: () => {
-          setJoiningRoom(null);
-          showToast('Đã gửi yêu cầu tham gia phòng.');
-        },
-        onError: (e) => showAlert('Lỗi', e.message),
+  const submitJoinModal = (note: string, consent?: JoinConsent) => {
+    if (!joinModal || !modalRoom) return;
+    const { id } = modalRoom;
+    const handlers = (message: string) => ({
+      onSuccess: () => {
+        setJoinModal(null);
+        showToast(message);
       },
-    );
+      onError: (e: Error) => {
+        showAlert('Lỗi', e.message);
+        // The room may have changed (rules, seats); reload so the popup and card show the latest.
+        refetch();
+      },
+    });
+    switch (joinModal.mode) {
+      case 'join':
+        joinRoom.mutate({ id, note, consent }, handlers('Đã gửi yêu cầu tham gia phòng.'));
+        break;
+      case 'waitlist':
+        joinWaitlist.mutate({ id, note, consent }, handlers('Đã đăng ký dự bị. Khi có suất bạn sẽ nhận lời mời.'));
+        break;
+      case 'accept':
+        respondInvite.mutate(
+          { id, action: 'ACCEPT', consent: { accepted_policy: true, terms_version: consent?.terms_version ?? null } },
+          handlers('Đã nhận chỗ và xác nhận sẽ đến.'),
+        );
+        break;
+      case 'confirm':
+        if (!modalRoom.terms_version) {
+          showAlert('Lỗi', 'Chưa có thông tin điều kiện của phòng. Hãy tải lại danh sách rồi thử lại.');
+          return;
+        }
+        confirmSeat.mutate(
+          { id, termsVersion: modalRoom.terms_version },
+          handlers('Đã xác nhận sẽ đến. Chỗ của bạn đã được giữ.'),
+        );
+        break;
+    }
   };
 
   const respond = (id: number, action: 'ACCEPT' | 'REJECT') =>
     respondInvite.mutate(
       { id, action },
       {
-        onSuccess: () => showToast(action === 'ACCEPT' ? 'Đã nhận lời mời vào phòng.' : 'Đã từ chối lời mời tự động.'),
+        onSuccess: () => showToast(action === 'ACCEPT' ? 'Đã nhận lời mời vào phòng.' : 'Đã từ chối lời mời.'),
         onError: (e) => showAlert('Lỗi', e.message),
       },
     );
+
+  /** Seat-hold rooms need the player to read and agree to the hold rules first, so they go through the popup. */
+  const acceptInvite = (room: MatchResponse) =>
+    room.seat_holds_enabled ? setJoinModal({ room, mode: 'accept' }) : respond(room.id, 'ACCEPT');
+
+  const isJoinModalBusy =
+    joinRoom.isPending || joinWaitlist.isPending || respondInvite.isPending || confirmSeat.isPending;
 
   return (
     <ScreenContainer scroll={false} className="px-4">
@@ -263,9 +306,10 @@ export default function GameroomsScreen() {
               isJoining={joinRoom.isPending && joinRoom.variables?.id === item.id}
               isLeaving={leaveRoom.isPending && leaveRoom.variables === item.id}
               isResponding={respondInvite.isPending && respondInvite.variables?.id === item.id}
-              onAcceptInvite={() => respond(item.id, 'ACCEPT')}
+              onAcceptInvite={() => acceptInvite(item)}
               onDeclineInvite={() => respond(item.id, 'REJECT')}
-              onJoin={() => setJoiningRoom(item)}
+              onConfirmSeat={() => setJoinModal({ room: item, mode: 'confirm' })}
+              onJoin={(mode) => setJoinModal({ room: item, mode })}
               onLeave={() => leaveRoom.mutate(item.id, { onError: (e) => showAlert('Lỗi', e.message) })}
               onManage={() => setManagingRoomId(item.id)}
               onChat={() => handleChat(item.host_id)}
@@ -286,12 +330,14 @@ export default function GameroomsScreen() {
         />
       )}
 
-      {joiningRoom ? (
+      {joinModal && modalRoom ? (
         <JoinRoomModal
-          room={joiningRoom}
-          isLoading={joinRoom.isPending}
-          onClose={() => setJoiningRoom(null)}
-          onConfirm={confirmJoin}
+          room={modalRoom}
+          mode={joinModal.mode}
+          deadline={modalDeadline}
+          isLoading={isJoinModalBusy}
+          onClose={() => setJoinModal(null)}
+          onConfirm={submitJoinModal}
         />
       ) : null}
       <CreateGameroomModal visible={isCreateOpen} room={editingRoom} onClose={closeCreateModal} />

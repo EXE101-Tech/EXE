@@ -1,13 +1,15 @@
 import { Text } from '@/components/ui/text';
 import * as ImagePicker from 'expo-image-picker';
 import { Check, Film, ImagePlus, Send, X } from 'lucide-react-native';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, TextInput, View } from 'react-native';
 
 import { resolveMediaUrl } from '@/api/resolve-media-url';
 import { storageApi } from '@/api/storage';
 import { GradientButton } from '@/components/brand/gradient-button';
+import { scrollFocusedInputIntoView } from '@/components/ui/keyboard-scroll';
 import { PopupModal } from '@/components/ui/popup-modal';
+import { useKeyboardHeight } from '@/hooks/use-keyboard';
 import { useCreateSocialPostMutation, useUpdateSocialPostMutation } from '@/hooks/queries/use-social';
 import type { SocialPost } from '@/schemas/social';
 import { showToast } from '@/stores/toast-store';
@@ -61,6 +63,15 @@ function ComposerBody({ post, onClose, onSaved }: { post: SocialPost | null; onC
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [acceptedGuidelines, setAcceptedGuidelines] = useState(guidelinesAccepted);
+
+  // The popup shrinks above the keyboard; keep the text box being typed in at the top of the visible area.
+  const scrollRef = useRef<ScrollView>(null);
+  const keyboardHeight = useKeyboardHeight();
+  useEffect(() => {
+    if (keyboardHeight === 0) return;
+    const timer = setTimeout(() => scrollFocusedInputIntoView(scrollRef), 120);
+    return () => clearTimeout(timer);
+  }, [keyboardHeight]);
 
   const chooseMedia = async (kind: 'images' | 'videos') => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -129,7 +140,7 @@ function ComposerBody({ post, onClose, onSaved }: { post: SocialPost | null; onC
 
   return (
     <>
-      <ScrollView contentContainerClassName="gap-4 p-4" keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scrollRef} contentContainerClassName="gap-4 p-4" keyboardShouldPersistTaps="handled">
         {error ? (
           <View className="rounded-xl bg-rose-50 px-3 py-2.5 dark:bg-rose-500/10">
             <Text className="text-sm font-semibold text-rose-600 dark:text-rose-300">{error}</Text>

@@ -37,6 +37,8 @@ const BAR_HEIGHT = 62;
 const CIRCLE_SIZE = 58;
 /** How far the raised circle pokes out above the bar. */
 const OVERHANG = 22;
+/** Height the bar takes below a screen (without the bottom safe-area inset); the keyboard covers it when open. */
+export const TAB_BAR_HEIGHT = BAR_HEIGHT + OVERHANG;
 /** Radius of the round cut-out in the bar around the circle (circle radius + a small gap). */
 const NOTCH_RADIUS = CIRCLE_SIZE / 2 + 8;
 /** Rounding where the flat top edge meets the cut-out. */

@@ -1,4 +1,5 @@
 import apiClient from './client';
+import type { InviteConsent, JoinConsent } from '@/lib/seat-holds';
 import {
   matchParticipantResponseSchema,
   matchResponseSchema,
@@ -22,10 +23,18 @@ export const gameroomsApi = {
   update: async (id: number, data: MatchCreateInput) =>
     matchResponseSchema.parse(await apiClient.put(`/gamerooms/${id}`, data)),
   remove: async (id: number) => apiClient.delete(`/gamerooms/${id}`),
-  join: async (id: number, note = '') =>
-    matchParticipantResponseSchema.parse(await apiClient.post(`/gamerooms/${id}/join`, { note })),
-  respondInvite: async (id: number, action: 'ACCEPT' | 'REJECT') =>
-    matchParticipantResponseSchema.parse(await apiClient.post(`/gamerooms/${id}/invite-response`, { action })),
+  join: async (id: number, note = '', consent?: JoinConsent) =>
+    matchParticipantResponseSchema.parse(await apiClient.post(`/gamerooms/${id}/join`, { note, ...consent })),
+  /** Standby list of a seat-hold room that has no free seat; the host invites standby players when a seat opens. */
+  joinWaitlist: async (id: number, note = '', consent?: JoinConsent) =>
+    matchParticipantResponseSchema.parse(await apiClient.post(`/gamerooms/${id}/waitlist`, { note, ...consent })),
+  respondInvite: async (id: number, action: 'ACCEPT' | 'REJECT', consent?: InviteConsent) =>
+    matchParticipantResponseSchema.parse(
+      await apiClient.post(`/gamerooms/${id}/invite-response`, { action, ...consent }),
+    ),
+  /** Confirms the player's seat in a seat-hold room (clears the hold deadline). */
+  confirmSeat: async (id: number, termsVersion: string) =>
+    apiClient.post(`/gamerooms/${id}/attendance/confirm`, { accepted_policy: true, terms_version: termsVersion }),
   leave: async (id: number) => apiClient.post(`/gamerooms/${id}/leave`),
   setParticipantStatus: async (id: number, userId: number, status: 'APPROVED' | 'REJECTED') =>
     matchParticipantResponseSchema.parse(

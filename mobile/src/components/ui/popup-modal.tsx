@@ -1,11 +1,12 @@
 import { Text } from '@/components/ui/text';
 import { X, type LucideIcon } from 'lucide-react-native';
-import type { ReactNode } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Modal, Pressable, ScrollView, View } from 'react-native';
 
+import { useKeyboardInset } from '@/hooks/use-keyboard';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
 import { AppDialog } from './app-dialog';
+import { KeyboardScrollContext, scrollFocusedInputIntoView } from './keyboard-scroll';
 import { ScrollLockContext } from './scroll-lock';
 import { ToastBanner } from './toast-banner';
 
@@ -58,9 +59,20 @@ export function PopupModal({
   // Set by children that need to drag inside the form (an embedded map) so the form does not scroll under them.
   const [scrollLocked, setScrollLocked] = useState(false);
 
+  // The keyboard would cover the lower part of the popup: lift the popup's bottom edge above it so it shrinks to the
+  // free space (the footer buttons stay visible), then scroll the field being typed in to the top of the form.
+  const scrollRef = useRef<ScrollView>(null);
+  const { inset, keyboardHeight, onLayout } = useKeyboardInset();
+  const scrollToFocused = useCallback(() => {
+    setTimeout(() => scrollFocusedInputIntoView(scrollRef), 120);
+  }, []);
+  useEffect(() => {
+    if (keyboardHeight > 0) scrollToFocused();
+  }, [keyboardHeight, scrollToFocused]);
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
+      <View className="flex-1" style={{ paddingBottom: inset }} onLayout={onLayout}>
         <View className="flex-1 items-center justify-center px-4 py-6">
           <ToastBanner />
           <Pressable
@@ -97,13 +109,20 @@ export function PopupModal({
 
             {scroll ? (
               <ScrollView
+                ref={scrollRef}
                 className={tall ? 'flex-1' : undefined}
                 contentContainerClassName={cn('gap-4 p-5', bodyClassName)}
                 keyboardShouldPersistTaps="handled"
                 bounces={false}
                 scrollEnabled={!scrollLocked}
+                // The popup just got shorter for the keyboard: keep the field being typed in on screen.
+                onLayout={() => {
+                  if (keyboardHeight > 0) scrollToFocused();
+                }}
               >
-                <ScrollLockContext.Provider value={setScrollLocked}>{children}</ScrollLockContext.Provider>
+                <KeyboardScrollContext.Provider value={scrollToFocused}>
+                  <ScrollLockContext.Provider value={setScrollLocked}>{children}</ScrollLockContext.Provider>
+                </KeyboardScrollContext.Provider>
               </ScrollView>
             ) : (
               <View className={tall ? 'flex-1' : 'shrink'}>{children}</View>
@@ -117,7 +136,7 @@ export function PopupModal({
           </View>
           <AppDialog />
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }

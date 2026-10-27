@@ -41,7 +41,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <ScreenContainer className="justify-center gap-6" scroll={false}>
+    <ScreenContainer className="justify-center gap-6">
       <View className="items-center gap-3">
         <View
           className="h-14 w-14 items-center justify-center rounded-2xl bg-brand/10 dark:bg-brand-dark/10"
