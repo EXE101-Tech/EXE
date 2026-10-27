@@ -1,42 +1,49 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { Sun, Moon } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useLayoutEffect } from 'react';
+
+// The landing page reports its Halloween mode here; that mode is always dark, so the theme is forced.
+import Particles from '../../features/landing/components/Particles.jsx';
 
 export default function PublicLayout() {
-  const [isDark, setIsDark] = useState(false);
+  const [isDark, setIsDark] = useState(() => localStorage.getItem('publicTheme') === 'dark');
 
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-      setIsDark(true);
-    } else {
-      document.documentElement.classList.remove('dark');
-      setIsDark(false);
-    }
+  const [landingHalloween, setLandingHalloween] = useState(false);
+  // The landing page paints a full-screen 3D scene; the CSS particles underneath would be hidden yet still animated.
+  const onLanding = useLocation().pathname === '/';
+
+  // Layout effects run before the landing page's effects, so this listener is in place when it reports.
+  useLayoutEffect(() => {
+    const onLandingMode = (event) => setLandingHalloween(Boolean(event.detail));
+    window.addEventListener('sportgo:landing-mode', onLandingMode);
+    return () => window.removeEventListener('sportgo:landing-mode', onLandingMode);
   }, []);
 
+  useLayoutEffect(() => {
+    document.documentElement.classList.toggle('dark', isDark || landingHalloween);
+  }, [isDark, landingHalloween]);
+
   const toggleTheme = () => {
-    setIsDark(prev => {
-      const newDark = !prev;
-      if (newDark) {
-        document.documentElement.classList.add('dark');
-        localStorage.setItem('theme', 'dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-        localStorage.setItem('theme', 'light');
-      }
-      return newDark;
-    });
+    const newDark = !isDark;
+    document.documentElement.classList.toggle('dark', newDark);
+    localStorage.setItem('publicTheme', newDark ? 'dark' : 'light');
+    setIsDark(newDark);
   };
 
   return (
-    <>
-      <Outlet />
+    <div className="sg-public">
+      {!onLanding && <div className="fixed inset-0 z-0 pointer-events-none">
+        <Particles />
+      </div>}
+      <div className="relative z-10 h-full w-full">
+        <Outlet />
+      </div>
       
       {/* Floating Theme Toggle for Public Pages */}
       <button 
         onClick={toggleTheme}
+        disabled={landingHalloween}
+        title={landingHalloween ? 'Halloween luôn là chế độ tối' : 'Đổi giao diện sáng/tối'}
         className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 w-10 h-10 sm:w-12 sm:h-12 rounded-full glass-panel flex items-center justify-center text-slate-700 dark:text-white hover:scale-110 transition-transform group shadow-[0_0_15px_var(--theme-glow)]"
         title="Toggle Theme"
       >
@@ -46,6 +53,6 @@ export default function PublicLayout() {
           <Moon className="w-5 h-5 group-hover:text-brand-primary transition-colors" />
         )}
       </button>
-    </>
+    </div>
   );
 }

@@ -57,7 +57,7 @@
     "gameroom": "Phòng chơi",
     "bookings": "Đặt sân",
     "map": "Bản đồ",
-    "team": "Đội nhóm",
+    "team": "Team",
     "chat": "Nhắn tin"
   },
   "home": {
@@ -176,17 +176,15 @@
     },
     "hero": {
       "heroTitle": "Chơi đúng người - Ghép đúng trình độ",
-      "subtitle": "Tìm đối thủ ngang tài, tham gia các giải đấu sôi động và đặt sân nhanh chóng chỉ với vài cú nhấp chuột. Cầu lông, Bóng đá, Pickleball, Tennis và nhiều hơn thế nữa!",
+      "subtitle": "Tìm người chơi cùng trình độ, kết nối với cộng đồng thể thao và tham gia những trận đấu sôi động. Hiện có Cầu lông, Pickleball và Bóng đá.",
       "ctaStart": "Tham gia ngay",
-      "ctaDemo": "Khám phá sân bãi"
+      "ctaDemo": "Khám phá tính năng"
     },
     "features": {
       "headerTitle": "Hệ sinh thái thể thao toàn diện",
       "headerSubtitle": "Tất cả những gì bạn cần để cháy hết mình cùng đam mê thể thao, được tích hợp thông minh trong một nền tảng.",
       "f1Title": "Ghép kèo & Tìm đồng đội",
       "f1Desc": "Tạo phòng hoặc tìm đối thủ cùng trình độ từ Cơ bản đến Chuyên nghiệp. Không còn nỗi lo thiếu chân hay chênh lệch kỹ năng!",
-      "f2Title": "Đặt sân trực tuyến 24/7",
-      "f2Desc": "Khám phá bản đồ sân bãi trực quan, kiểm tra lịch trống thời gian thực và đặt sân nhanh chóng kèm ưu đãi Flash Deals giờ vàng.",
       "f3Title": "Quản lý Giải đấu & Đội nhóm",
       "f3Desc": "Tạo lập câu lạc bộ, theo dõi đội hình, tham gia và tranh tài tại các giải đấu thể thao quanh khu vực của bạn dễ dàng hơn bao giờ hết."
     },
@@ -194,11 +192,11 @@
       "headerTitle": "Vì sao chọn SportGo?",
       "headerSubtitle": "Được thiết kế hiện đại, tối ưu cho cả người yêu thể thao cá nhân và các chủ sân vận động.",
       "r1Title": "Kết nối thần tốc",
-      "r1Desc": "Thuật toán thông minh gợi ý đối thủ và sân bãi phù hợp nhất dựa trên vị trí và trình độ của bạn.",
+      "r1Desc": "Thuật toán thông minh giúp bạn tìm người chơi phù hợp dựa trên vị trí và trình độ.",
       "r2Title": "Giao diện Nebula mượt mà",
       "r2Desc": "Thiết kế hiện đại, dark mode tinh tế cùng hiệu ứng chuyển động mượt mà trên mọi thiết bị máy tính và điện thoại.",
       "r3Title": "Cộng đồng sôi động",
-      "r3Desc": "Hàng ngàn người chơi tích cực cùng hàng trăm sân bãi được xác thực khắp cả nước đang chờ bạn kết nối."
+      "r3Desc": "Cộng đồng người chơi năng động luôn sẵn sàng kết nối, giao lưu và tìm đồng đội mới."
     },
     "testimonials": {
       "headerTitle": "Cộng đồng nói gì về SportGo?",
@@ -221,6 +219,57 @@
       "emailPlaceholder": "Nhập địa chỉ email của bạn...",
       "subscribeBtn": "Đăng ký ngay",
       "copyright": "Copyright 2026 © SportGo. All Rights Reserved."
+    },
+    "story": {
+      "scrollHint": "Cuộn để khám phá",
+      "chapters": [
+        "Mở đầu",
+        "Ghép kèo",
+        "Đa môn",
+        "Uy tín",
+        "Cộng đồng",
+        "Ra sân"
+      ],
+      "match": {
+        "eyebrow": "01 · Ghép kèo",
+        "title": "Chơi đúng người",
+        "text": "Mở phòng hoặc tìm kèo cùng trình độ, từ Mới chơi đến Chuyên nghiệp. Không còn thiếu chân, không còn chênh lệch kỹ năng.",
+        "stat1": "Trình độ",
+        "stat1Value": "4 cấp",
+        "stat2": "Lọc theo",
+        "stat2Value": "Giờ · Khu vực · Giá"
+      },
+      "sports": {
+        "eyebrow": "02 · Đa môn",
+        "title": "Một nền tảng, ba sân chơi",
+        "text": "Chọn môn, chọn khu vực, chọn khung giờ và ra sân. SportGo hỗ trợ ba môn được yêu thích nhất.",
+        "badminton": "Cầu lông",
+        "pickleball": "Pickleball",
+        "football": "Bóng đá"
+      },
+      "trust": {
+        "eyebrow": "03 · Uy tín",
+        "title": "Nói không với bùm kèo",
+        "text": "Check-in bằng mã tại sân, xác nhận chéo giữa người chơi. Điểm uy tín giúp chủ phòng duyệt đúng người.",
+        "point1": "Mã check-in đổi mỗi 60 giây",
+        "point2": "Xác nhận chéo tại sân",
+        "point3": "Xem hồ sơ trước khi duyệt"
+      },
+      "community": {
+        "eyebrow": "04 · Cộng đồng",
+        "title": "Cả cộng đồng trong túi bạn",
+        "text": "Lập CLB, kết bạn, nhắn tin và thả sticker thể thao riêng của SportGo cho từng khoảnh khắc trên sân."
+      },
+      "finale": {
+        "title": "Sẵn sàng ra sân?",
+        "text": "Tạo tài khoản miễn phí và tìm trận đầu tiên của bạn ngay hôm nay."
+      },
+      "mode": {
+        "label": "Chế độ trang",
+        "halloween": "Halloween",
+        "default": "Mặc định",
+        "eyebrow": "🎃 Đêm Halloween"
+      }
     }
   }
 }

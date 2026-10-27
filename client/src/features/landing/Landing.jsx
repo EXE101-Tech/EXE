@@ -1,20 +1,33 @@
-import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Trophy, ArrowRight, Gamepad2, Calendar, Users, Zap, Sparkles, MapPin, Shield, ArrowUpRight, Menu, X } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowRight, Sparkles, Menu, ShieldCheck, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import brandLogo from '../../../icons/logo.png';
+import StoryCanvas from './components/StoryCanvas';
+import useHalloweenMode from '../../shared/hooks/useHalloweenMode';
+import { HalloweenModeSwitch } from '../../shared/components/HalloweenModeSwitch';
+import { SportSticker } from '../../shared/components/SportReactions';
 
 function LandingPage() {
   const { t } = useTranslation();
   const [showNavCta, setShowNavCta] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
   const navigate = useNavigate();
+  const storyRef = useRef(null);
+  const [activeChapter, setActiveChapter] = useState(0);
+  const chapters = t('landing.story.chapters', { returnObjects: true });
+  const handleChapterChange = useCallback((index) => setActiveChapter(index), []);
+  const [halloween, chooseMode] = useHalloweenMode();
+
+  // Scroll so the chapter's first beat is centred (see StoryCanvas for the beat model).
+  const scrollToChapter = (index) => {
+    const section = storyRef.current?.querySelectorAll('[data-chapter]')[index];
+    if (!section) return;
+    const beatHeight = section.offsetHeight / (Number(section.dataset.span) || 1);
+    const top = section.getBoundingClientRect().top + window.scrollY + beatHeight / 2 - window.innerHeight / 2;
+    window.scrollTo({ top, behavior: 'smooth' });
+  };
 
   const handleNavigate = (path) => (e) => {
     e.preventDefault();
@@ -26,7 +39,6 @@ function LandingPage() {
 
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50);
       const heroCta = document.getElementById('hero-cta');
       if (heroCta) {
         const rect = heroCta.getBoundingClientRect();
@@ -46,13 +58,11 @@ function LandingPage() {
   return (
     <>
       {/* ── NEBULA MOBILE HEADER (Only visible on Mobile < 768px) ── */}
-      <header className={`fixed top-3 left-3 right-3 z-[100] md:hidden transition-all duration-500 ${!isMounted || isExiting ? 'opacity-0 -translate-y-4' : 'opacity-100 translate-y-0'}`}>
+      <header className={`fixed top-3 left-3 right-3 z-[100] md:hidden transition-all duration-500 ${isExiting ? 'opacity-0 -translate-y-4' : 'opacity-100 translate-y-0'}`}>
         <div className="flex items-center justify-between rounded-full bg-white/35 dark:bg-white/[0.08] backdrop-blur-2xl backdrop-saturate-[180%] border border-white/60 dark:border-white/15 p-1.5 px-3 shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_1px_0_rgba(255,255,255,0.8),inset_0_0_16px_rgba(255,255,255,0.4)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3),inset_0_1px_1px_0_rgba(255,255,255,0.25),inset_0_0_16px_rgba(255,255,255,0.05)]">
           {/* Logo */}
           <a href="#hero" className="flex items-center gap-1.5 shrink-0">
-            <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-brand-primary to-sky-500 flex items-center justify-center shadow-md">
-              <span className="text-white font-black text-xs">S</span>
-            </div>
+            <img src={brandLogo} alt="" className="w-7 h-7 object-contain" />
             <span className="font-bold text-base tracking-tight text-slate-900 dark:text-white">SportGo</span>
           </a>
 
@@ -116,7 +126,7 @@ function LandingPage() {
       </header>
 
       {/* ── DESKTOP FIXED PILL TASKBAR (Only visible on Laptop/PC >= 768px) ── */}
-      <header className={`hidden md:block fixed top-6 left-1/2 -translate-x-1/2 z-[100] transition-all duration-700 ease-out ${!isMounted || isExiting ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
+      <header className={`hidden md:block fixed top-6 left-1/2 -translate-x-1/2 z-[100] transition-all duration-700 ease-out ${isExiting ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
         <div className="flex items-center rounded-full bg-white/35 dark:bg-white/[0.08] backdrop-blur-2xl backdrop-saturate-[180%] border border-white/60 dark:border-white/15 p-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_1px_0_rgba(255,255,255,0.8),inset_0_0_16px_rgba(255,255,255,0.4)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3),inset_0_1px_1px_0_rgba(255,255,255,0.25),inset_0_0_16px_rgba(255,255,255,0.05)] transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] overflow-hidden">
           
           <nav className="flex items-center px-6 gap-8 shrink-0">
@@ -139,16 +149,21 @@ function LandingPage() {
         </div>
       </header>
 
-      <div className={`w-full h-full relative page-fade-in ${isExiting ? 'page-fade-out' : ''}`}>
+      {/* Fixed layers stay outside the fading wrapper: its transform would turn position:fixed into absolute. */}
+      <StoryCanvas storyRef={storyRef} onChapterChange={handleChapterChange} halloween={halloween} />
+      <HalloweenModeSwitch halloween={halloween} onChoose={chooseMode} className={isExiting ? 'opacity-0' : ''} />
+      {/* Chapter rail, also outside the fading wrapper so it stays pinned. */}
+      <nav className={`sg-story sg-story-rail ${isExiting ? 'opacity-0' : ''}`} aria-label={t('landing.story.scrollHint')}>
+        {chapters.map((label, index) => <button key={label} type="button" className={activeChapter === index ? 'is-active' : ''} aria-current={activeChapter === index ? 'step' : undefined} onClick={() => scrollToChapter(index)}><span>{label}</span></button>)}
+      </nav>
+      <div ref={storyRef} className={`sg-story relative page-fade-in ${isExiting ? 'page-fade-out' : ''}`}>
+
         {/* ── DESKTOP STATIC HEADER (Only visible on Laptop/PC >= 768px) ── */}
         <div className="hidden md:flex absolute top-0 left-0 w-full items-center justify-between px-6 md:px-12 py-6 z-40">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-primary to-sky-500 flex items-center justify-center shrink-0 shadow-lg">
-              <span className="text-white font-black text-sm">S</span>
-            </div>
+            <img src={brandLogo} alt="" className="w-8 h-8 object-contain shrink-0" />
             <span className="font-bold text-xl tracking-tight">SportGo</span>
           </div>
-          
           <div className="flex items-center gap-4">
             <a href="/login" onClick={handleNavigate('/login')} className="text-sm font-bold text-slate-900 dark:text-white hover:text-brand-primary transition-all duration-300">
               {t('landing.nav.signIn')}
@@ -159,109 +174,99 @@ function LandingPage() {
           </div>
         </div>
 
-      {/* Hero Section */}
-      <main id="hero" className="relative pt-48 pb-32 px-4 flex flex-col items-center justify-center text-center z-10">
-
-        <h1 className="text-6xl sm:text-7xl md:text-8xl lg:text-9xl font-black tracking-tight mb-4 leading-none animate-in fade-in slide-in-from-bottom-4 duration-700">
-          Sport<span className="text-[#74C365]">Go</span>
-        </h1>
-        
-        <h2 className="text-base sm:text-xl md:text-3xl lg:text-4xl font-extrabold tracking-tight text-slate-800 dark:text-white mb-6 whitespace-nowrap animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100">
-          {t('landing.hero.heroTitle')}
-        </h2>
-        
-        <p className="text-lg text-slate-500 dark:text-gray-400 max-w-2xl mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200">
-          {t('landing.hero.subtitle')}
-        </p>
-
-        <div className="flex flex-col sm:flex-row items-center gap-4 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300" id="hero-cta">
-          <a href="/login" onClick={handleNavigate('/login')} className="bg-gradient-to-r from-brand-primary to-blue-600 text-white hover:opacity-95 font-bold px-8 py-3.5 rounded-full transition-all flex items-center gap-2 w-full sm:w-auto justify-center shadow-lg shadow-brand-primary/25">
-            {t('landing.hero.ctaStart')} <ArrowRight className="w-5 h-5" />
-          </a>
-          <a href="#features" className="px-8 py-3.5 rounded-full font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors w-full sm:w-auto flex items-center justify-center gap-2">
-            {t('landing.hero.ctaDemo')} <Calendar className="w-4 h-4 text-brand-primary" />
-          </a>
-        </div>
-      </main>
-
-      {/* Features Section */}
-      <section id="features" className="py-24 px-4 max-w-7xl mx-auto relative z-10">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4 text-slate-900 dark:text-white">{t('landing.features.headerTitle')}</h2>
-          <p className="text-slate-500 dark:text-gray-400 max-w-2xl mx-auto">{t('landing.features.headerSubtitle')}</p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="glass-panel p-8 rounded-3xl hover:border-brand-primary/40 transition-all group duration-300 hover:-translate-y-1">
-            <div className="w-14 h-14 rounded-2xl bg-brand-primary/20 flex items-center justify-center mb-6 text-brand-primary group-hover:scale-110 transition-transform duration-300 shadow-sm">
-              <Gamepad2 className="w-7 h-7" />
+        {/* 0 · Hero */}
+        <section id="hero" data-chapter="0" className="sg-story-section">
+          <div className="sg-story-sticky">
+            <div data-story-copy className="sg-story-copy is-left sg-story-hero">
+              <p className="sg-story-eyebrow"><span className="sg-story-live" />{halloween && <>{t('landing.story.mode.eyebrow')} · </>}{t('landing.story.sports.badminton')} · {t('landing.story.sports.pickleball')} · {t('landing.story.sports.football')}</p>
+              <h1 className="sg-story-brand">Sport<span>Go</span></h1>
+              <h2 className="sg-story-title">{t('landing.hero.heroTitle')}</h2>
+              <p className="sg-story-text">{t('landing.hero.subtitle')}</p>
+              <div id="hero-cta" className="sg-story-actions">
+                <a href="/login" onClick={handleNavigate('/login')} className="sg-story-cta">{t('landing.hero.ctaStart')} <ArrowRight className="w-5 h-5" /></a>
+                <button type="button" onClick={() => scrollToChapter(1)} className="sg-story-ghost">{t('landing.hero.ctaDemo')} <Sparkles className="w-4 h-4" /></button>
+              </div>
             </div>
-            <h3 className="text-xl font-bold mb-3 text-slate-900 dark:text-white">{t('landing.features.f1Title')}</h3>
-            <p className="text-slate-500 dark:text-gray-400 text-sm leading-relaxed">{t('landing.features.f1Desc')}</p>
+            <div data-story-copy className="sg-story-scroll-hint"><span />{t('landing.story.scrollHint')}</div>
           </div>
-          <div className="glass-panel p-8 rounded-3xl hover:border-blue-500/40 transition-all group duration-300 hover:-translate-y-1">
-            <div className="w-14 h-14 rounded-2xl bg-blue-500/20 flex items-center justify-center mb-6 text-blue-500 group-hover:scale-110 transition-transform duration-300 shadow-sm">
-              <Calendar className="w-7 h-7" />
-            </div>
-            <h3 className="text-xl font-bold mb-3 text-slate-900 dark:text-white">{t('landing.features.f2Title')}</h3>
-            <p className="text-slate-500 dark:text-gray-400 text-sm leading-relaxed">{t('landing.features.f2Desc')}</p>
-          </div>
-          <div className="glass-panel p-8 rounded-3xl hover:border-amber-500/40 transition-all group duration-300 hover:-translate-y-1">
-            <div className="w-14 h-14 rounded-2xl bg-amber-500/20 flex items-center justify-center mb-6 text-amber-500 group-hover:scale-110 transition-transform duration-300 shadow-sm">
-              <Trophy className="w-7 h-7" />
-            </div>
-            <h3 className="text-xl font-bold mb-3 text-slate-900 dark:text-white">{t('landing.features.f3Title')}</h3>
-            <p className="text-slate-500 dark:text-gray-400 text-sm leading-relaxed">{t('landing.features.f3Desc')}</p>
-          </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Why Choose SportGo Section */}
-      <section id="reasons" className="py-24 px-4 max-w-7xl mx-auto relative z-10">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4 text-slate-900 dark:text-white">{t('landing.reasons.headerTitle')}</h2>
-          <p className="text-slate-500 dark:text-gray-400 max-w-2xl mx-auto mb-8">{t('landing.reasons.headerSubtitle')}</p>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="glass-panel p-8 rounded-3xl hover:border-brand-primary/30 transition-all text-center group">
-            <div className="w-16 h-16 rounded-full bg-brand-primary/10 border border-brand-primary/20 mx-auto flex items-center justify-center mb-6 text-brand-primary group-hover:scale-110 transition-transform duration-300">
-              <Zap className="w-7 h-7" />
+        {/* 1 · Matchmaking */}
+        <section id="features" data-chapter="1" className="sg-story-section">
+          <div className="sg-story-sticky">
+            <div data-story-copy className="sg-story-copy is-right">
+              <p className="sg-story-eyebrow">{t('landing.story.match.eyebrow')}</p>
+              <h2 className="sg-story-heading">{t('landing.story.match.title')}</h2>
+              <p className="sg-story-text">{t('landing.story.match.text')}</p>
+              <dl className="sg-story-stats">
+                <div><dt>{t('landing.story.match.stat1')}</dt><dd>{t('landing.story.match.stat1Value')}</dd></div>
+                <div><dt>{t('landing.story.match.stat2')}</dt><dd>{t('landing.story.match.stat2Value')}</dd></div>
+              </dl>
             </div>
-            <h4 className="font-bold text-lg mb-2 text-slate-900 dark:text-white">{t('landing.reasons.r1Title')}</h4>
-            <p className="text-sm text-slate-500 dark:text-gray-400 leading-relaxed">{t('landing.reasons.r1Desc')}</p>
           </div>
-          <div className="glass-panel p-8 rounded-3xl hover:border-brand-primary/30 transition-all text-center group">
-            <div className="w-16 h-16 rounded-full bg-sky-500/10 border border-sky-500/20 mx-auto flex items-center justify-center mb-6 text-sky-500 group-hover:scale-110 transition-transform duration-300">
-              <Sparkles className="w-7 h-7" />
-            </div>
-            <h4 className="font-bold text-lg mb-2 text-slate-900 dark:text-white">{t('landing.reasons.r2Title')}</h4>
-            <p className="text-sm text-slate-500 dark:text-gray-400 leading-relaxed">{t('landing.reasons.r2Desc')}</p>
-          </div>
-          <div className="glass-panel p-8 rounded-3xl hover:border-brand-primary/30 transition-all text-center group">
-            <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/20 mx-auto flex items-center justify-center mb-6 text-emerald-500 group-hover:scale-110 transition-transform duration-300">
-              <Users className="w-7 h-7" />
-            </div>
-            <h4 className="font-bold text-lg mb-2 text-slate-900 dark:text-white">{t('landing.reasons.r3Title')}</h4>
-            <p className="text-sm text-slate-500 dark:text-gray-400 leading-relaxed">{t('landing.reasons.r3Desc')}</p>
-          </div>
-        </div>
-      </section>
+        </section>
 
-
-      {/* Footer / CTA */}
-      <footer id="contact" className="py-12 px-4 relative z-10 border-t border-slate-200 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02]">
-        <div className="max-w-7xl mx-auto flex items-center justify-center text-sm text-slate-500 dark:text-gray-400">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-brand-primary to-sky-500 flex items-center justify-center">
-              <span className="text-white font-black text-xs">S</span>
+        {/* 2 · Sports */}
+        <section data-chapter="2" data-span="3" className="sg-story-section" style={{ '--span': 3 }}>
+          <div className="sg-story-sticky">
+            <div data-story-copy className="sg-story-copy is-left">
+              <p className="sg-story-eyebrow">{t('landing.story.sports.eyebrow')}</p>
+              <h2 className="sg-story-heading">{t('landing.story.sports.title')}</h2>
+              <p className="sg-story-text">{t('landing.story.sports.text')}</p>
+              <ul className="sg-story-sports">
+                {[['badminton', '🏸', '-9,2.52'], ['pickleball', '🏓', '2.52,3.52'], ['football', '⚽', '3.52,99']].map(([key, emoji, range]) => <li key={key} data-active-range={range}><span aria-hidden="true">{emoji}</span>{t(`landing.story.sports.${key}`)}</li>)}
+              </ul>
             </div>
-            <span className="font-bold text-slate-900 dark:text-white">SportGo</span>
           </div>
-        </div>
-      </footer>
+        </section>
 
-    </div>
+        {/* 3 · Reputation */}
+        <section id="reasons" data-chapter="3" className="sg-story-section">
+          <div className="sg-story-sticky">
+            <div data-story-copy className="sg-story-copy is-right">
+              <p className="sg-story-eyebrow">{t('landing.story.trust.eyebrow')}</p>
+              <h2 className="sg-story-heading">{t('landing.story.trust.title')}</h2>
+              <p className="sg-story-text">{t('landing.story.trust.text')}</p>
+              <ul className="sg-story-points">
+                {['point1', 'point2', 'point3'].map((key) => <li key={key}><ShieldCheck className="w-4 h-4" />{t(`landing.story.trust.${key}`)}</li>)}
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        {/* 4 · Community */}
+        <section data-chapter="4" className="sg-story-section">
+          <div className="sg-story-sticky">
+            <div data-story-copy className="sg-story-copy is-left">
+              <p className="sg-story-eyebrow">{t('landing.story.community.eyebrow')}</p>
+              <h2 className="sg-story-heading">{t('landing.story.community.title')}</h2>
+              <p className="sg-story-text">{t('landing.story.community.text')}</p>
+              <div className="sg-story-stickers" aria-hidden="true">
+                {['like', 'fire', 'bolt', 'gg', 'trophy', 'haha', 'toang'].map((kind, index) => <span key={kind} style={{ '--i': index }}><SportSticker kind={kind} size={42} /></span>)}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* 5 · Finale */}
+        <section id="contact" data-chapter="5" className="sg-story-section is-last">
+          <div className="sg-story-sticky">
+            <div data-story-copy className="sg-story-copy is-center">
+              <h2 className="sg-story-heading sg-story-final">{t('landing.story.finale.title')}</h2>
+              <p className="sg-story-text">{t('landing.story.finale.text')}</p>
+              <div className="sg-story-actions is-center">
+                <a href="/register" onClick={handleNavigate('/register')} className="sg-story-cta">{t('landing.hero.ctaStart')} <ArrowRight className="w-5 h-5" /></a>
+                <a href="/login" onClick={handleNavigate('/login')} className="sg-story-ghost">{t('landing.nav.signIn')}</a>
+              </div>
+            </div>
+            <footer className="sg-story-footer">
+              <img src={brandLogo} alt="" className="w-5 h-5 object-contain" />
+              <span>SportGo</span>
+              <a href="/privacy-policy">Privacy</a>
+            </footer>
+          </div>
+        </section>
+      </div>
     </>
   );
 }
