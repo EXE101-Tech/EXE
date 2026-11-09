@@ -1,10 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { adminApi } from '@/api/admin';
+import { adminApi, type PremiumAccountStatus } from '@/api/admin';
 import { gameroomsApi } from '@/api/gamerooms';
 import { socialApi } from '@/api/social';
 import { teamsApi } from '@/api/teams';
-import type { AdminAccountCreateInput, ModerationWarningCreateInput, PaymentReviewStatus } from '@/schemas/admin';
+import type {
+  AdminAccountCreateInput,
+  ModerationWarningCreateInput,
+  PaymentReviewStatus,
+  ReportReviewStatus,
+} from '@/schemas/admin';
 import { useAuthStore } from '@/stores/auth-store';
 import { queryKeys } from './keys';
 
@@ -56,12 +61,55 @@ export function useProcessedPaymentsQuery(filter: ProcessedPaymentFilter, enable
   });
 }
 
-export function usePremiumAccountsQuery() {
+/** Premium members, still running (`active`) or already ended (`expired`). */
+export function usePremiumAccountsQuery(status: PremiumAccountStatus = 'active', enabled = true) {
+  const isAdmin = useAdminEnabled();
+  return useQuery({
+    queryKey: queryKeys.admin.premiumAccounts(status),
+    queryFn: () => adminApi.getPremiumAccounts(status),
+    enabled: isAdmin && enabled,
+  });
+}
+
+/** Reports waiting for review; polled gently so the tab count stays current. */
+export function useAdminReportsQuery() {
   const enabled = useAdminEnabled();
   return useQuery({
-    queryKey: queryKeys.admin.premiumAccounts(),
-    queryFn: adminApi.getPremiumAccounts,
+    queryKey: queryKeys.admin.reports(),
+    queryFn: adminApi.getReports,
     enabled,
+    refetchInterval: enabled ? 30_000 : false,
+  });
+}
+
+/** Account deletion requests waiting for the admin; polled gently like the reports. */
+export function useAdminDeletionRequestsQuery() {
+  const enabled = useAdminEnabled();
+  return useQuery({
+    queryKey: queryKeys.admin.deletionRequests(),
+    queryFn: adminApi.getDeletionRequests,
+    enabled,
+    refetchInterval: enabled ? 30_000 : false,
+  });
+}
+
+/** Rooms verified as having happened (web: "Trận đã diễn ra"). */
+export function useOccurredRoomsQuery(enabled = true) {
+  const isAdmin = useAdminEnabled();
+  return useQuery({
+    queryKey: queryKeys.admin.occurredRooms(),
+    queryFn: adminApi.getOccurredRooms,
+    enabled: isAdmin && enabled,
+  });
+}
+
+/** Verified attendance of each player of one occurred room, loaded when its details are opened. */
+export function useOccurredAttendanceQuery(roomId: number, enabled = true) {
+  const isAdmin = useAdminEnabled();
+  return useQuery({
+    queryKey: queryKeys.admin.occurredAttendance(roomId),
+    queryFn: () => adminApi.getOccurredRoomAttendance(roomId),
+    enabled: isAdmin && enabled,
   });
 }
 
@@ -100,6 +148,23 @@ export function useReviewPaymentMutation() {
   const refresh = useRefreshAdmin();
   return useMutation({
     mutationFn: ({ id, status }: { id: number; status: PaymentReviewStatus }) => adminApi.reviewPayment(id, status),
+    onSuccess: refresh,
+  });
+}
+
+export function useReviewReportMutation() {
+  const refresh = useRefreshAdmin();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: number; status: ReportReviewStatus }) => adminApi.reviewReport(id, status),
+    onSuccess: refresh,
+  });
+}
+
+/** Deleting the account also changes the user list, the Premium lists and the counters, so every admin list reloads. */
+export function useCompleteDeletionRequestMutation() {
+  const refresh = useRefreshAdmin();
+  return useMutation({
+    mutationFn: (id: number) => adminApi.completeDeletionRequest(id),
     onSuccess: refresh,
   });
 }

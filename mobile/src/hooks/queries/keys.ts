@@ -12,7 +12,11 @@ export const queryKeys = {
   admin: {
     summary: () => ['admin', 'summary'] as const,
     payments: (status: string) => ['admin', 'payments', status] as const,
-    premiumAccounts: () => ['admin', 'premium-accounts'] as const,
+    premiumAccounts: (status = 'active') => ['admin', 'premium-accounts', status] as const,
+    reports: () => ['admin', 'reports'] as const,
+    deletionRequests: () => ['admin', 'deletion-requests'] as const,
+    occurredRooms: () => ['admin', 'occurred-rooms'] as const,
+    occurredAttendance: (roomId: number) => ['admin', 'occurred-attendance', roomId] as const,
     accounts: () => ['admin', 'accounts'] as const,
     users: () => ['admin', 'users'] as const,
     posts: () => ['admin', 'posts'] as const,
