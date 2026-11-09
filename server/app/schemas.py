@@ -561,6 +561,17 @@ class MatchResponse(BaseModel):
     participants: List[MatchParticipantResponse] = []
     model_config = ConfigDict(from_attributes=True)
 
+class AdminMatchResponse(MatchResponse):
+    removed: bool = False
+
+
+class AdminMatchAttendanceResult(BaseModel):
+    user_id: int
+    name: str
+    is_host: bool
+    outcome: Literal["ATTENDED", "NO_SHOW", "UNVERIFIED"]
+
+
 class MatchInviteResponse(BaseModel):
     action: Literal["ACCEPT", "REJECT"]
     accepted_policy: bool = False

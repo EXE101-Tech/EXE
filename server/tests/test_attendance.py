@@ -102,24 +102,55 @@ class AttendanceTests(unittest.TestCase):
         attendance.report_peer(self.db, room, voter, subject.id, attended, report=report)
         self.db.commit()
 
-    def test_admin_summary_counts_only_rooms_verified_to_have_occurred(self):
+    def test_admin_summary_and_history_include_only_rooms_verified_to_have_occurred(self):
         app = FastAPI()
         app.include_router(admin_routes.router, prefix="/api")
         app.dependency_overrides[database.get_db] = lambda: self.db
-        app.dependency_overrides[auth_utils.require_admin] = lambda: self.admin
+        history_url = "/api/admin/rooms?occurred_only=true"
         with TestClient(app) as client:
+            app.dependency_overrides[auth_utils.get_current_user] = lambda: self.player
+            self.assertEqual(client.get(history_url).status_code, 403)
+            app.dependency_overrides[auth_utils.get_current_user] = lambda: self.admin
             empty = client.get("/api/admin/summary")
             self.assertEqual(empty.status_code, 200, empty.text)
             self.assertEqual(empty.json()["rooms_occurred"], 0)
-            self.room()
+            self.assertEqual(client.get(history_url).json(), [])
+            unverified = self.room()
+            self.assertEqual(client.get(f"/api/admin/rooms/{unverified.id}/attendance").status_code, 404)
             cancelled = self.room()
             attendance.cancel_room(self.db, cancelled, self.host.id)
             self.db.commit()
-            self.verified_room()
+            removed = self.verified_room()
+            attendance.cancel_room(self.db, removed, self.host.id, removed=True)
+            self.db.commit()
+            latest = self.reported_absence()
             response = client.get("/api/admin/summary")
             self.assertEqual(response.status_code, 200, response.text)
-            self.assertEqual(response.json()["rooms"], 3)
-            self.assertEqual(response.json()["rooms_occurred"], 1)
+            self.assertEqual(response.json()["rooms"], 4)
+            history = client.get(history_url)
+            self.assertEqual(history.status_code, 200, history.text)
+            rooms = history.json()
+            self.assertEqual(response.json()["rooms_occurred"], len(rooms))
+            self.assertEqual([room["id"] for room in rooms], [latest.id, removed.id])
+            self.assertEqual(rooms[0]["location"], "Quận 1")
+            self.assertEqual(rooms[0]["sport"]["name"], "Badminton")
+            self.assertEqual(len(rooms[0]["participants"]), 3)
+            self.assertFalse(rooms[0]["removed"])
+            self.assertTrue(rooms[1]["removed"])
+            self.assertNotIn(removed.id, [room["id"] for room in client.get("/api/admin/rooms").json()])
+            archived_attendance_url = f"/api/admin/rooms/{removed.id}/attendance"
+            archived = client.get(archived_attendance_url)
+            self.assertEqual(archived.status_code, 200, archived.text)
+            self.assertEqual(archived.json()[0]["user_id"], self.host.id)
+            self.assertTrue(archived.json()[0]["is_host"])
+            self.assertEqual([entry["outcome"] for entry in archived.json()], ["ATTENDED"] * 3)
+            latest_results = client.get(f"/api/admin/rooms/{latest.id}/attendance")
+            self.assertEqual(latest_results.status_code, 200, latest_results.text)
+            self.assertEqual({entry["user_id"]: entry["outcome"] for entry in latest_results.json()}, {
+                self.host.id: "UNVERIFIED", self.player.id: "NO_SHOW", self.witness.id: "UNVERIFIED",
+            })
+            app.dependency_overrides[auth_utils.get_current_user] = lambda: self.player
+            self.assertEqual(client.get(archived_attendance_url).status_code, 403)
 
     def test_checking_in_after_presence_reports_preserves_peer_evidence(self):
         room = self.room()
