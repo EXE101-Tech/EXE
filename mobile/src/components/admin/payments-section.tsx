@@ -1,5 +1,5 @@
 import { Text } from '@/components/ui/text';
-import { CheckCircle2, Clock3, History } from 'lucide-react-native';
+import { CheckCircle2, Clock3, History, Hourglass, Search } from 'lucide-react-native';
 import { useState } from 'react';
 import { View } from 'react-native';
 
@@ -8,6 +8,7 @@ import { LoadingState } from '@/components/brand/loading-state';
 import { PostMedia } from '@/components/social/post-media';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   useProcessedPaymentsQuery,
   usePendingPaymentsQuery,
@@ -25,18 +26,27 @@ import {
   ShowMoreButton,
   confirmAction,
   formatDateTimeVi,
+  matchesSearch,
   showError,
   useShowMore,
 } from './admin-ui';
 
-type PaymentView = 'pending' | 'processed' | 'active';
+type PaymentView = 'pending' | 'active' | 'expired' | 'history';
 
 const formatVnd = (amount?: number | null) => `${(amount ?? 0).toLocaleString('vi-VN')}đ`;
 
+/** Search line under a list's heading: how many rows match, so an empty result is easy to read. */
+function resultsHint(total: number, search: string) {
+  return search.trim() ? `${total} kết quả` : undefined;
+}
+
 export function PaymentsSection({ notify }: { notify: (message: string) => void }) {
   const [view, setView] = useState<PaymentView>('pending');
+  const [search, setSearch] = useState('');
   const pending = usePendingPaymentsQuery();
-  const active = usePremiumAccountsQuery();
+  const active = usePremiumAccountsQuery('active');
+  // Ended subscriptions are only fetched when their tab is opened.
+  const expired = usePremiumAccountsQuery('expired', view === 'expired');
 
   return (
     <View className="gap-4">
@@ -44,27 +54,51 @@ export function PaymentsSection({ notify }: { notify: (message: string) => void 
         value={view}
         onChange={setView}
         options={[
-          { value: 'pending', label: 'Chờ duyệt', icon: Clock3, count: pending.data?.length },
-          { value: 'processed', label: 'Đã xử lý', icon: History },
-          { value: 'active', label: 'Kích hoạt', icon: CheckCircle2, count: active.data?.length },
+          { value: 'pending', label: 'Chờ duyệt', count: pending.data?.length },
+          { value: 'active', label: 'Kích hoạt', count: active.data?.length },
+          { value: 'expired', label: 'Hết hạn', count: expired.data?.length },
+          { value: 'history', label: 'Lịch sử' },
         ]}
       />
-      {view === 'pending' ? <PendingPayments query={pending} notify={notify} /> : null}
-      {view === 'processed' ? <ProcessedPayments /> : null}
-      {view === 'active' ? <ActiveAccounts query={active} notify={notify} /> : null}
+      <View className="gap-1.5">
+        <View className="flex-row items-center gap-1.5">
+          <Search size={13} color="#94A3B8" />
+          <Text className="text-xs font-bold text-slate-600 dark:text-slate-300">
+            Tìm theo tên, email hoặc mã giao dịch
+          </Text>
+        </View>
+        <Input
+          value={search}
+          onChangeText={setSearch}
+          placeholder="VD: Nguyễn, abc@gmail.com, mã giao dịch…"
+          autoCapitalize="none"
+          autoCorrect={false}
+          returnKeyType="search"
+        />
+      </View>
+      {view === 'pending' ? <PendingPayments query={pending} search={search} notify={notify} /> : null}
+      {view === 'active' ? <PremiumAccounts mode="active" query={active} search={search} notify={notify} /> : null}
+      {view === 'expired' ? <PremiumAccounts mode="expired" query={expired} search={search} notify={notify} /> : null}
+      {view === 'history' ? <ProcessedPayments search={search} /> : null}
     </View>
   );
 }
 
 function PendingPayments({
   query,
+  search,
   notify,
 }: {
   query: ReturnType<typeof usePendingPaymentsQuery>;
+  search: string;
   notify: (message: string) => void;
 }) {
   const review = useReviewPaymentMutation();
-  const { visible, remaining, showMore } = useShowMore(query.data ?? []);
+  const all = query.data ?? [];
+  const matching = all.filter((payment) =>
+    matchesSearch(search, payment.user_name, payment.user_email, payment.payment_code),
+  );
+  const { visible, remaining, showMore } = useShowMore(matching);
 
   const handleReview = (payment: PremiumPayment, status: 'APPROVED' | 'REJECTED') =>
     review.mutate(
@@ -88,13 +122,21 @@ function PendingPayments({
 
   return (
     <View className="gap-3">
-      <SectionHeading icon={Clock3} iconColor="#F59E0B" title="Giao dịch chờ kiểm duyệt" hint="Đã gửi ảnh xác nhận" />
+      <SectionHeading
+        icon={Clock3}
+        iconColor="#F59E0B"
+        title="Giao dịch chờ kiểm duyệt"
+        hint={resultsHint(matching.length, search) ?? 'Đã gửi ảnh xác nhận'}
+      />
       {query.isLoading ? (
         <LoadingState label="Đang tải giao dịch…" />
       ) : query.isError ? (
         <EmptyState title="Không tải được giao dịch" description="Kéo xuống để tải lại." />
       ) : visible.length === 0 ? (
-        <EmptyState icon={CheckCircle2} title="Chưa có giao dịch chờ duyệt." />
+        <EmptyState
+          icon={CheckCircle2}
+          title={search.trim() && all.length ? 'Không tìm thấy kết quả khớp.' : 'Chưa có giao dịch chờ duyệt.'}
+        />
       ) : (
         visible.map((payment) => {
           const busy = review.isPending && review.variables?.id === payment.id;
@@ -144,15 +186,25 @@ function PendingPayments({
   );
 }
 
-function ActiveAccounts({
+/** Premium members: the ones whose subscription is still running (can be cancelled) or has already ended. */
+function PremiumAccounts({
+  mode,
   query,
+  search,
   notify,
 }: {
+  mode: 'active' | 'expired';
   query: ReturnType<typeof usePremiumAccountsQuery>;
+  search: string;
   notify: (message: string) => void;
 }) {
   const revoke = useRevokePremiumMutation();
-  const { visible, remaining, showMore } = useShowMore(query.data ?? []);
+  const isActive = mode === 'active';
+  const all = query.data ?? [];
+  const matching = all.filter((account) =>
+    matchesSearch(search, account.user_name, account.user_email, account.last_payment_code),
+  );
+  const { visible, remaining, showMore } = useShowMore(matching);
 
   const askRevoke = (account: AdminPremiumAccount) =>
     confirmAction({
@@ -168,23 +220,43 @@ function ActiveAccounts({
 
   return (
     <View className="gap-3">
-      <SectionHeading icon={CheckCircle2} iconColor="#10B981" title="Tài khoản đang kích hoạt" hint="Premium còn hạn" />
+      <SectionHeading
+        icon={isActive ? CheckCircle2 : Hourglass}
+        iconColor={isActive ? '#10B981' : '#F59E0B'}
+        title={isActive ? 'Tài khoản đang kích hoạt' : 'Tài khoản Premium hết hạn'}
+        hint={resultsHint(matching.length, search) ?? (isActive ? 'Premium còn hạn' : 'Premium đã hết hạn')}
+      />
       {query.isLoading ? (
         <LoadingState label="Đang tải tài khoản Premium…" />
       ) : query.isError ? (
         <EmptyState title="Không tải được tài khoản Premium" description="Kéo xuống để tải lại." />
       ) : visible.length === 0 ? (
-        <EmptyState icon={CheckCircle2} title="Chưa có tài khoản Premium đang kích hoạt." />
+        <EmptyState
+          icon={isActive ? CheckCircle2 : Hourglass}
+          title={
+            search.trim() && all.length
+              ? 'Không tìm thấy kết quả khớp.'
+              : isActive
+                ? 'Chưa có tài khoản Premium đang kích hoạt.'
+                : 'Chưa có tài khoản Premium hết hạn.'
+          }
+        />
       ) : (
         visible.map((account) => (
-          <AdminRow key={account.user_id} tone="success">
+          <AdminRow key={account.user_id} tone={isActive ? 'success' : 'default'}>
             <View className="gap-1">
               <Text className="font-bold text-slate-900 dark:text-white">{account.user_name}</Text>
               <Text className="text-xs text-slate-500 dark:text-slate-400" selectable>
                 {account.user_email}
               </Text>
-              <Text className="text-xs font-semibold text-emerald-600 dark:text-emerald-300">
-                Kích hoạt đến {formatDateTimeVi(account.premium_until)}
+              <Text
+                className={
+                  isActive
+                    ? 'text-xs font-semibold text-emerald-600 dark:text-emerald-300'
+                    : 'text-xs font-semibold text-amber-600 dark:text-amber-300'
+                }
+              >
+                {isActive ? 'Kích hoạt đến' : 'Hết hạn lúc'} {formatDateTimeVi(account.premium_until)}
               </Text>
               {account.last_payment_submitted_at ? (
                 <Text className="text-xs text-slate-500 dark:text-slate-400">
@@ -203,15 +275,17 @@ function ActiveAccounts({
                 <PostMedia url={account.last_payment_proof_url} type="image" label="Ảnh chuyển khoản đã duyệt" height={150} />
               </View>
             ) : null}
-            <Button
-              variant="outline"
-              size="sm"
-              label="Hủy kích hoạt"
-              loading={revoke.isPending && revoke.variables === account.user_id}
-              onPress={() => askRevoke(account)}
-              className="self-start border-rose-400/50"
-              textClassName="text-rose-600 dark:text-rose-400"
-            />
+            {isActive ? (
+              <Button
+                variant="outline"
+                size="sm"
+                label="Hủy kích hoạt"
+                loading={revoke.isPending && revoke.variables === account.user_id}
+                onPress={() => askRevoke(account)}
+                className="self-start border-rose-400/50"
+                textClassName="text-rose-600 dark:text-rose-400"
+              />
+            ) : null}
           </AdminRow>
         ))
       )}
@@ -227,21 +301,33 @@ const PROCESSED_FILTERS: { value: ProcessedPaymentFilter; label: string }[] = [
 ];
 
 /** Transactions already approved or rejected, so past decisions can be looked up again. */
-function ProcessedPayments() {
+function ProcessedPayments({ search }: { search: string }) {
   const [filter, setFilter] = useState<ProcessedPaymentFilter>('ALL');
   const query = useProcessedPaymentsQuery(filter);
-  const { visible, remaining, showMore } = useShowMore(query.data ?? []);
+  const all = query.data ?? [];
+  const matching = all.filter((payment) =>
+    matchesSearch(search, payment.user_name, payment.user_email, payment.payment_code),
+  );
+  const { visible, remaining, showMore } = useShowMore(matching);
 
   return (
     <View className="gap-3">
-      <SectionHeading icon={History} iconColor="#537fff" title="Giao dịch đã xử lý" hint="Đã duyệt hoặc từ chối" />
+      <SectionHeading
+        icon={History}
+        iconColor="#537fff"
+        title="Lịch sử giao dịch"
+        hint={resultsHint(matching.length, search) ?? 'Đã duyệt hoặc từ chối'}
+      />
       <Segmented value={filter} onChange={setFilter} options={PROCESSED_FILTERS} />
       {query.isLoading ? (
         <LoadingState label="Đang tải giao dịch…" />
       ) : query.isError ? (
         <EmptyState title="Không tải được giao dịch" description="Kéo xuống để tải lại." />
       ) : visible.length === 0 ? (
-        <EmptyState icon={History} title="Chưa có giao dịch đã xử lý." />
+        <EmptyState
+          icon={History}
+          title={search.trim() && all.length ? 'Không tìm thấy kết quả khớp.' : 'Chưa có giao dịch đã xử lý.'}
+        />
       ) : (
         visible.map((payment) => {
           const approved = payment.status === 'APPROVED';

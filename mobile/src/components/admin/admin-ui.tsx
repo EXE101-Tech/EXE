@@ -1,6 +1,6 @@
 import { Text } from '@/components/ui/text';
 import { useState, type ReactNode } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import type { LucideIcon } from 'lucide-react-native';
 
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,23 @@ export const PAGE_SIZE = 10;
 export function formatDateTimeVi(value?: string | null): string {
   if (!value) return '—';
   return `${formatDateVi(value)} · ${formatTimeVi(value)}`;
+}
+
+/** Lower-case text without accents, so a search for "nguyen" or "dang" also finds "Nguyễn" / "Đặng". */
+export function searchKey(value?: string | null): string {
+  return (
+    value
+      ?.toLowerCase()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .replaceAll('đ', 'd') ?? ''
+  );
+}
+
+/** Whether any of the values contains the search text (an empty search matches everything). */
+export function matchesSearch(query: string, ...values: (string | null | undefined)[]): boolean {
+  const key = searchKey(query.trim());
+  return !key || values.some((value) => searchKey(value).includes(key));
 }
 
 export interface SegmentOption<T extends string> {
@@ -61,6 +78,54 @@ export function Segmented<T extends string>({
           </Pressable>
         );
       })}
+    </View>
+  );
+}
+
+/**
+ * Same look as `Segmented`, but the pills keep their natural width and the bar scrolls sideways, for the console's
+ * many sections (they do not fit side by side on a phone).
+ */
+export function ScrollableTabs<T extends string>({
+  value,
+  options,
+  onChange,
+}: {
+  value: T;
+  options: SegmentOption<T>[];
+  onChange: (value: T) => void;
+}) {
+  return (
+    <View className="overflow-hidden rounded-2xl bg-slate-100 dark:bg-white/10">
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-1.5 p-1">
+        {options.map(({ value: optionValue, label, icon: Icon, count }) => {
+          const active = optionValue === value;
+          return (
+            <Pressable
+              key={optionValue}
+              onPress={() => onChange(optionValue)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: active }}
+              className={cn(
+                'flex-row items-center justify-center gap-1.5 rounded-xl px-3.5 py-2.5',
+                active && 'bg-white dark:bg-[#111827]',
+              )}
+            >
+              {Icon ? <Icon size={14} color={active ? '#537fff' : '#94A3B8'} /> : null}
+              <Text
+                className={cn(
+                  'text-xs font-bold',
+                  active ? 'text-brand dark:text-brand-dark' : 'text-slate-500 dark:text-slate-400',
+                )}
+                numberOfLines={1}
+              >
+                {label}
+                {count != null ? ` (${count})` : ''}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
     </View>
   );
 }

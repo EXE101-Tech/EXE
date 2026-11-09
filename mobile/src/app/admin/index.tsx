@@ -1,42 +1,62 @@
 import { Text } from '@/components/ui/text';
 import {
+  BadgeCheck,
+  CheckCircle2,
   ClipboardList,
+  Crown,
+  Flag,
   Gamepad2,
   LogOut,
   Shield,
+  Trash2,
   UserRound,
   Users,
   FileText,
   Hourglass,
+  Wallet,
 } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { RefreshControl, TouchableOpacity, View } from 'react-native';
 
 import { AccountsTabs } from '@/components/admin/accounts-tabs';
 import { ContentSection } from '@/components/admin/content-section';
+import { DeletionRequestsSection } from '@/components/admin/deletion-requests-section';
+import { OccurredMatchesSection } from '@/components/admin/occurred-matches-section';
 import { PaymentsSection } from '@/components/admin/payments-section';
-import { Segmented } from '@/components/admin/admin-ui';
+import { ReportsSection } from '@/components/admin/reports-section';
+import { ScrollableTabs } from '@/components/admin/admin-ui';
 import { ScreenContainer } from '@/components/brand/screen-container';
 import { StatCard } from '@/components/brand/stat-card';
 import { ThemeToggleButton } from '@/components/navigation/theme-toggle-button';
-import { useAdminSummaryQuery, useRefreshAdmin } from '@/hooks/queries/use-admin';
+import {
+  useAdminDeletionRequestsQuery,
+  useAdminReportsQuery,
+  useAdminSummaryQuery,
+  useRefreshAdmin,
+} from '@/hooks/queries/use-admin';
 import { useAuthStore } from '@/stores/auth-store';
 import { showAlert } from '@/stores/dialog-store';
 
-type AdminTab = 'payments' | 'content' | 'accounts';
+type AdminTab = 'payments' | 'content' | 'matches' | 'accounts' | 'deletions' | 'reports';
 
-const TAB_OPTIONS = [
-  { value: 'payments' as const, label: 'Giao dịch', icon: ClipboardList },
-  { value: 'content' as const, label: 'Kiểm duyệt', icon: Shield },
-  { value: 'accounts' as const, label: 'Tài khoản', icon: UserRound },
-];
-
-/** Moderation console (web: "Trung tâm kiểm duyệt"): Premium payments, content moderation and accounts. */
+/** Moderation console (web: "Trung tâm kiểm duyệt"): every section of the web console, in the same order. */
 export default function AdminScreen() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const { data: summary } = useAdminSummaryQuery();
+  const reports = useAdminReportsQuery();
+  const deletions = useAdminDeletionRequestsQuery();
   const refreshAll = useRefreshAdmin();
+
+  // Six sections do not fit side by side on a phone, so the bar scrolls sideways.
+  const tabOptions = [
+    { value: 'payments' as const, label: 'Giao dịch', icon: ClipboardList },
+    { value: 'content' as const, label: 'Kiểm duyệt', icon: Shield },
+    { value: 'matches' as const, label: 'Trận đấu', icon: CheckCircle2 },
+    { value: 'accounts' as const, label: 'Tài khoản', icon: UserRound },
+    { value: 'deletions' as const, label: 'Yêu cầu xóa', icon: Trash2, count: deletions.data?.length },
+    { value: 'reports' as const, label: 'Báo cáo', icon: Flag, count: reports.data?.length },
+  ];
 
   const [tab, setTab] = useState<AdminTab>('payments');
   const [notice, setNotice] = useState('');
@@ -76,7 +96,25 @@ export default function AdminScreen() {
     { label: 'Bài viết', value: summary?.posts ?? '—', icon: FileText, colorClassName: 'bg-emerald-500/10', iconColor: '#059669' },
     { label: 'CLB', value: summary?.teams ?? '—', icon: Shield, colorClassName: 'bg-violet-500/10', iconColor: '#7C3AED' },
     { label: 'Phòng', value: summary?.rooms ?? '—', icon: Gamepad2, colorClassName: 'bg-amber-500/10', iconColor: '#D97706' },
+    {
+      label: 'Trận đã diễn ra',
+      value: summary?.rooms_occurred ?? '—',
+      icon: CheckCircle2,
+      colorClassName: 'bg-emerald-500/10',
+      iconColor: '#059669',
+      onPress: () => setTab('matches'),
+      hint: 'Xem danh sách',
+    },
     { label: 'Chờ duyệt', value: summary?.pending_payments ?? '—', icon: Hourglass, colorClassName: 'bg-rose-500/10', iconColor: '#E11D48' },
+    { label: 'Đăng ký thành công', value: summary?.premium_subscriptions ?? '—', icon: BadgeCheck, colorClassName: 'bg-blue-500/10', iconColor: '#2563EB' },
+    { label: 'Premium còn hạn', value: summary?.premium_active ?? '—', icon: Crown, colorClassName: 'bg-violet-500/10', iconColor: '#7C3AED' },
+    {
+      label: 'Tổng tiền Premium đã duyệt',
+      value: summary ? `${summary.premium_revenue.toLocaleString('vi-VN')} đ` : '—',
+      icon: Wallet,
+      colorClassName: 'bg-amber-500/10',
+      iconColor: '#D97706',
+    },
   ];
 
   return (
@@ -112,7 +150,7 @@ export default function AdminScreen() {
         ))}
       </View>
 
-      <Segmented value={tab} onChange={setTab} options={TAB_OPTIONS} />
+      <ScrollableTabs value={tab} onChange={setTab} options={tabOptions} />
 
       {notice ? (
         <Text
@@ -125,7 +163,10 @@ export default function AdminScreen() {
 
       {tab === 'payments' ? <PaymentsSection notify={notify} /> : null}
       {tab === 'content' ? <ContentSection notify={notify} /> : null}
+      {tab === 'matches' ? <OccurredMatchesSection /> : null}
       {tab === 'accounts' ? <AccountsTabs notify={notify} /> : null}
+      {tab === 'deletions' ? <DeletionRequestsSection notify={notify} /> : null}
+      {tab === 'reports' ? <ReportsSection notify={notify} /> : null}
     </ScreenContainer>
   );
 }
