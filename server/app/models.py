@@ -224,6 +224,10 @@ class Match(Base):
         return self.trust_session.verification_status if self.trust_session else "UNVERIFIED"
 
     @property
+    def removed(self):
+        return bool(self.trust_session and self.trust_session.removed_at)
+
+    @property
     def attendance_policy(self):
         return self.trust_session.policy if self.trust_session else None
 

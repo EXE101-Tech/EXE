@@ -1,13 +1,13 @@
 import secrets
 import string
 from datetime import timedelta
-from typing import Optional
+from typing import Annotated, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, or_
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
-from app import auth_utils, database, models, schemas
+from app import attendance, auth_utils, database, models, schemas
 from app.notification_utils import create_notification, display_name
 from app.routers.social import _post_payloads
 
@@ -112,19 +112,37 @@ def list_my_payments(
     return [_payment_payload(payment) for payment in payments]
 
 
+def _occurred_rooms(db: Session):
+    # Past rooms can be removed from public view while keeping their verified history.
+    return db.query(models.Match).join(models.Match.trust_session).filter(
+        models.MatchTrustSession.verification_status == "OCCURRED",
+    )
+
+
+def _premium_members(db: Session):
+    return db.query(models.User).filter(models.User.is_admin.is_(False), models.User.status != "deleted")
+
+
 @router.get("/admin/summary")
 def admin_summary(
     current_user: models.User = Depends(auth_utils.require_admin),
     db: Session = Depends(database.get_db),
 ):
+    payment = models.PremiumPayment
+    subscriptions, revenue = db.query(
+        func.count(payment.id),
+        func.coalesce(func.sum(payment.amount), 0),
+    ).filter(payment.status == "APPROVED").one()
     return {
         "users": db.query(func.count(models.User.id)).filter(models.User.status != "deleted").scalar() or 0,
         "posts": db.query(func.count(models.SocialPost.id)).scalar() or 0,
         "teams": db.query(func.count(models.Team.id)).scalar() or 0,
         "rooms": db.query(func.count(models.Match.id)).scalar() or 0,
-        # Rooms whose game was confirmed to have happened (host + peer evidence), not just rooms that ended.
-        "rooms_occurred": db.query(func.count(models.MatchTrustSession.match_id)).filter(
-            models.MatchTrustSession.verification_status == "OCCURRED",
+        "rooms_occurred": _occurred_rooms(db).with_entities(func.count(models.Match.id)).scalar() or 0,
+        "premium_subscriptions": subscriptions,
+        "premium_revenue": revenue,
+        "premium_active": _premium_members(db).with_entities(func.count(models.User.id)).filter(
+            models.User.premium_until > models.utc_now_naive(),
         ).scalar() or 0,
         "pending_payments": db.query(func.count(models.PremiumPayment.id)).filter(
             models.PremiumPayment.status == "PENDING",
@@ -146,19 +164,54 @@ def list_all_posts(
     return _post_payloads(db, posts, current_user.id)
 
 
-@router.get("/admin/rooms", response_model=list[schemas.MatchResponse])
+@router.get("/admin/rooms", response_model=list[schemas.AdminMatchResponse])
 def list_all_rooms(
+    occurred_only: bool = False,
     current_user: models.User = Depends(auth_utils.require_admin),
     db: Session = Depends(database.get_db),
 ):
-    return db.query(models.Match).options(
+    if occurred_only:
+        query = _occurred_rooms(db).order_by(models.Match.start_time.desc(), models.Match.id.desc())
+    else:
+        query = db.query(models.Match).outerjoin(models.Match.trust_session).filter(
+            models.MatchTrustSession.removed_at.is_(None),
+        ).order_by(models.Match.created_at.desc())
+    return query.options(
         joinedload(models.Match.host).joinedload(models.User.profile),
         joinedload(models.Match.sport),
         joinedload(models.Match.participants).joinedload(models.MatchParticipant.user).joinedload(models.User.profile),
         joinedload(models.Match.trust_session),
-    ).outerjoin(models.MatchTrustSession).filter(
-        models.MatchTrustSession.removed_at.is_(None),
-    ).order_by(models.Match.created_at.desc()).all()
+    ).all()
+
+
+@router.get("/admin/rooms/{room_id}/attendance", response_model=list[schemas.AdminMatchAttendanceResult])
+def occurred_room_attendance(
+    room_id: int,
+    current_user: models.User = Depends(auth_utils.require_admin),
+    db: Session = Depends(database.get_db),
+):
+    room = _occurred_rooms(db).options(
+        joinedload(models.Match.trust_session),
+        joinedload(models.Match.host).joinedload(models.User.profile),
+        selectinload(models.Match.participants).joinedload(models.MatchParticipant.user).joinedload(models.User.profile),
+        selectinload(models.Match.attendance_records),
+    ).filter(models.Match.id == room_id).one_or_none()
+    if not room:
+        raise HTTPException(status_code=404, detail="Không tìm thấy trận đã diễn ra")
+
+    peers = attendance.peer_evidence(db, [room.id])[room.id]
+    records = {record.user_id: record for record in room.attendance_records}
+    roster = {room.host_id: room.host}
+    roster.update((member.user_id, member.user) for member in room.participants if member.status == "APPROVED")
+    return [
+        {
+            "user_id": user_id,
+            "name": display_name(user),
+            "is_host": user_id == room.host_id,
+            "outcome": attendance.outcome(records[user_id], room.trust_session, peers) if user_id in records else "UNVERIFIED",
+        }
+        for user_id, user in roster.items()
+    ]
 
 
 @router.get("/admin/payments", response_model=list[schemas.PremiumPaymentResponse])
@@ -195,26 +248,22 @@ def _admin_premium_account_payload(user: models.User, payment: Optional[models.P
 
 
 @router.get("/admin/premium/accounts", response_model=list[schemas.AdminPremiumAccountResponse])
-def list_active_premium_accounts(
+def list_premium_accounts(
+    account_status: Annotated[Literal["active", "expired"], Query(alias="status")] = "active",
     current_user: models.User = Depends(auth_utils.require_admin),
     db: Session = Depends(database.get_db),
 ):
-    users = db.query(models.User).options(
-        joinedload(models.User.profile),
-    ).filter(
-        models.User.is_admin.is_(False),
-        models.User.premium_until > models.utc_now_naive(),
-    ).order_by(models.User.premium_until.desc()).all()
-    if not users:
-        return []
-    user_ids = [user.id for user in users]
-    latest_payments = {}
-    for payment in db.query(models.PremiumPayment).filter(
-        models.PremiumPayment.user_id.in_(user_ids),
-        models.PremiumPayment.status == "APPROVED",
-    ).order_by(models.PremiumPayment.submitted_at.desc(), models.PremiumPayment.id.desc()).all():
-        latest_payments.setdefault(payment.user_id, payment)
-    return [_admin_premium_account_payload(user, latest_payments.get(user.id)) for user in users]
+    now = models.utc_now_naive()
+    expiry = models.User.premium_until
+    expiry_filter = expiry <= now if account_status == "expired" else expiry > now
+    payment = models.PremiumPayment
+    latest_payment_id = db.query(payment.id).filter(
+        payment.user_id == models.User.id, payment.status == "APPROVED",
+    ).order_by(payment.submitted_at.desc(), payment.id.desc()).limit(1).correlate(models.User).scalar_subquery()
+    rows = _premium_members(db).filter(expiry_filter).options(joinedload(models.User.profile)).outerjoin(
+        payment, payment.id == latest_payment_id,
+    ).add_entity(payment).order_by(expiry.desc(), models.User.id).all()
+    return [_admin_premium_account_payload(user, latest_payment) for user, latest_payment in rows]
 
 
 @router.delete("/admin/premium/accounts/{user_id}", status_code=status.HTTP_204_NO_CONTENT)

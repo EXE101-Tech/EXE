@@ -1,10 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { resolveMediaUrl } from '../services/api';
 
 const isVideoMedia = (type = '') => type === 'video' || (typeof type === 'string' && type.startsWith('video/'));
 
 export default function MediaPreviewModal({ src, type = 'image', alt = 'Nội dung media', onClose }) {
+  const [failedImageUrl, setFailedImageUrl] = useState(null);
   useEffect(() => {
     if (!src) return undefined;
     const handleKeyDown = (event) => {
@@ -43,8 +44,13 @@ export default function MediaPreviewModal({ src, type = 'image', alt = 'Nội du
         <div className="flex min-h-0 items-center justify-center overflow-auto bg-black/40 p-3 sm:p-6">
           {video ? (
             <video src={mediaUrl} controls autoPlay={false} playsInline preload="metadata" className="max-h-[78vh] max-w-full rounded-xl object-contain" aria-label={alt} />
+          ) : failedImageUrl === mediaUrl ? (
+            <div role="alert" className="space-y-3 px-4 py-10 text-center text-sm text-slate-200">
+              <p>Không tải được ảnh.</p>
+              <button type="button" onClick={() => setFailedImageUrl(null)} className="rounded-lg border border-white/15 px-3 py-2 font-bold hover:bg-white/10">Thử lại</button>
+            </div>
           ) : (
-            <img src={mediaUrl} alt={alt} className="max-h-[78vh] max-w-full rounded-xl object-contain" />
+            <img src={mediaUrl} alt={alt} onError={() => setFailedImageUrl(mediaUrl)} className="max-h-[78vh] max-w-full rounded-xl object-contain" />
           )}
         </div>
       </section>
